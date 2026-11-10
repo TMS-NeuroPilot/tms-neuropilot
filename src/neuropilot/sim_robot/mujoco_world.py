@@ -1,0 +1,350 @@
+# tms-robot-sim/mujoco_world.py
+
+import math
+import os
+import threading
+import time
+from typing import Dict, List, Optional, Tuple
+
+import mujoco
+import mujoco.viewer
+import numpy as np
+from scipy.spatial.transform import Rotation
+
+from . import config
+from .utils.logging_utils import get_logger
+
+log = get_logger(__name__)
+
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+
+
+class MuJoCoWorld:
+    def __init__(
+        self,
+        use_gui: bool = True,
+        end_effector_site_name: str = "coil_tcp_site",
+    ):
+        self.use_gui = use_gui
+        self.end_effector_site_name = end_effector_site_name
+
+        self.model: Optional[mujoco.MjModel] = None
+        self.data: Optional[mujoco.MjData] = None
+
+        self._joint_indices: List[int] = []
+        self._joint_qpos_addrs: List[int] = []
+        self._actuator_ids: List[int] = []
+
+        self._robot_body_ids: List[int] = []
+        self._head_body_ids: List[int] = []
+        self._robot_geom_ids: List[int] = []
+        self._head_geom_ids: List[int] = []
+
+        self._ee_site_id: Optional[int] = None
+
+        self._data_lock = threading.Lock()
+        self._viewer_thread: Optional[threading.Thread] = None
+        self._viewer_handle: Optional[mujoco.viewer.Handle] = None
+        self._running = False
+
+    def connect(self):
+        scene_xml_path = self._compose_scene()
+        self.model = mujoco.MjModel.from_xml_path(scene_xml_path)
+        self.data = mujoco.MjData(self.model)
+        mujoco.mj_forward(self.model, self.data)
+
+        # Config poses win over the MJCF defaults: this makes head placement
+        # and robot base position config-driven instead of hardcoded in XML.
+        self._apply_config_poses()
+
+        self._index_joints()
+        self._index_actuators()
+        self._index_bodies_and_geoms()
+        self._index_site()
+
+        if self.use_gui:
+            self._running = True
+            self._viewer_thread = threading.Thread(target=self._viewer_loop, daemon=True)
+            self._viewer_thread.start()
+
+    def _compose_scene(self) -> str:
+        """Compose the scene MJCF from config: robot geometry (per ROBOT),
+        optional head phantom, physics. Returns the path of the generated file."""
+        robot_mjcf = config.ROBOT_MJCF.get(config.ROBOT)
+        if robot_mjcf is None:
+            raise ValueError(
+                f"No MuJoCo geometry for ROBOT='{config.ROBOT}'. "
+                f"Known geometries: {sorted(config.ROBOT_MJCF)}. "
+                "Add the MJCF and a config.ROBOT_MJCF entry."
+            )
+
+        gravity = " ".join(f"{g:g}" for g in config.GRAVITY)
+        composed_dir = os.path.join(PROJECT_ROOT, "assets", "mjcf")
+
+        def _include_for(path: str) -> str:
+            """Include paths must be relative to the composed file's directory."""
+            return os.path.relpath(os.path.join(PROJECT_ROOT, path), composed_dir)
+
+        head_include = (
+            f'<include file="{_include_for(config.HEAD_MJCF_PATH)}"/>'
+            if config.HEAD_MJCF_PATH
+            else ""
+        )
+        xml = f"""<mujoco model="{config.MODEL_NAME}">
+  <include file="{_include_for(robot_mjcf)}"/>
+  {head_include}
+
+  <option gravity="{gravity}" timestep="{config.SIM_TIMESTEP}">
+    <flag contact="enable"/>
+  </option>
+
+  <visual>
+    <headlight ambient="0.4 0.4 0.4" diffuse="0.8 0.8 0.8" specular="0.2 0.2 0.2"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <quality shadowsize="4096"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="1 1 1" width="512"
+            height="3072" />
+    <texture name="tex_checker" type="2d" builtin="checker" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
+             width="512" height="512"/>
+    <material name="mat_checker" texture="tex_checker" texrepeat="5 5" texuniform="true" reflectance="0.2"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 1.5" dir="0 0 -1" directional="true" />
+    <geom name="floor" type="plane" size="0 0 0.05" pos="0 0 -1.0" material="mat_checker"/>
+
+    <!-- World axis origin (RGB = XYZ) at (0, 0, 0) -->
+    <geom name="axis_x" type="capsule" size="0.005" fromto="0 0 0  0.3 0 0"
+          rgba="1 0 0 1" contype="0" conaffinity="0"/>
+    <geom name="axis_y" type="capsule" size="0.005" fromto="0 0 0  0 0.3 0"
+          rgba="0 1 0 1" contype="0" conaffinity="0"/>
+    <geom name="axis_z" type="capsule" size="0.005" fromto="0 0 0  0 0 0.3"
+          rgba="0 0 1 0.5" contype="0" conaffinity="0"/>
+  </worldbody>
+</mujoco>
+"""
+        composed_path = os.path.join(composed_dir, "_generated_scene.xml")
+        with open(composed_path, "w") as f:
+            f.write(xml)
+        return composed_path
+
+    def _apply_config_poses(self) -> None:
+        """Apply HEAD_POSITION/ORIENTATION and ROBOT_BASE_POSITION/ORIENTATION
+        from config (in meters / degrees) to the model bodies."""
+        def set_pose(body_name, position_m, orientation_deg):
+            bid = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, body_name)
+            if bid < 0:
+                log.warning(f"Body '{body_name}' not found in the model -- config pose skipped.")
+                return
+            self.model.body_pos[bid][:] = position_m
+            quat = Rotation.from_euler("xyz", orientation_deg, degrees=True).as_quat()  # [x, y, z, w]
+            self.model.body_quat[bid][:] = [quat[3], quat[0], quat[1], quat[2]]        # MuJoCo: [w, x, y, z]
+
+        set_pose(config.ROBOT_BASE_BODY_NAME, config.ROBOT_BASE_POSITION, config.ROBOT_BASE_ORIENTATION)
+        if config.HEAD_MJCF_PATH:
+            set_pose(config.HEAD_BODY_NAME, config.HEAD_POSITION, config.HEAD_ORIENTATION)
+        mujoco.mj_forward(self.model, self.data)
+
+    def disconnect(self):
+        self._running = False
+        if self._viewer_handle is not None:
+            try:
+                self._viewer_handle.close()
+            except Exception:
+                pass
+            self._viewer_handle = None
+        if self._viewer_thread is not None:
+            self._viewer_thread.join(timeout=2.0)
+            self._viewer_thread = None
+
+    def viewer_handle_closed(self) -> bool:
+        """True when the viewer window has been closed (e.g. Alt+F4)."""
+        if self._viewer_handle is not None:
+            return not self._viewer_handle.is_running()
+        return False
+
+    def _viewer_loop(self):
+        with mujoco.viewer.launch_passive(self.model, self.data) as viewer:
+            self._viewer_handle = viewer
+            viewer.cam.lookat[:] = [0.2, -0.2, 0.3]
+            viewer.cam.distance = 2.5
+            viewer.cam.azimuth = 210.0      # horzonat angle
+            viewer.cam.elevation = -35.0      # vertical angle
+            while viewer.is_running() and self._running:
+                with self._data_lock:
+                    #mujoco.mj_step(self.model, self.data,1)  # to control the robot from the control section in gui
+                    viewer.sync()
+                time.sleep(1.0 / 60.0)
+
+    def _index_joints(self):
+        self._joint_indices = []
+        self._joint_qpos_addrs = []
+        for i in range(self.model.njnt):
+            jnt = self.model.joint(i)
+            # MuJoCo only has non-fixed joints in the joint list
+            self._joint_indices.append(i)
+            self._joint_qpos_addrs.append(int(jnt.qposadr[0]))
+
+    def _index_actuators(self):
+        self._actuator_ids = []
+        joint_set = set(self._joint_indices)
+        for i in range(self.model.nu):
+            # Get the joint ID that this actuator controls
+            actuator = self.model.actuator(i)
+            # Check if this actuator targets one of our movable joints
+            try:
+                trntype = int(self.model.actuator_trntype[i])
+                if trntype == 0:  # TRN_JOINT
+                    jnt_id = int(self.model.actuator_trnid[i][0])
+                    if jnt_id in joint_set:
+                        self._actuator_ids.append(i)
+            except Exception:
+                pass
+
+    def _index_bodies_and_geoms(self):
+        self._robot_body_ids = []
+        self._head_body_ids = []
+        self._robot_geom_ids = []
+        self._head_geom_ids = []
+
+        robot_body_names = {
+            "world", "link_0", "link_1", "link_2", "link_3",
+            "link_4", "link_5", "link_6", "flange",
+        }
+        head_body_names = {"head_link"}
+
+        for i in range(self.model.nbody):
+            name = self.model.body(i).name
+            if name in robot_body_names:
+                self._robot_body_ids.append(i)
+            elif name in head_body_names:
+                self._head_body_ids.append(i)
+
+        for i in range(self.model.ngeom):
+            body_id = int(self.model.geom(i).bodyid[0])
+            contype = int(self.model.geom(i).contype[0])
+            if body_id in self._robot_body_ids and contype > 0:
+                self._robot_geom_ids.append(i)
+            elif body_id in self._head_body_ids and contype > 0:
+                self._head_geom_ids.append(i)
+
+    def _index_site(self):
+        try:
+            self._ee_site_id = self.model.site(self.end_effector_site_name).id
+        except Exception:
+            self._ee_site_id = None
+
+    def get_movable_joint_indices(self) -> List[int]:
+        return list(self._joint_indices)
+
+    def get_joint_positions(self) -> List[float]:
+        if self.data is None:
+            return []
+        with self._data_lock:
+            return [float(self.data.qpos[addr]) for addr in self._joint_qpos_addrs]
+
+    def reset_joint_positions(self, joint_positions: List[float]):
+        if self.data is None:
+            return
+        with self._data_lock:
+            for addr, pos in zip(self._joint_qpos_addrs, joint_positions):
+                self.data.qpos[addr] = pos
+            for act_id, pos in zip(self._actuator_ids, joint_positions):
+                self.data.ctrl[act_id] = pos
+            mujoco.mj_forward(self.model, self.data)
+
+    def set_joint_motor_targets(self, joint_targets: List[float], max_force: float = 500.0):
+        if self.data is None:
+            return
+        with self._data_lock:
+            for act_id, target in zip(self._actuator_ids, joint_targets):
+                self.data.ctrl[act_id] = target
+
+    def step(self, n_steps: int = 1):
+        if self.data is None:
+            return
+        with self._data_lock:
+            for _ in range(n_steps):
+                mujoco.mj_step(self.model, self.data)
+
+    def get_end_effector_pose(self) -> Tuple[List[float], List[float]]:
+        if self.data is None or self._ee_site_id is None:
+            raise RuntimeError("Robot not loaded or site not found")
+
+        with self._data_lock:
+            world_pos = self.data.site_xpos[self._ee_site_id].copy()
+            site_mat = self.data.site_xmat[self._ee_site_id].reshape(3, 3).copy()
+
+        world_euler_rad = Rotation.from_matrix(site_mat).as_euler("xyz")
+        world_euler_deg = [math.degrees(v) for v in world_euler_rad]
+
+        return world_pos.tolist(), world_euler_deg
+
+    def move_coil_visual_to_pose(self, position_xyz_m: List[float], orientation_deg: List[float]):
+        pass
+
+    def get_robot_head_closest_distance(self, distance_threshold: float = 0.1) -> Optional[float]:
+        if self.data is None or not self._robot_geom_ids or not self._head_geom_ids:
+            return None
+
+        min_dist = None
+        with self._data_lock:
+            fromto = np.zeros(6)
+            for r_gid in self._robot_geom_ids:
+                for h_gid in self._head_geom_ids:
+                    dist = mujoco.mj_geomDistance(
+                        self.model, self.data,
+                        r_gid, h_gid,
+                        distance_threshold, fromto,
+                    )
+                    if min_dist is None or dist < min_dist:
+                        min_dist = dist
+
+        if min_dist is not None and min_dist <= distance_threshold:
+            return float(min_dist)
+        return None
+
+    def get_robot_head_contacts(self) -> List[dict]:
+        if self.data is None or not self._robot_geom_ids or not self._head_geom_ids:
+            return []
+
+        contacts = []
+        robot_set = set(self._robot_geom_ids)
+        head_set = set(self._head_geom_ids)
+
+        with self._data_lock:
+            for i in range(self.data.ncon):
+                c = self.data.contact[i]
+                g1 = int(c.geom1)
+                g2 = int(c.geom2)
+
+                if (g1 in robot_set and g2 in head_set) or (g1 in head_set and g2 in robot_set):
+                    force = np.zeros(6)
+                    mujoco.mj_contactForce(self.model, self.data, i, force)
+                    contacts.append({
+                        "geom1": g1,
+                        "geom2": g2,
+                        "dist": float(c.dist),
+                        "normal_force": float(np.linalg.norm(force[:3])),
+                    })
+
+        return contacts
+
+    def get_link_count(self) -> int:
+        if self.model is None:
+            return 0
+        return self.model.nbody
+
+    def get_self_collision_contacts(self) -> list:
+        robot_set = set(self._robot_geom_ids)
+        contacts = []
+        with self._data_lock:
+            for i in range(self.data.ncon):
+                c = self.data.contact[i]
+                g1, g2 = int(c.geom1), int(c.geom2)
+                if g1 in robot_set and g2 in robot_set:
+                    contacts.append({"dist": float(c.dist)})
+        return contacts

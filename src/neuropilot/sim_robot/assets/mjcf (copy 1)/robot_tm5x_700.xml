@@ -1,0 +1,103 @@
+<mujoco model="tm5x_700">
+  <compiler meshdir="../meshes/" angle="radian"/>
+
+  <asset>
+    <!-- Visual meshes (detailed, for rendering only) -->
+    <mesh file="robot/tm5-900/visual/tm5-base.stl"            name="vis_base"/>
+    <mesh file="robot/tm5-900/visual/tmr_400w_01_conv.stl"    name="vis_link1"/>
+    <mesh file="robot/tm5-700/visual/tm5-700_arm1_conv.stl"   name="vis_link2"/>
+    <mesh file="robot/tm5-700/visual/tm5-700_arm2_conv.stl"   name="vis_link3"/>
+    <mesh file="robot/tm5-900/visual/tmr_100w_01.stl"         name="vis_link4"/>
+    <mesh file="robot/tm5-900/visual/tmr_100w_02.stl"         name="vis_link5"/>
+    <mesh file="robot/tm5-900/visual/tmr_iox_conv.stl"        name="vis_link6"/>
+    <mesh file="coil/mock_coil_v1.stl"                        name="vis_coil" scale="0.001 0.001 0.001"/>
+
+    <!-- Collision meshes (simplified, for physics only) -->
+    <mesh file="robot/tm5-900/collision/tm5-base_c.stl"       name="col_base"/>
+    <mesh file="robot/tm5-900/collision/tmr_400w_01_c.stl"    name="col_link1"/>
+    <mesh file="robot/tm5-700/collision/tm5-700_arm1_c.stl"   name="col_link2"/>
+    <mesh file="robot/tm5-700/collision/tm5-700_arm2_c.stl"   name="col_link3"/>
+    <mesh file="robot/tm5-900/collision/tmr_100w_01_c.stl"    name="col_link4"/>
+    <mesh file="robot/tm5-900/collision/tmr_100w_02_c.stl"    name="col_link5"/>
+    <mesh file="robot/tm5-900/collision/tmr_iox_c.stl"        name="col_link6"/>
+    <mesh file="coil/mock_coil_v1.stl"                        name="col_coil" scale="0.001 0.001 0.001"/>
+
+    <!-- Textures and materials -->
+    <texture name="tex_robot" type="cube" builtin="flat" width="512" height="512"
+             rgb1="0.8 0.8 0.8" rgb2="0.8 0.8 0.8"/>
+    <material name="mat_grey"  texture="tex_robot" specular="0.5" shininess="0.3" rgba="0.5 0.5 0.5 1"/>
+    <material name="mat_green" texture="tex_robot" specular="0.5" shininess="0.3" rgba="0.0 0.8 0.0 1"/>
+    <material name="mat_coil"  texture="tex_robot" specular="0.6" shininess="0.4" rgba="0.4 0.4 0.4 1"/>
+  </asset>
+
+  <default>
+    <joint damping="0.1" armature="0.1"/>
+    <geom contype="1" conaffinity="1" condim="4"/>
+  </default>
+
+  <worldbody>
+    <!-- link_0: fixed base, no joint -->
+    <body name="link_0" pos="0 0 0">
+      <inertial mass="1.0" pos="0 0 0" diaginertia="0.00110833289 0.00110833289 0.0018"/>
+      <geom name="g_base_vis" type="mesh" mesh="vis_base" material="mat_green" contype="0" conaffinity="0"/>
+      <geom name="g_base_col" type="mesh" mesh="col_base" rgba="0 0 0 0" contype="1" conaffinity="1"/>
+
+      <!-- link_1: joint_1 connects link_0 -> link_1, origin xyz="0 0 0.1452" rpy="0 0 0" -->
+      <body name="link_1" pos="0 0 0.1452">
+        <inertial mass="4.032" pos="0 0 0" diaginertia="0.008800119 0.011548982 0.011970080999999999"/>
+        <geom name="g_link1_vis" type="mesh" mesh="vis_link1" material="mat_grey" contype="0" conaffinity="0"/>
+        <geom name="g_link1_col" type="mesh" mesh="col_link1" rgba="0 0 0 0" contype="1" conaffinity="1"/>
+        <joint name="joint_1" type="hinge" axis="0 0 1" range="-6.283185307179586 6.283185307179586"/>
+
+        <!-- link_2: joint_2 connects link_1 -> link_2, origin xyz="0 0 0" rpy="-90 -90 0" -->
+        <body name="link_2" pos="0 0 0" quat="0.5 -0.5 -0.5 -0.5">
+          <inertial mass="8.567" pos="0 0 0" diaginertia="0.023552072 0.19825197 0.20459254"/>
+          <geom name="g_link2_vis" type="mesh" mesh="vis_link2" material="mat_grey" contype="0" conaffinity="0"/>
+          <geom name="g_link2_col" type="mesh" mesh="col_link2" rgba="0 0 0 0" contype="1" conaffinity="1"/>
+          <joint name="joint_2" type="hinge" axis="0 0 1" range="-6.283185307179586 6.283185307179586"/>
+
+          <!-- link_3: joint_3 connects link_2 -> link_3, origin xyz="0.329 0 0" rpy="0 0 0" -->
+          <body name="link_3" pos="0.329 0 0">
+            <inertial mass="2.273" pos="0 0 0" diaginertia="0.003380181 0.033829144 0.034328203"/>
+            <geom name="g_link3_vis" type="mesh" mesh="vis_link3" material="mat_grey" contype="0" conaffinity="0"/>
+            <geom name="g_link3_col" type="mesh" mesh="col_link3" rgba="0 0 0 0" contype="1" conaffinity="1"/>
+            <joint name="joint_3" type="hinge" axis="0 0 1" range="-2.705260340591211 2.705260340591211"/>
+
+            <!-- link_4: joint_4 connects link_3 -> link_4, origin xyz="0.3115 0 -0.1223" rpy="0 0 90" -->
+            <body name="link_4" pos="0.3115 0 -0.1223" quat="0.7071068 0 0 0.7071068">
+              <inertial mass="1.576" pos="0 0 0" diaginertia="0.002058405 0.0025630790000000002 0.00264321"/>
+              <geom name="g_link4_vis" type="mesh" mesh="vis_link4" material="mat_grey" contype="0" conaffinity="0"/>
+              <geom name="g_link4_col" type="mesh" mesh="col_link4" rgba="0 0 0 0" contype="1" conaffinity="1"/>
+              <joint name="joint_4" type="hinge" axis="0 0 1" range="-6.283185307179586 6.283185307179586"/>
+
+              <!-- link_5: joint_5 connects link_4 -> link_5, origin xyz="0 -0.106 0" rpy="90 0 0" -->
+              <body name="link_5" pos="0 -0.106 0" quat="0.7071068 0.7071068 0 0">
+                <inertial mass="1.576" pos="0 0 0" diaginertia="0.002058405 0.0025630790000000002 0.00264321"/>
+                <geom name="g_link5_vis" type="mesh" mesh="vis_link5" material="mat_grey" contype="0" conaffinity="0"/>
+                <geom name="g_link5_col" type="mesh" mesh="col_link5" rgba="0 0 0 0" contype="1" conaffinity="1"/>
+                <joint name="joint_5" type="hinge" axis="0 0 1" range="-6.283185307179586 6.283185307179586"/>
+
+                <!-- link_6: joint_6 connects link_5 -> link_6, origin xyz="0 -0.11315 0" rpy="90 0 0" -->
+                <body name="link_6" pos="0 -0.11315 0" quat="0.7071068 0.7071068 0 0">
+                  <inertial mass="0.31" pos="0 0 0" diaginertia="0.000226642 0.000226642 0.000286595"/>
+                  <geom name="g_link6_vis" type="mesh" mesh="vis_link6" material="mat_green" contype="0" conaffinity="0"/>
+                  <geom name="g_link6_col" type="mesh" mesh="col_link6" rgba="0 0 0 0" contype="1" conaffinity="1"/>
+                  <joint name="joint_6" type="hinge" axis="0 0 1" range="-6.283185307179586 6.283185307179586"/>
+
+                  <body name="flange" pos="0 0 0">
+                    <inertial mass="0.8" pos="0 0 0" diaginertia="0.001 0.001 0.001"/>
+                    <geom name="g_coil_vis" type="mesh" mesh="vis_coil" material="mat_coil" euler="0 0 -1.5708" contype="0" conaffinity="0"/>
+                    <geom name="g_coil_col" type="mesh" mesh="col_coil" rgba="0 0 0 0" euler="0 0 -1.5708" contype="1" conaffinity="1"/>
+
+                    <site name="coil_tcp_site" pos="0 0 0.1" xyaxes="1 0 0 0 1 0"/>
+                  </body>
+
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>

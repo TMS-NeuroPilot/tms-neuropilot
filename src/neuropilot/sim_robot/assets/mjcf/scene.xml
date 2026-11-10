@@ -1,0 +1,67 @@
+<mujoco model="Robo-TMS Virtual Twin (Omron TM5X-700)">
+  <include file="robot_tm5x_700.xml"/>
+  <include file="head.xml"/>
+
+  <option gravity="0 0 -9.81" timestep="0.002">
+    <flag contact="enable"/>
+  </option>
+
+  <visual>
+    <headlight ambient="0.4 0.4 0.4" diffuse="0.8 0.8 0.8" specular="0.2 0.2 0.2"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <quality shadowsize="4096"/>
+  </visual>
+
+  <asset>
+    <!--texture type="skybox" builtin="gradient" rgb1="0.8 0.85 0.9" rgb2="0.4 0.45 0.5" width="512" height="512"/-->
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="1 1 1" width="512"
+            height="3072" />
+    <texture name="tex_checker" type="2d" builtin="checker" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
+             width="512" height="512"/>
+    <material name="mat_checker" texture="tex_checker" texrepeat="5 5" texuniform="true" reflectance="0.2"/>
+  </asset>
+
+  <default>
+    <default class="robot_joint">
+      <joint damping="0.1" armature="0.05"/>
+      <position kp="400" kv="10"/>
+    </default>
+  </default>
+
+  <worldbody>
+    <!-- Checkerboard ground plane -->
+    <light pos="0 0 1.5" dir="0 0 -1" directional="true" />
+    <geom name="floor" type="plane" size="0 0 0.05" pos="0 0 -1.0" material="mat_checker"/>
+
+    <!-- World axis origin (RGB = XYZ) at (0, 0, 0) -->
+    <!-- X axis = red -->
+    <geom name="axis_x" type="capsule" size="0.005" fromto="0 0 0  0.3 0 0"
+          rgba="1 0 0 1" contype="0" conaffinity="0"/>
+    <!-- Y axis = green -->
+    <geom name="axis_y" type="capsule" size="0.005" fromto="0 0 0  0 0.3 0"
+          rgba="0 1 0 1" contype="0" conaffinity="0"/>
+    <!-- Z axis = blue -->
+    <geom name="axis_z" type="capsule" size="0.005" fromto="0 0 0  0 0 0.3"
+          rgba="0 0 1 0.5" contype="0" conaffinity="0"/>
+  </worldbody>
+
+  <actuator>
+    <position name="act_joint_1" joint="joint_1" class="robot_joint" kp="200" kv="10"/>
+    <position name="act_joint_2" joint="joint_2" class="robot_joint" kp="200" kv="10"/>
+    <position name="act_joint_3" joint="joint_3" class="robot_joint" kp="200" kv="10"/>
+    <position name="act_joint_4" joint="joint_4" class="robot_joint" kp="200" kv="10"/>
+    <position name="act_joint_5" joint="joint_5" class="robot_joint" kp="200" kv="10"/>
+    <position name="act_joint_6" joint="joint_6" class="robot_joint" kp="200" kv="10"/>
+    <!--position name="act_joint_1" joint="joint_1" class="robot_joint" kp="200" kv="10" ctrlrange="-6.25 6.25" this to increase the range in the control section in the gui for the joints/-->
+  </actuator>
+
+  <contact>
+    <exclude body1="link_0" body2="link_1"/>
+    <exclude body1="link_1" body2="link_2"/>
+    <exclude body1="link_2" body2="link_3"/>
+    <exclude body1="link_3" body2="link_4"/>
+    <exclude body1="link_4" body2="link_5"/>
+    <exclude body1="link_5" body2="link_6"/>
+    <exclude body1="link_6" body2="flange"/>
+  </contact>
+</mujoco>

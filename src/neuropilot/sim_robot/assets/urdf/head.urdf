@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<robot name="head">
+  <link name="world"/>
+  <joint name="fixed" type="fixed">
+    <parent link="world"/>
+    <child link="head_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+  <link name="head_link">
+    <visual>
+      <geometry>
+        <mesh filename="../meshes/head/head_visual_8k.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="skin">
+        <color rgba="1.0 0.8 0.7 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="../meshes/head/head2.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="4.5"/>
+      <inertia ixx="0.016" ixy="0" ixz="0" iyy="0.016" iyz="0" izz="0.016"/>
+    </inertial>
+  </link>
+</robot>

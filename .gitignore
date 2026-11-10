@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+results/
+MUJOCO_LOG.TXT
+mjmodel.txt
+.idea/

@@ -1,0 +1,13 @@
+numpy
+python-socketio
+python-dotenv
+requests
+
+[gui]
+PyQt5
+qasync
+
+[sim]
+mujoco
+pybullet
+ikpy

@@ -1,93 +1,59 @@
-# neuropilot
+# NeuroPilot
 
+**NeuroPilot — guided online TMS mapping with online field optimization.**
 
+One suite for robot-assisted TMS mapping experiments: an experimenter-facing
+controller (PyQt5 GUI) that drives the online mapping loop — coil targets,
+online finite-element field computation, MEP regression, and stimulation
+guidance through InVesalius — plus a complete virtual twin of the hardware
+(relay, virtual robot, virtual neuronavigation) so the whole workflow runs
+without any physical device.
 
-## Getting started
+## Quick start
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
-
+```bash
+pip install -e . --no-deps      # in the `pipeline` conda env (heavy deps come from conda)
+neuropilot                      # GUI: choose simulated or real
+neuropilot sim                  # simulated stack, one command
+neuropilot sim --components relay,robot    # subset for debugging
+neuropilot controller --sim     # controller alone in simulation mode
+neuropilot real [--launch-relay]           # real-hardware mode
 ```
-cd existing_repo
-git remote add origin https://gitlab.gwdg.de/tms-localization/papers/neuropilot.git
-git branch -M main
-git push -uf origin main
-```
 
-## Integrate with your tools
+`neuropilot sim` starts, in order: simulated relay → virtual neuronavigation
++ virtual robot (in parallel) → controller, each started only after the
+previous one is ready, all logs prefixed by role in one terminal. Ctrl+C
+shuts the whole stack down.
 
-* [Set up project integrations](https://gitlab.gwdg.de/tms-localization/papers/neuropilot/-/settings/integrations)
+## Components
 
-## Collaborate with your team
+| Package | Origin | Role |
+|---|---|---|
+| `neuropilot.controller` | cobot-pipeline-controller | experiment orchestrator: PyQt5 GUI + qasync backend, health checks, online FEM (`onlineFEM.py`), MEP analysis |
+| `neuropilot.sim_relay` | relay_server_sim | simulated Socket.IO relay hub |
+| `neuropilot.sim_robot` | tms-robot-sim2 | virtual robot: MuJoCo scene + URDF IK, contact-model force feedback (`assets/` inside the package) |
+| `neuropilot.sim_nav` | virtual_neuronavigation | virtual neuronavigation: head tracking, coil-target creation, tolerance evaluation |
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+Components communicate over Socket.IO relay topics
+(`from_robot`, `from_neuronavigation`, `from_external_controller` →
+`to_*`); the protocol is byte-identical to the production components in
+`tms-robot-control` and InVesalius.
 
-## Test and Deploy
+## Configuration
 
-Use the built-in continuous integration in GitLab.
+Copy `.env.example` to `.env`. Cross-component settings (relay endpoint,
+data folder, readiness timeout, real-relay path) live in one place;
+component-internal constants live in each component's `config.py`.
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+## Provenance
 
-***
+NeuroPilot was formed in 2026-11 by merging four GitLab repositories from the
+[tms-localization group](https://gitlab.gwdg.de/tms-localization/cobot/):
+`cobot-pipeline-controller` @ `47c8cbd3`, `relay_server_sim` @ `8f583221`,
+`tms-robot-sim2` @ `1f87a633`, `virtual_neuronavigation` @ `a05e62ca`.
+Those repositories are archived; this repository supersedes them.
 
-# Editing this README
+## Design
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+See `doc/neuropilot_design.md` in the workspace notes (v1.1) for the merge
+rationale, CLI model, and migration decisions.

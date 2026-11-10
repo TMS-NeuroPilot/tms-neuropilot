@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "neuropilot"
+version = "0.1.0"
+description = "NeuroPilot — guided online TMS mapping with online field optimization"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "python-socketio",
+    "python-dotenv",
+    "requests",
+]
+
+[project.optional-dependencies]
+# Heavy scientific dependencies (PyQt5, qasync, pyvista, mujoco, pybullet,
+# ikpy, pynibs, magicpy, ...) come from the conda `pipeline` environment.
+# Install with:  pip install -e . --no-deps
+gui = ["PyQt5", "qasync"]
+sim = ["mujoco", "pybullet", "ikpy"]
+
+[project.scripts]
+neuropilot = "neuropilot.cli:main"
+
+[project.urls]
+Homepage = "https://gitlab.gwdg.de/tms-localization/papers/neuropilot"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"neuropilot.sim_robot" = ["assets/**/*", "mjmodel.xml"]
+"neuropilot.controller" = ["gui/*.png", "gui/*.ui", "example_data/*", "search_positions.hdf5"]
