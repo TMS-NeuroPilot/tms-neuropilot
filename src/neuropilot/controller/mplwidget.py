@@ -21,7 +21,9 @@ class MplGraphWidget(QWidget):
 
         # --- 2. Left Control Panel (Sidebar) ---
         self.control_panel = QFrame()
-        self.control_panel.setFixedWidth(150)  # Fixed width sidebar
+        # Wide enough for the scaled fonts (labels scale with the window);
+        # fixed width so the graph keeps the remaining space.
+        self.control_panel.setFixedWidth(230)
         self.control_panel.setStyleSheet("""
             QFrame {
                 background-color: #f8f9fa; /* Light Grey Background */
@@ -104,11 +106,15 @@ class MplGraphWidget(QWidget):
 
         # --- 3. Right Panel (Graph Canvas) ---
         self.figure = Figure(figsize=(5, 4), dpi=100)
-        # Adjust margins so the plot fills the right side nicely
-        self.figure.subplots_adjust(left=0.12, right=0.95, top=0.92, bottom=0.15)
+        # Consistent, readable text sizes for axes/ticks/labels (matplotlib's
+        # 9-10pt defaults are unreadably small next to the scaled UI fonts).
+        self.figure.set_constrained_layout(False)
+        self.figure.subplots_adjust(left=0.16, right=0.95, top=0.90, bottom=0.18)
+        self.figure.texts  # (no-op) sizes applied per-axes below
 
         self.canvas = FigureCanvas(self.figure)
         self.ax = self.figure.add_subplot(111)
+        self.ax.tick_params(labelsize=12)
 
         self.layout.addWidget(self.canvas)
 
@@ -125,9 +131,9 @@ class MplGraphWidget(QWidget):
 
         # 3. Check if the title exists in our map, and apply the labels
         if title in label_map:
-            self.ax.set_title(label_map[title]["graph_title"], fontsize=10, weight='bold')
-            self.ax.set_xlabel(label_map[title]["x"], fontsize=9)
-            self.ax.set_ylabel(label_map[title]["y"], fontsize=9)
+            self.ax.set_title(label_map[title]["graph_title"], fontsize=15, weight='bold')
+            self.ax.set_xlabel(label_map[title]["x"], fontsize=13)
+            self.ax.set_ylabel(label_map[title]["y"], fontsize=13)
 
             # --- NEW LOGIC FOR THE MEP PLOT ON LOAD ---
             if title == "MEPs":
@@ -165,8 +171,8 @@ class MplGraphWidget(QWidget):
                 line, = self.ax.plot(time_array, data, label=name, color=c, linewidth=1.2, alpha=0.9)
                 self.lines[name] = line
 
-        self.ax.set_title("Raw EMG Signal", fontsize=10, weight='bold')
-        self.ax.set_xlabel("Time (s)", fontsize=9)
+        self.ax.set_title("Raw EMG Signal", fontsize=15, weight='bold')
+        self.ax.set_xlabel("Time (s)", fontsize=13)
         self.ax.grid(True, linestyle=':', alpha=0.6)
 
         # Remove legend because the sidebar acts as the legend
@@ -191,9 +197,9 @@ class MplGraphWidget(QWidget):
                 line, = self.ax.plot(current_x+1, values, 'o-', label=name, color=c, markersize=4, linewidth=1.5)
                 self.lines[name] = line
 
-        self.ax.set_title("MEP Amplitudes", fontsize=10, weight='bold')
-        self.ax.set_xlabel("Coil Placement Index", fontsize=9)
-        self.ax.set_ylabel("MEP amplitude / [mV]", fontsize=9)
+        self.ax.set_title("MEP Amplitudes", fontsize=15, weight='bold')
+        self.ax.set_xlabel("Coil Placement Index", fontsize=13)
+        self.ax.set_ylabel("MEP amplitude / [mV]", fontsize=13)
         self.ax.grid(True, linestyle=':', alpha=0.6)
 
 
