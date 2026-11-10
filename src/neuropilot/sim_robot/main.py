@@ -1,4 +1,27 @@
-# tms-robot-sim/main.py
+"""Virtual TMS robot: a MuJoCo twin of the UR5 cobot used for simulated
+pipeline runs, replacing the real robot controller towards the rest of the
+stack.
+
+Launched as ``python -m neuropilot.sim_robot`` (the ``neuropilot sim``
+supervisor starts it in parallel with the virtual neuronavigation).
+
+Component chain built in :func:`main`:
+
+    1. ``RobotState``          shared state (pose, targets, tracking flags)
+    2. ``MuJoCoWorld``         physics simulation and viewer (``--gui``)
+    3. ``IKPySolver``          end-effector IK from the robot URDF
+    4. ``CollisionChecker`` / ``ContactModel``
+                               self/table collisions and contact forces
+    5. ``MotionPlanner``       executes movement commands in the world
+    6. ``SimRobotClient``      Socket.IO client speaking the robot role on
+                               the relay (``from_robot`` / ``to_robot``)
+    7. ``SimRobotController``  runs the movement and status-report loops
+
+Housekeeping around the main loop: a thread stamps the MuJoCo viewer window
+with the app icon once it appears (X11 only), and a watcher shuts the whole
+simulator down when the viewer window is closed (Alt+F4) instead of
+continuing headless.
+"""
 
 import asyncio
 import argparse
@@ -9,6 +32,11 @@ from .state import RobotState
 from .mujoco_world import MuJoCoWorld
 from .ik_solver import IKPySolver
 from .utils.logging_utils import get_logger
+from .collision_checker import CollisionChecker
+from .contact_model import ContactModel
+from .motion_planner import MotionPlanner
+from .controller import SimRobotController
+from .sim_client import SimRobotClient
 
 import threading
 
@@ -61,17 +89,10 @@ def set_viewer_icon_when_ready(window_title: str, icon_path: str) -> None:
         log.info("Viewer window icon set")
     except Exception as e:
         log.debug(f"Viewer icon not set: {e}")
-from .collision_checker import CollisionChecker
-from .contact_model import ContactModel
-from .motion_planner import MotionPlanner
-from .controller import SimRobotController
-from .sim_client import SimRobotClient
-from .utils.logging_utils import get_logger
-
-log = get_logger(__name__)
 
 
 def parse_args():
+    """Command line arguments: relay host/port and viewer on/off."""
     parser = argparse.ArgumentParser(description="TMS Robot Simulator (MuJoCo)")
     parser.add_argument("--host", type=str,  default=config.RELAY_HOST)
     parser.add_argument("--port", type=int,  default=config.RELAY_PORT)
@@ -83,6 +104,8 @@ def parse_args():
 
 
 async def main():
+    """Build the simulation chain, connect to the relay and run the
+    controller loops until cancelled (Ctrl+C or closed viewer window)."""
     args = parse_args()
     url  = f"http://{args.host}:{args.port}"
 
