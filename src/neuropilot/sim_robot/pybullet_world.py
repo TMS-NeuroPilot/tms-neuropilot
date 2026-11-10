@@ -1,5 +1,3 @@
-# tms-robot-sim/pybullet_world.py
-
 import math
 from typing import List, Optional, Tuple
 import os

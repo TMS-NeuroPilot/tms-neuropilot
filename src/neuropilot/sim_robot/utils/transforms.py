@@ -1,5 +1,3 @@
-# tms-robot-sim/utils/transforms.py
-
 from typing import List, Tuple
 import numpy as np
 from scipy.spatial.transform import Rotation

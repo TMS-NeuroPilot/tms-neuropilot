@@ -1,5 +1,3 @@
-# tms-robot-sim/utils/logging_utils.py
-
 import logging
 import sys
 

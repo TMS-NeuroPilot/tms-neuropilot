@@ -1,5 +1,3 @@
-# tms-robot-sim/mujoco_world.py
-
 import math
 import os
 import threading

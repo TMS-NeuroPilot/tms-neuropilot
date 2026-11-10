@@ -1,5 +1,3 @@
-# tms-robot-sim/sim_client.py
-
 import asyncio
 import socketio
 

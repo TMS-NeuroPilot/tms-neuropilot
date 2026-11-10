@@ -1,5 +1,3 @@
-# tms-robot-sim/controller.py
-
 import asyncio
 from typing import Optional
 

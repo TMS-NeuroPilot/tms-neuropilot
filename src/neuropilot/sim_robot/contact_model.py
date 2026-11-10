@@ -1,5 +1,3 @@
-# tms-robot-sim/contact_model.py
-
 from typing import Optional
 
 from . import config

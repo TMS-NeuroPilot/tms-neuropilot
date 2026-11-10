@@ -1,5 +1,3 @@
-# tms-robot-sim/ik_solver.py
-
 import math
 import os
 import random

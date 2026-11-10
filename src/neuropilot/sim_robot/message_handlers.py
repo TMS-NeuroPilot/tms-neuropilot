@@ -1,5 +1,3 @@
-# tms-robot-sim/message_handlers.py
-
 from . import config
 from .state import RobotState
 from .utils.logging_utils import get_logger

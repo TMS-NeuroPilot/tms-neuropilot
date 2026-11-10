@@ -1,5 +1,3 @@
-# tms-robot-sim/collision_checker.py
-
 from typing import Optional
 
 from . import config
