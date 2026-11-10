@@ -26,19 +26,26 @@ class MainWindow(QtWidgets.QMainWindow):
         ui_path = resource_path(os.path.join("gui", "pipeline_control2.ui"))
         uic.loadUi(ui_path, self)
 
-        # The .ui files set per-widget fonts in point sizes (9pt ≈ 12px), which
-        # vary with the X screen's reported DPI and next to the app-default
-        # group-box titles render at inconsistent sizes. One suite stylesheet
-        # gives every widget class the same pixel-based size (labels 14px,
-        # interactive widgets 13px), DPI-independent, overriding the .ui fonts.
-        self.setStyleSheet(
-            "\n".join([
-                "QWidget { font-size: 13px; }",
-                "QLabel { font-size: 14px; }",
-                "QGroupBox { font-size: 14px; font-weight: 600; }",
-                "QTabBar::tab { font-size: 14px; }",
-            ])
-        )
+        # Fonts are set programmatically (pixel-based, per widget class) and
+        # scaled together with the geometry in _rescale — the .ui's scattered
+        # 9pt fonts made sizes inconsistent, and fixed pixel fonts read badly
+        # on high-DPI screens.
+        # Align the Start/Back/Next buttons with the status LEDs above them:
+        # the LED centers sit at x = 65/201/336 inside their container, the
+        # button row is a different container where they landed at 49/202/355.
+        btn_row = QtWidgets.QWidget.layout(self.start_btn.parentWidget())
+        if btn_row is not None:
+            from PyQt5.QtWidgets import QSpacerItem, QSizePolicy
+            btn_row.insertSpacerItem(0, QSpacerItem(16, 20, QSizePolicy.Fixed, QSizePolicy.Minimum))
+            for idx, width in ((2, 38), (4, 37)):
+                spacer = btn_row.itemAt(idx).spacerItem()
+                if spacer is not None:
+                    spacer.changeSize(width, 20, QSizePolicy.Fixed, QSizePolicy.Minimum)
+            for i in range(btn_row.count()):
+                btn_row.setStretch(i, 0)
+            # Keep Move Coil Up / Finish pushed to the right.
+            btn_row.setStretch(btn_row.count() - 2, 1)
+            btn_row.setStretch(btn_row.count() - 1, 1)
 
         # Absolute-positioned form: capture the design geometry (1244x894) so
         # resizeEvent can scale every child proportionally (see _rescale).
@@ -188,17 +195,47 @@ class MainWindow(QtWidgets.QMainWindow):
         except RuntimeError:
             return False
 
+    # Base font sizes in pixels per widget class (checked in order). These
+    # scale with the window in _rescale, so the UI stays readable at any
+    # window size, including high-DPI screens.
+    FONT_BASE_PX = (
+        (QtWidgets.QLabel, 16),
+        (QtWidgets.QGroupBox, 16),
+        (QtWidgets.QTabBar, 16),
+        (QtWidgets.QAbstractButton, 15),
+        (QtWidgets.QComboBox, 15),
+        (QtWidgets.QSpinBox, 15),
+        (QtWidgets.QDoubleSpinBox, 15),
+        (QtWidgets.QLineEdit, 15),
+        (QtWidgets.QWidget, 15),
+    )
+
+    @classmethod
+    def _base_font_px(cls, widget):
+        for klass, px in cls.FONT_BASE_PX:
+            if isinstance(widget, klass):
+                return px
+        return 15
+
     def _capture_base_rects(self):
         """Record the design-geometry of every absolutely-positioned
         descendant of the central widget; layout-managed widgets reflow
-        inside the containers we scale."""
+        inside the containers we scale. Font sizes are handled for all
+        descendants (geometry management does not affect fonts)."""
         central = self.centralwidget
         rects = {}
+        fonts = {}
         for w in central.findChildren(QtWidgets.QWidget):
+            base_px = self._base_font_px(w)
+            fonts[w] = base_px
+            f = w.font()
+            f.setPixelSize(base_px)
+            w.setFont(f)
             if self._is_layout_managed(w):
                 continue
             rects[w] = w.geometry()
-        return {"central": central, "size": (self.width(), self.height()), "rects": rects}
+        return {"central": central, "size": (self.width(), self.height()),
+                "rects": rects, "fonts": fonts}
 
     def showEvent(self, event):
         # Capture base geometry once, after the first layout pass has run
@@ -228,6 +265,11 @@ class MainWindow(QtWidgets.QMainWindow):
         ox = (self.width() - base_w * s) / 2
         oy = (self.height() - base_h * s) / 2
         central = self._base_rects["central"]
+        # Fonts scale with the window for every descendant.
+        for w, base_px in self._base_rects["fonts"].items():
+            f = w.font()
+            f.setPixelSize(max(9, round(base_px * s)))
+            w.setFont(f)
         for w, base in self._base_rects["rects"].items():
             x, y, ww, hh = base.x(), base.y(), base.width(), base.height()
             if w.parentWidget() is central:
