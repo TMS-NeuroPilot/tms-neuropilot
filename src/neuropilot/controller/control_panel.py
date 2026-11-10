@@ -26,6 +26,43 @@ class MainWindow(QtWidgets.QMainWindow):
         ui_path = resource_path(os.path.join("gui", "pipeline_control2.ui"))
         uic.loadUi(ui_path, self)
 
+        # Project tab: explain what each path field expects.
+        path_tooltips = {
+            "loadmeshlabel": "Head mesh for the 3D view and the online FEM.\n"
+                             "Accepts a pynibs mesh HDF5 (.hdf5 — the matching SimNIBS .msh\n"
+                             "next to it is used automatically) or a SimNIBS .msh file.",
+            "loadroilabel": "ROI surface: HDF5 with the ROI triangles\n"
+                            "(e.g. data/<subject>/mesh/roi/<roi>/geo.hdf5).\n"
+                            "Its element count must match the loaded E-field library.",
+            "target_order_LineEdit": "Optional text file with the stimulation target order\n"
+                                     "(one target per line).",
+            "loadplacementlabel": "Coil placement library: HDF5 with the candidate placements,\n"
+                                  "e.g. search_positions.hdf5 from scripts/roi_efield_library.py.",
+            "load_e_matrix_label": "Precomputed E-field library: e.hdf5 with the E_mag dataset\n"
+                                   "(n_placements x n_roi_elements), written by\n"
+                                   "scripts/roi_efield_library.py. Used by the Precomputed E-Field mode.",
+            "savePathLineEdit": "Results CSV file: MEP/regression results are written here\n"
+                                "(a .csv ending is added automatically).",
+            "coilspathlineedit": "TMS coil model: SimNIBS coil file (.ccd or .ccd.nii.gz),\n"
+                                 "e.g. MagVenture_MCF-B65_new.ccd.",
+        }
+        for widget_name, tooltip in path_tooltips.items():
+            widget = getattr(self, widget_name, None)
+            if widget is not None:
+                widget.setToolTip(tooltip)
+        for btn_name, tooltip in {
+            "loadmeshBtn": "Browse for the head mesh file",
+            "loadROIBtn": "Browse for the ROI surface file",
+            "target_order_PathBtn": "Browse for the target-order file",
+            "loadplacementsBtn": "Browse for the coil placement library",
+            "load_e_matrixBtn": "Browse for the precomputed E-field library",
+            "savePathBtn": "Choose where the results CSV is written",
+            "coilPathBtn": "Browse for the TMS coil model file",
+        }.items():
+            btn = getattr(self, btn_name, None)
+            if btn is not None:
+                btn.setToolTip(tooltip)
+
         # Fonts are set programmatically (pixel-based, per widget class) and
         # scaled together with the geometry in _rescale — the .ui's scattered
         # 9pt fonts made sizes inconsistent, and fixed pixel fonts read badly

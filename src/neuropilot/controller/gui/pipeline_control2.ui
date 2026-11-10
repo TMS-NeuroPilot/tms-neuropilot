@@ -193,7 +193,7 @@ QRadioButton::indicator:checked:disabled {
            <item>
             <widget class="QLabel" name="label">
              <property name="text">
-              <string>Mesh</string>
+              <string>Head mesh</string>
              </property>
             </widget>
            </item>
@@ -275,7 +275,7 @@ QToolButton:pressed {
            <item>
             <widget class="QLabel" name="label_11">
              <property name="text">
-              <string>ROI</string>
+              <string>ROI surface</string>
              </property>
             </widget>
            </item>
@@ -357,7 +357,7 @@ QToolButton:pressed {
            <item>
             <widget class="QLabel" name="label_24">
              <property name="text">
-              <string>Target Order's path</string>
+              <string>Target order</string>
              </property>
             </widget>
            </item>
@@ -439,7 +439,7 @@ QToolButton:pressed {
            <item>
             <widget class="QLabel" name="label_12">
              <property name="text">
-              <string>Coil placements</string>
+              <string>Coil placement library</string>
              </property>
             </widget>
            </item>
@@ -531,7 +531,7 @@ QToolButton:pressed {
            <item>
             <widget class="QLabel" name="label_14">
              <property name="text">
-              <string>E-Field</string>
+              <string>E-field library</string>
              </property>
             </widget>
            </item>
@@ -623,7 +623,7 @@ QToolButton:pressed {
            <item>
             <widget class="QLabel" name="label_28">
              <property name="text">
-              <string>Result's path</string>
+              <string>Results file</string>
              </property>
             </widget>
            </item>
@@ -705,7 +705,7 @@ QToolButton:pressed {
            <item>
             <widget class="QLabel" name="label_30">
              <property name="text">
-              <string>Coil's path</string>
+              <string>Coil model</string>
              </property>
             </widget>
            </item>
