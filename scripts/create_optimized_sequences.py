@@ -19,9 +19,10 @@ reference publications:
                         mapping)
 - ``D-Optimal``         greedy D-optimal selection, linear kernel
 - ``D-Optimal(RBF)``    greedy D-optimal selection, RBF kernel (auto bandwidth)
-                        — Qiu et al. 2026, "Optimal Pre-Experimental Coil Sequence Selection
-                        for TMS Motor Mapping" (bioRxiv 2026.05.26.727891; casts the
-                        sequence design as a subset-selection problem and
+                        — Qiu et al. 2026, "Optimal Pre-Experimental Coil
+                        Sequence Selection for TMS Motor Mapping",
+                        Imaging Neuroscience, DOI 10.1162/IMAG.a.1446 (casts
+                        the sequence design as a subset-selection problem and
                         compares FPS against linear and RBF-kernelized
                         D-optimal objectives)
 
