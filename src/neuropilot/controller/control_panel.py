@@ -26,6 +26,26 @@ class MainWindow(QtWidgets.QMainWindow):
         ui_path = resource_path(os.path.join("gui", "pipeline_control2.ui"))
         uic.loadUi(ui_path, self)
 
+        # Default window size: open at a comfortable fraction of the screen so
+        # the pixel-based UI (fonts scale with the window in _rescale) is
+        # readable on high-DPI displays. Override with NEUROPILOT_UI_SCALE.
+        self._design_size = (self.width(), self.height())
+        scale_env = os.getenv("NEUROPILOT_UI_SCALE")
+        if scale_env:
+            scale = float(scale_env)
+        else:
+            screen = QtWidgets.QApplication.primaryScreen()
+            avail = screen.availableGeometry() if screen else None
+            if avail is not None and avail.width() and avail.height():
+                scale = min(avail.width() / self._design_size[0],
+                            avail.height() / self._design_size[1], 2.0)
+            else:
+                scale = 1.0
+        scale = max(1.0, scale)
+        if abs(scale - 1.0) > 0.01:
+            self.resize(round(self._design_size[0] * scale),
+                        round(self._design_size[1] * scale))
+
         # Project tab: explain what each path field expects.
         path_tooltips = {
             "loadmeshlabel": "Head mesh for the 3D view and the online FEM.\n"
@@ -242,6 +262,23 @@ class MainWindow(QtWidgets.QMainWindow):
                 return px
         return 15
 
+    @classmethod
+    def _apply_font_px(cls, widget, px):
+        """Set a widget's font size in pixels. Widgets with an inline
+        stylesheet ignore setFont (the stylesheet style overrides the widget
+        font), so for those the size is appended to their stylesheet
+        instead."""
+        f = widget.font()
+        f.setPixelSize(max(9, px))
+        widget.setFont(f)
+        ss = widget.styleSheet()
+        if ss:
+            import re
+            # drop our previously appended rule, then re-append at the new size
+            ss = re.sub(r"\s*/\* neuropilot font scaling \*/\s*font-size:\s*\d+px;", "", ss)
+            widget.setStyleSheet(
+                ss + f"\n/* neuropilot font scaling */ font-size: {max(9, px)}px;")
+
     def _capture_base_rects(self):
         """Record the design-geometry of every absolutely-positioned
         descendant of the central widget; layout-managed widgets reflow
@@ -253,13 +290,11 @@ class MainWindow(QtWidgets.QMainWindow):
         for w in central.findChildren(QtWidgets.QWidget):
             base_px = self._base_font_px(w)
             fonts[w] = base_px
-            f = w.font()
-            f.setPixelSize(base_px)
-            w.setFont(f)
+            self._apply_font_px(w, base_px)
             if self._is_layout_managed(w):
                 continue
             rects[w] = w.geometry()
-        return {"central": central, "size": (self.width(), self.height()),
+        return {"central": central, "size": self._design_size,
                 "rects": rects, "fonts": fonts}
 
     def showEvent(self, event):
@@ -327,9 +362,7 @@ class MainWindow(QtWidgets.QMainWindow):
         central = self._base_rects["central"]
         # Fonts scale with the window for every descendant.
         for w, base_px in self._base_rects["fonts"].items():
-            f = w.font()
-            f.setPixelSize(max(9, round(base_px * s)))
-            w.setFont(f)
+            self._apply_font_px(w, max(9, round(base_px * s)))
         for w, base in self._base_rects["rects"].items():
             x, y, ww, hh = base.x(), base.y(), base.width(), base.height()
             if w.parentWidget() is central:
