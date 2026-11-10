@@ -1,6 +1,6 @@
 """Create optimized coil-placement sequences from a precomputed E-field library.
 
-Reads an ``e.hdf5`` (as written by ``roi_efield_library.py``) and produces one
+Reads an ``e.hdf5`` (as written by ``02_create_roi_efield_library.py``) and produces one
 coil sequence per selection algorithm, written as ``*.txt`` files with one
 placement index per line (the format consumed by
 ``scripts/sort_coil_placements.py``). The selection schemes and their
@@ -30,7 +30,7 @@ The FPS and D-optimal implementations come from
 ``pynibs.optimization.coil_sampling`` (pynibs dev branch).
 
 Example:
-    python scripts/create_optimized_sequences.py \
+    python scripts/03_create_optimized_sequences.py \
         --e-hdf5 data/ernie/efield/e.hdf5 \
         --n-stim 500 \
         --out-dir data/ernie/efield

@@ -15,7 +15,7 @@ triangle: ``E`` (n, n_tri, 3), ``E_mag``/``E_norm``/``E_tan`` (n, n_tri).
 No layer interpolation, theta or gradient quantities are computed.
 
 Example:
-    python scripts/roi_efield_library.py \
+    python scripts/02_create_roi_efield_library.py \
         --mesh-msh data/ernie/mesh/m2m_ernie/ernie.msh \
         --roi-hdf5 data/ernie/mesh/m2m_ernie/ernie.hdf5 \
         --roi-idx midlayer_m1s1pmd \

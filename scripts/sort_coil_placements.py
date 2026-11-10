@@ -1,7 +1,7 @@
 """Sort coil-placement sequences for minimal robot travel.
 
 Reads a coil-placement library (``matsimnibs`` dataset in an HDF5 file, e.g.
-the ``search_positions.hdf5`` written by ``roi_efield_library.py``) and a set
+the ``search_positions.hdf5`` written by ``02_create_roi_efield_library.py``) and a set
 of coil sequences (``*.txt`` files with one placement index per line, as
 produced by the offline sequence optimizers). Each sequence is reordered so
 the robot travels the shortest possible path between consecutive
