@@ -35,4 +35,4 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "neuropilot.sim_robot" = ["assets/**/*"]
-"neuropilot.controller" = ["gui/*.png", "gui/*.ui", "example_data/*", "search_positions.hdf5"]
+"neuropilot.controller" = ["gui/*.png", "gui/*.ui"]
