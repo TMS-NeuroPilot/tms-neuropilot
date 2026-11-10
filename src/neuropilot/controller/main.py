@@ -3,8 +3,7 @@ import logging
 import numpy as np
 from .pipeline_controller import PipelineController
 import sys
-from .control_panel_window import ControlPanelWindow
-from .control_panel_window2 import MainWindow
+from .control_panel import MainWindow
 from qasync import QEventLoop, asyncSlot
 from PyQt5.QtWidgets import QApplication, QDialog
 from PyQt5.QtGui import QIcon
@@ -48,7 +47,6 @@ async def main(enable_health_check_and_control_panel, simulation):
     
     if enable_health_check_and_control_panel:
         # Control Panel. The control panel is called to show by PipelineController.
-        app.window = ControlPanelWindow()
         app.window2 = MainWindow(simulation=simulation)
         # Otherwise the window becomes transparent frozen while the controller initializes
         await asyncio.sleep(0.1)
