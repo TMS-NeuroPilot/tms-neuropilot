@@ -54,8 +54,8 @@ LINK_MESHES = {
         "collision": "robot/tm5-900/collision/tmr_iox_c.stl",
     },
     "flange": {
-        "visual":    "coil/mock_coil_v1.stl",
-        "collision": "coil/mock_coil_v1.stl",
+        "visual":    "coil/coil_holder_fs_w_mcf_b65.stl",
+        "collision": "coil/coil_holder_fs_w_mcf_b65.stl",
     },
 }
 
@@ -66,7 +66,7 @@ def build_xml(link_name: str) -> str:
     col_file = meshes["collision"]
 
     scale_attr = ""
-    if vis_file.endswith("mock_coil_v1.stl"):
+    if vis_file.endswith("coil_holder_fs_w_mcf_b65.stl"):
         scale_attr = ' scale="0.001 0.001 0.001"'
 
     return f'''

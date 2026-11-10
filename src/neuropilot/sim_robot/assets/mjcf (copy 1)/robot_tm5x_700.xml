@@ -10,7 +10,7 @@
     <mesh file="robot/tm5-900/visual/tmr_100w_01.stl"         name="vis_link4"/>
     <mesh file="robot/tm5-900/visual/tmr_100w_02.stl"         name="vis_link5"/>
     <mesh file="robot/tm5-900/visual/tmr_iox_conv.stl"        name="vis_link6"/>
-    <mesh file="coil/mock_coil_v1.stl"                        name="vis_coil" scale="0.001 0.001 0.001"/>
+    <mesh file="coil/coil_holder_fs_w_mcf_b65.stl"                        name="vis_coil" scale="0.001 0.001 0.001"/>
 
     <!-- Collision meshes (simplified, for physics only) -->
     <mesh file="robot/tm5-900/collision/tm5-base_c.stl"       name="col_base"/>
@@ -20,7 +20,7 @@
     <mesh file="robot/tm5-900/collision/tmr_100w_01_c.stl"    name="col_link4"/>
     <mesh file="robot/tm5-900/collision/tmr_100w_02_c.stl"    name="col_link5"/>
     <mesh file="robot/tm5-900/collision/tmr_iox_c.stl"        name="col_link6"/>
-    <mesh file="coil/mock_coil_v1.stl"                        name="col_coil" scale="0.001 0.001 0.001"/>
+    <mesh file="coil/coil_holder_fs_w_mcf_b65.stl"                        name="col_coil" scale="0.001 0.001 0.001"/>
 
     <!-- Textures and materials -->
     <texture name="tex_robot" type="cube" builtin="flat" width="512" height="512"
