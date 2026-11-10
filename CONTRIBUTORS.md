@@ -11,7 +11,7 @@
 | **Benjamin Kalloch** | The first version | `kalloch@cbs.mpg.de` |
 | **Konstantin Weise** | A lot — including the coil holder and the force sensor | `konstantin.weise@htwk-leipzig.de` (HTWK Leipzig / MPI CBS) |
 | **Thomas R. Knösche** | Group leadership and supervision | `knoesche@cbs.mpg.de` (MPI CBS / TU Ilmenau) |
-| **Renan H. Matsuda** | InVesalius integration help | `renan.matsuda@aalto.fi` |
+| **Renan H. Matsuda** | InVesalius integration help | `renan.matsuda@aalto.fi` (Aalto University / Santos Dumont Institute, IIN-ELS, Brazil) |
 
 Maintained at
 [gitlab.gwdg.de/tms-localization/papers/neuropilot](https://gitlab.gwdg.de/tms-localization/papers/neuropilot).
