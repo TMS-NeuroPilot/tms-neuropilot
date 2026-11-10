@@ -5,6 +5,11 @@ from pyvistaqt import QtInteractor
 import h5py
 import numpy as np
 
+# Initial camera direction for the 3D view (unit-norm on use): from the
+# subject's upper left, slightly posterior — nose pointing left, vertex up.
+# Same home view for head and ROI meshes.
+HOME_VIEW_DIRECTION = np.array([-0.75, -0.30, 0.58])
+
 
 class MeshWidget(QWidget):
     def __init__(self, parent=None):
@@ -449,6 +454,20 @@ class MeshWidget(QWidget):
 
         self.scalar_selector.blockSignals(False)
 
+    def _set_home_camera(self):
+        """Initial perspective: camera on the subject's upper left, slightly
+        posterior — the nose points left and the vertex is up. Distance is
+        set relative to the mesh diagonal so both the head and the (much
+        smaller) ROI frame nicely."""
+        if self.current_mesh is None:
+            return
+        center = np.array(self.current_mesh.center)
+        bounds = np.array(self.current_mesh.bounds)
+        length = np.linalg.norm(bounds[1::2] - bounds[::2])
+        direction = HOME_VIEW_DIRECTION / np.linalg.norm(HOME_VIEW_DIRECTION)
+        self.plotter.camera_position = [center + direction * length * 1.9,
+                                        center, (0, 0, 1)]
+
     def update_scene_default(self):
         """Renders the mesh for the first time after loading."""
         self.plotter.clear()
@@ -471,7 +490,7 @@ class MeshWidget(QWidget):
         else:
             self.plotter.add_mesh(self.current_mesh, color='#d9e6f2', show_edges=True)
 
-        self.plotter.reset_camera()
+        self._set_home_camera()
 
     def update_scalars(self, index):
         """Called when user changes dropdown."""
@@ -502,6 +521,6 @@ class MeshWidget(QWidget):
                                   edge_color="black", clim=[0.0, 1.0])  # ---> ADDED clim=[0.0, 1.0] <---
             self.plotter.add_scalar_bar(title=array_name)
 
-        self.plotter.reset_camera()
+        self._set_home_camera()
         self._render_cell_markers()
         self.plotter.render()
