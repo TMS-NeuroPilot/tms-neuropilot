@@ -310,8 +310,14 @@ class MeshWidget(QWidget):
 
     def load_hdf5_mesh(self, file_path, mesh_type="head"):
         """
-        Directly loads mesh data from HDF5 and creates a PyVista PolyData object.
+        Loads mesh data and creates a PyVista PolyData object.
         mesh_type can be "head" or "roi".
+
+        Supported formats:
+        - SimNIBS ``*.msh`` (read via simnibs mesh_io; the head mesh in the
+          m2m folder) — triangles and their tissue tags
+        - ``*.hdf5`` meshes with ``/mesh/nodes/node_coord`` and
+          ``/mesh/elm/triangle_number_list`` (ROI geo files)
         """
         # 1. Guard Clause: Handle the empty state
         if not file_path:
@@ -326,21 +332,20 @@ class MeshWidget(QWidget):
 
         # 2. Proceed with loading the actual file
         try:
-            with h5py.File(file_path, 'r') as f:
-                # 1. Read Nodes (Vertices)
-                # Expected shape: (N, 3)
-                nodes = f['mesh/nodes/node_coord'][:]
-
-                # 2. Read Connectivity (Triangles)
-                # Expected shape: (M, 3) or (M, 4) depending on how it was saved
-                tr_con = f['/mesh/elm/triangle_number_list'][:]
-
-                # 3. Read Tissue Type (Optional Data)
-                # Expected shape: (M,) - One value per triangle
-                if '/mesh/elm/tri_tissue_type' in f:
-                    tri_tissue_type = f['/mesh/elm/tri_tissue_type'][:]
-                else:
-                    tri_tissue_type = None
+            if str(file_path).lower().endswith(".msh"):
+                loaded_mesh = self._load_simnibs_msh(file_path)
+                if loaded_mesh is None:
+                    return
+                nodes, tr_con, tri_tissue_type = loaded_mesh
+            else:
+                with h5py.File(file_path, 'r') as f:
+                    # Expected shape: (N, 3)
+                    nodes = f['mesh/nodes/node_coord'][:]
+                    # Expected shape: (M, 3)
+                    tr_con = f['/mesh/elm/triangle_number_list'][:]
+                    # Optional: one value per triangle
+                    tri_tissue_type = (f['/mesh/elm/tri_tissue_type'][:]
+                                       if '/mesh/elm/tri_tissue_type' in f else None)
 
             # --- CONVERT TO PYVISTA (The efficient way) ---
 
@@ -394,6 +399,28 @@ class MeshWidget(QWidget):
             print(f"Error loading HDF5 mesh: {e}")
             import traceback
             traceback.print_exc()
+
+    def _load_simnibs_msh(self, file_path):
+        """Read a SimNIBS ``*.msh`` mesh: returns ``(nodes, triangles,
+        tissue_tags)`` or ``None`` on failure. The tags (1001..1005 for the
+        five SimNIBS tissues) are remapped to 1..5 so both mesh sources
+        color consistently, and the 1-based node numbers are converted to
+        0-based for VTK."""
+        try:
+            # Imported lazily: simnibs is slow to import and only needed
+            # for .msh files (the ROI geo meshes come as HDF5).
+            from simnibs import mesh_io
+            m = mesh_io.read_msh(file_path)
+            tri_mask = m.elm.elm_type == 2  # surface triangles (tets are 4)
+            nodes = m.nodes.node_coord[:, :3]
+            tr_con = m.elm.node_number_list[tri_mask][:, :3].astype(int) - 1
+            tri_tissue_type = m.elm.tag1[tri_mask].astype(int) % 1000  # 1001..1005 -> 1..5
+            return nodes, tr_con, tri_tissue_type
+        except Exception as e:
+            print(f"Error reading SimNIBS mesh {file_path}: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
     def refresh_dropdown(self):
         """Populates the dropdown with available data arrays found in the mesh."""
