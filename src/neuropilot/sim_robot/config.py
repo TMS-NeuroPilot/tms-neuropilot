@@ -135,6 +135,13 @@ TOPIC_SET_OBJECTIVE  = "Neuronavigation to Robot: Set objective"
 TOPIC_STOP           = "STOP"
 TOPIC_SET_HEAD_MESH  = "Pipeline to Robot: Set head mesh"
 
+# Speed ratios broadcast by the GUI (must match pipeline_controller.py verbatim)
+TOPIC_SET_DEFAULT_SPEED = "GUI to Robot: set default speed robot"
+TOPIC_SET_TUNING_SPEED  = "GUI to Robot: set tuning speed robot"
+# The GUI's default-speed slider position that corresponds to the sim's
+# baseline path pace (the slider sends ratio = value/100).
+SPEED_BASE_RATIO = 0.4
+
 # Outgoing: GUI camera stream (consumed by the pipeline's robot view panel)
 TOPIC_CAMERA_FRAME   = "SIM - Robot to Pipeline: Camera frame"
 

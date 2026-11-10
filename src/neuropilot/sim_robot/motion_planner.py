@@ -2,6 +2,8 @@ import math
 from enum import Enum
 from typing import List, Optional, Tuple
 
+import numpy as np
+
 from . import config
 from .state import RobotState
 from .mujoco_world import MuJoCoWorld
@@ -65,6 +67,8 @@ class MotionPlanner:
         self._target_active: List[float] = []
         self._press_depth: float = 0.0
         self._press_dir = None
+        self._path_pos: float = 0.0
+        self._last_applied_pos: Optional[float] = None
 
         self._move_away_active: bool = False
         self._move_away_path: List[List[float]] = []
@@ -150,6 +154,8 @@ class MotionPlanner:
         self._target_active = []
         self._press_depth = 0.0
         self._press_dir = None
+        self._path_pos = 0.0
+        self._last_applied_pos = None
         self.state.set_motion_done(False)
         self.state.set_tracking_valid(False)
 
@@ -342,21 +348,51 @@ class MotionPlanner:
         """
         if not self._path:
             return
+        self._path_pos = 0.0
+        self._last_applied_pos = 0.0
         joints = self._path[0]
         self.world.reset_joint_positions(joints)
         self.world.step(n_steps=2)
         self._sync_state()
 
+    def _active_ratio(self) -> float:
+        """The speed ratio for the current segment: the default speed drives
+        the transfer (ascend/traverse), the tuning speed the final approach
+        (descend/direct move) — mirroring the real robot."""
+        if self._motion_state in (MotionState.ASCENDING, MotionState.TRAVERSING):
+            return self.state.default_speed_ratio
+        return self.state.tuning_speed_ratio
+
     def _advance_path(self):
         """
-        Snap to the next pose in the current segment's path.
+        Advance along the current segment's path with a fractional index —
+        joint poses are interpolated between the path points, so the speed
+        sliders scale the pace continuously instead of in whole-point jumps.
         Transitions to the next state when the segment is exhausted.
         """
-        self._path_idx += 1
-        if self._path_idx >= len(self._path):
+        last = len(self._path) - 1
+        if self._path_pos >= last:
             self._on_segment_done()
             return
-        joints = self._path[self._path_idx]
+
+        # Speed scaling: the baseline pace corresponds to SPEED_BASE_RATIO
+        # on the GUI slider; lower ratios slow down, higher speed up.
+        step = max(self._active_ratio() / config.SPEED_BASE_RATIO, 0.05)
+        self._path_pos = min(self._path_pos + step, float(last))
+
+        if self._last_applied_pos is not None and \
+                abs(self._path_pos - self._last_applied_pos) < 1e-9:
+            return  # no visible change this tick
+        self._last_applied_pos = self._path_pos
+
+        idx = int(self._path_pos)
+        frac = self._path_pos - idx
+        if idx >= last or frac <= 0.0:
+            joints = self._path[idx]
+        else:
+            a = np.asarray(self._path[idx], dtype=float)
+            b = np.asarray(self._path[idx + 1], dtype=float)
+            joints = (a + (b - a) * frac).tolist()
         self.world.reset_joint_positions(joints)
         self.world.step(n_steps=2)
         self._sync_state()

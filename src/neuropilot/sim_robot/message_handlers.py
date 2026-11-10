@@ -35,6 +35,20 @@ class MessageHandlers:
         elif topic == config.TOPIC_SET_HEAD_MESH:
             self._handle_set_head_mesh(data)
 
+        elif topic == config.TOPIC_SET_DEFAULT_SPEED:
+            payload = self._unwrap(data)
+            ratio = payload.get("default_speed_ratio")
+            if ratio is not None:
+                self.state.set_default_speed_ratio(float(ratio))
+                log.info(f"Default speed ratio set to {float(ratio):.2f}")
+
+        elif topic == config.TOPIC_SET_TUNING_SPEED:
+            payload = self._unwrap(data)
+            ratio = payload.get("tuning_speed_ratio")
+            if ratio is not None:
+                self.state.set_tuning_speed_ratio(float(ratio))
+                log.info(f"Tuning speed ratio set to {float(ratio):.2f}")
+
         else:
             log.debug(f"No handler for topic: {topic}")
 
