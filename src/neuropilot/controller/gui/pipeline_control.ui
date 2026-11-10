@@ -842,7 +842,7 @@ QGroupBox::title {
           <property name="alignment">
            <set>Qt::AlignCenter</set>
           </property>
-          <widget class="QLabel" name="project_file_label">
+          <widget class="QLineEdit" name="project_name_edit">
            <property name="geometry">
             <rect>
              <x>20</x>
@@ -851,10 +851,17 @@ QGroupBox::title {
              <height>30</height>
             </rect>
            </property>
-           <property name="toolTip">
-            <string>Save the project to name it</string>
+           <property name="styleSheet">
+            <string notr="true">QLineEdit {
+    background: transparent;
+    border: none;
+    color: #4A90E2;
+}</string>
            </property>
-           <property name="text">
+           <property name="toolTip">
+            <string>Project name (stored in the project file on Save)</string>
+           </property>
+           <property name="placeholderText">
             <string>untitled project</string>
            </property>
           </widget>

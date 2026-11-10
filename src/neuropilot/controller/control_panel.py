@@ -267,7 +267,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for _le in (self.savePathLineEdit, self.target_order_LineEdit,
                     self.loadplacementlabel, self.loadmeshlabel,
                     self.loadroilabel, self.load_e_matrix_label,
-                    self.coilspathlineedit):
+                    self.coilspathlineedit, self.project_name_edit):
             _le.textChanged.connect(self._mark_project_dirty)
         for _cb in (self.fitFunctionComboBox, self.pulseShapeComboBox):
             _cb.currentTextChanged.connect(self._mark_project_dirty)
@@ -321,30 +321,26 @@ class MainWindow(QtWidgets.QMainWindow):
             self._update_project_label()
 
     def _update_project_label(self):
-        """Render the project file label: grey 'untitled project' when no
-        file is associated, the file name otherwise, bold with an unsaved
-        marker while there are unsaved changes."""
-        lbl = self.project_file_label
-        font = lbl.font()
+        """Render the project name field: 'untitled project' placeholder when
+        no file is associated, the stored name (or file name) otherwise, bold
+        while there are unsaved changes."""
+        edit = self.project_name_edit
+        font = edit.font()
         if self._project_file:
-            name = os.path.basename(self._project_file)
+            name = edit.text().strip() or os.path.basename(self._project_file)
+            if edit.text().strip() != name:
+                edit.setText(name)
+            font.setBold(self._project_dirty)
             font.setItalic(False)
             if self._project_dirty:
-                lbl.setText(f"● {name}")
-                font.setBold(True)
-                lbl.setToolTip(f"Unsaved changes — Save updates\n{self._project_file}")
+                edit.setToolTip(f"Unsaved changes — Save updates\n{self._project_file}")
             else:
-                lbl.setText(name)
-                font.setBold(False)
-                lbl.setToolTip(self._project_file)
-            lbl.setStyleSheet("color: #4A90E2; background: transparent;")
+                edit.setToolTip(self._project_file)
         else:
-            lbl.setText("untitled project")
             font.setBold(False)
             font.setItalic(True)
-            lbl.setStyleSheet("color: #9AA7B1; background: transparent;")
-            lbl.setToolTip("Save the project to name it")
-        lbl.setFont(font)
+            edit.setToolTip("Project name (stored in the project file on Save)")
+        edit.setFont(font)
 
     # ── Proportional resizing ──────────────────────────────────────────────
     @staticmethod
@@ -1320,14 +1316,22 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._project_loading = False
             self._project_file = file_path
             self._project_dirty = False
+            # The stored name wins; fall back to the file name.
+            if not self.project_name_edit.text().strip():
+                self.project_name_edit.setText(os.path.basename(file_path))
             self._update_project_label()
             self._save_session_cache()
 
     def on_save_yaml(self):
+        # Default the save dialog to the current project folder and, if the
+        # user already typed a project name, to that name.
+        default_name = self.project_name_edit.text().strip()
+        start_dir = os.path.dirname(self._project_file) if self._project_file \
+            else os.path.expanduser("~")
+        start = os.path.join(start_dir, default_name + ".yaml") if default_name else start_dir
         file_path = self._file_dialog(
                 "Select Save Location",
-                os.path.dirname(self._project_file) if self._project_file
-                else os.path.expanduser("~"),
+                start,
                 "YAML Files (*.yaml *.yml)",
                 save=True
         )
@@ -1336,12 +1340,17 @@ class MainWindow(QtWidgets.QMainWindow):
             if not file_path.lower().endswith(('.yaml', '.yml')):
                 file_path += '.yaml'
 
-            # 2. Get the state and save
+            # 2. An empty name field adopts the file name (stored in the
+            #    project file via get_config_dict below).
+            if not self.project_name_edit.text().strip():
+                self.project_name_edit.setText(os.path.basename(file_path))
+
+            # 3. Get the state and save
             data = self.get_config_dict()
             with open(file_path, "w") as f:
                 yaml.dump(data, f, default_flow_style=False)
 
-            # 3. The saved file becomes the project file, changes are saved
+            # 4. The saved file becomes the project file, changes are saved
             self._project_file = file_path
             self._project_dirty = False
             self._update_project_label()
@@ -1446,6 +1455,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def get_config_dict(self):
         """Return controller and GUI parameters as a plain dict."""
         return {
+            "project_name": self.project_name_edit.text().strip() or None,
             "fit_fun": self.fitFunctionComboBox.currentText(),
             "map_elms": self.sampling_spinBox.value(),
             "results_fn": self.savePathLineEdit.text() or None,
@@ -1467,6 +1477,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def apply_config_dict(self, d):
         """Apply only the keys present in d to controller state and UI."""
         setters = {
+            # The project name is plain GUI state (no backend call behind it).
+            "project_name": lambda v: self.project_name_edit.setText(v or ""),
             # ComboBoxes use setCurrentText
             "fit_fun": self.fitFunctionComboBox.setCurrentText,
             "stimulator_waveform": self.pulseShapeComboBox.setCurrentText,
@@ -1496,8 +1508,8 @@ class MainWindow(QtWidgets.QMainWindow):
             if key in d:
                 val = d[key]
                 # For SpinBoxes, we must ensure we don't pass a None value
-                if val is None and key not in ["results_fn", "target_order_fn", "targets_file", "mesh_head_path",
-                                               "mesh_RIO_path", "e_field_path",  "coil_path"]:
+                if val is None and key not in ["project_name", "results_fn", "target_order_fn", "targets_file",
+                                               "mesh_head_path", "mesh_RIO_path", "e_field_path", "coil_path"]:
                     continue
 
                     # Execute the matched function
