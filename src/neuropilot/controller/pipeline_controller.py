@@ -1,6 +1,7 @@
 import time
 import numpy as np
 import h5py
+import yaml
 from . import transformations as tr
 import asyncio
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -439,6 +440,72 @@ class PipelineController:
         phantom; real robot: informational). Send path is fire-and-forget."""
         if path:
             self.remote.send_message(TOPIC_SET_HEAD_MESH, {"mesh_path": path})
+
+    def set_emg_config(self, path: str):
+        """Load the EMG channel sources from a project config file.
+
+        Each entry names one cortical source, either as an ``element_id``
+        into the loaded ROI or as an ``xyz`` position (mm, SimNIBS
+        coordinates) which is projected to the closest ROI element. The
+        sources are assigned positionally to the channel names from .env
+        (EMG_CHANNELS). Applies to the simulated EMG only.
+        """
+        if not isinstance(self.emg_computer, VirtualEMG):
+            print("EMG channel config applies to the simulated EMG only.")
+            return
+        if not path or not os.path.isfile(path):
+            print(f"EMG config not found: {path}")
+            return
+        try:
+            with open(path, "r") as f:
+                data = yaml.safe_load(f) or {}
+        except (OSError, yaml.YAMLError) as e:
+            print(f"EMG config unreadable: {e}")
+            return
+
+        entries = data.get("sources", data) if isinstance(data, dict) else data
+        if not isinstance(entries, list) or not entries:
+            print("EMG config has no 'sources' list.")
+            return
+
+        # ROI triangle centers for the xyz projection (the E-matrix columns
+        # follow the ROI element order of the geo file).
+        roi_fn = self.control_panel.loadroilabel.text().strip() if self.control_panel else None
+        centers = None
+        if roi_fn and os.path.isfile(roi_fn):
+            with h5py.File(roi_fn, "r") as f:
+                nodes = f["mesh/nodes/node_coord"][:]
+                tris = f["mesh/elm/triangle_number_list"][:]
+            centers = nodes[tris].mean(axis=1)
+
+        elements = []
+        for i, entry in enumerate(entries):
+            if not isinstance(entry, dict):
+                print(f"EMG source {i}: invalid entry {entry}")
+                return
+            if entry.get("element_id") is not None:
+                elements.append(int(entry["element_id"]))
+            elif entry.get("xyz") is not None:
+                if centers is None:
+                    print("EMG source uses xyz but no ROI surface is loaded -- cannot project.")
+                    return
+                xyz = np.asarray(entry["xyz"], dtype=float)
+                elem = int(np.argmin(np.linalg.norm(centers - xyz, axis=1)))
+                dist = float(np.linalg.norm(centers[elem] - xyz))
+                print(f"EMG source {i}: xyz {xyz.tolist()} -> element {elem} "
+                      f"(distance {dist:.2f} mm)")
+                elements.append(elem)
+            else:
+                print(f"EMG source {i}: needs 'element_id' or 'xyz'.")
+                return
+
+        try:
+            self.emg_computer.set_channel_elements(elements)
+        except ValueError as e:
+            print(f"EMG config rejected: {e}")
+            return
+        if self.control_panel:
+            self.control_panel.set_emg_channels(list(self.emg_computer.channel_names))
 
     async def run(self):
         """
@@ -1141,10 +1208,8 @@ class PipelineController:
         # All channels except Time
         channels = emg_df.columns[1:]
 
-        if len(channels) != 3:
-            raise ValueError(
-                    f"Expected exactly 3 EMG channels, got {len(channels)}: {channels}"
-            )
+        if len(channels) == 0:
+            raise ValueError("No EMG channels found in the data frame.")
 
         meps = {}
         emg_preac_amp = {}

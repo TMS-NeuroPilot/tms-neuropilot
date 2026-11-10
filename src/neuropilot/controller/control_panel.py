@@ -94,6 +94,11 @@ class MainWindow(QtWidgets.QMainWindow):
                                 "(a .csv ending is added automatically).",
             "coilspathlineedit": "TMS coil model: SimNIBS coil file (.ccd or .ccd.nii.gz),\n"
                                  "e.g. MagVenture_MCF-B65_new.ccd.",
+            "emg_config_label": "EMG channel sources: YAML with one source per channel\n"
+                                "('element_id' into the ROI or 'xyz' in mm, SimNIBS\n"
+                                "coordinates -- xyz is projected to the closest ROI\n"
+                                "element). Channel names and count come from\n"
+                                "EMG_CHANNELS in .env.",
         }
         for widget_name, tooltip in path_tooltips.items():
             widget = getattr(self, widget_name, None)
@@ -187,6 +192,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.coilPathBtn.clicked.connect(self.pick_coil_path)
         self.coilspathlineedit.editingFinished.connect(self.paste_coil_path)
 
+        self.emgConfigBtn.clicked.connect(self.pick_emg_config)
+        self.emg_config_label.editingFinished.connect(self.paste_emg_config)
+
         self.load_yaml.clicked.connect(self.on_load_yaml)
         self.save_yaml.clicked.connect(self.on_save_yaml)
 
@@ -269,7 +277,8 @@ class MainWindow(QtWidgets.QMainWindow):
         for _le in (self.savePathLineEdit, self.target_order_LineEdit,
                     self.loadplacementlabel, self.loadmeshlabel,
                     self.loadroilabel, self.load_e_matrix_label,
-                    self.coilspathlineedit, self.project_name_edit):
+                    self.coilspathlineedit, self.project_name_edit,
+                    self.emg_config_label):
             _le.textChanged.connect(self._mark_project_dirty)
         for _cb in (self.fitFunctionComboBox, self.pulseShapeComboBox):
             _cb.currentTextChanged.connect(self._mark_project_dirty)
@@ -691,12 +700,12 @@ class MainWindow(QtWidgets.QMainWindow):
         if hasattr(self, 'widget_emg_signal'):
             time_vals = emg_data["Time"]
             #print(f"time vals len/max: {len(time_vals)} / {max(time_vals)}")
-            # Filter columns to only get ADC channels
+            # Filter columns to only get the EMG channels (everything but Time)
 
             signal_dict = {col: pynibs.expio.butter_lowpass_filter(emg_data[col],
                                                                    int(os.getenv("CUTOFF_FREQ")),
                                                                    int(os.getenv("SAMPLING_RATE")),
-                                                                   order) for col in emg_data.columns if "ADC" in col}
+                                                                   order) for col in emg_data.columns if col != "Time"}
 
             # Create A dictionary for each received emg
             new_record = {
@@ -1082,6 +1091,30 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.controller.online_fem_mgr.set_coil_fn(file_path)
             self._check_paths_ready()
 
+    def pick_emg_config(self):
+        """Opens file dialog for the EMG channel source config (.yaml)."""
+        file_path = self._file_dialog(
+            "Select EMG Channel Config",
+            os.path.dirname(self.emg_config_label.text().strip())
+            if self.emg_config_label.text().strip() else os.path.expanduser("~"),
+            "YAML Files (*.yaml *.yml)",
+        )
+        if file_path:
+            self.emg_config_label.setText(file_path)
+            self.paste_emg_config()
+
+    def paste_emg_config(self):
+        file_path = self.emg_config_label.text().strip()
+        if file_path and os.path.isfile(file_path) and self.controller:
+            self.controller.set_emg_config(file_path)
+
+    def set_emg_channels(self, names):
+        """Propagate the configured EMG channel names to the MEP plots."""
+        for attr in ("widget_mep_trend", "widget_emg_signal"):
+            widget = getattr(self, attr, None)
+            if widget is not None:
+                widget.set_channels(names)
+
     def paste_coil_path(self):
         file_path = self.coilspathlineedit.text().strip()
         if not file_path:
@@ -1141,6 +1174,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.widget_3d_viewer.load_hdf5_mesh(file_path, mesh_type="roi")
             if self.controller:
                 self.controller.online_fem_mgr.set_roi_fn_hdf5(file_path)
+                # The EMG source projection runs against this ROI: re-apply
+                # the channel config so xyz sources re-project.
+                if self.emg_config_label.text().strip():
+                    self.controller.set_emg_config(self.emg_config_label.text().strip())
             self._check_paths_ready()
         else:
             # The file is missing or the user typed a directory instead of a file
@@ -1492,6 +1529,7 @@ class MainWindow(QtWidgets.QMainWindow):
             "mesh_RIO_path": self.loadroilabel.text() or None,
             "e_field_path": self.load_e_matrix_label.text() or None,
             "coil_path": self.coilspathlineedit.text() or None,
+            "emg_config_fn": self.emg_config_label.text() or None,
 
         }
 
@@ -1522,6 +1560,7 @@ class MainWindow(QtWidgets.QMainWindow):
             "mesh_RIO_path": lambda v: (self.loadroilabel.setText(v or ""),self.paste_roi_path()),
             "e_field_path": lambda v: (self.load_e_matrix_label.setText(v or ""),self.paste_e_field_path()),
             "coil_path": lambda v: (self.coilspathlineedit.setText(v or ""), self.paste_coil_path()),
+            "emg_config_fn": lambda v: (self.emg_config_label.setText(v or ""), self.paste_emg_config()),
         }
 
         # Iterate through the config and apply the values using the matched setter function
@@ -1530,7 +1569,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 val = d[key]
                 # For SpinBoxes, we must ensure we don't pass a None value
                 if val is None and key not in ["project_name", "results_fn", "target_order_fn", "targets_file",
-                                               "mesh_head_path", "mesh_RIO_path", "e_field_path", "coil_path"]:
+                                               "mesh_head_path", "mesh_RIO_path", "e_field_path", "coil_path",
+                                               "emg_config_fn"]:
                     continue
 
                     # Execute the matched function

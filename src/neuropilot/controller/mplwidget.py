@@ -77,7 +77,6 @@ class MplGraphWidget(QWidget):
             "ADC 1": "#ff7f0e",  # Orange
             "ADC 2": "#2ca02c"  # Green
         }
-
         # Create Checkboxes
         self.checkboxes = {}
         self.lines = {}
@@ -157,6 +156,40 @@ class MplGraphWidget(QWidget):
             if name in self.checkboxes:
                 is_checked = self.checkboxes[name].isChecked()
                 line.set_visible(is_checked)
+        self.canvas.draw()
+
+    # Colors assigned to channels beyond the defaults (matplotlib tab10).
+    CHANNEL_PALETTE = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+                       "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
+
+    def set_channels(self, names):
+        """Configure the channel list (names come from .env via the EMG
+        config): rebuilds the sidebar checkboxes and recolors the plots."""
+        names = list(names)
+        if names == self.channel_names:
+            return
+        self.channel_names = names
+        self.channel_colors = {n: self.CHANNEL_PALETTE[i % len(self.CHANNEL_PALETTE)]
+                               for i, n in enumerate(names)}
+
+        # Rebuild the sidebar checkboxes (the fixed items above them —
+        # title, separator, "CHANNELS" label — stay in place).
+        for cb in list(self.checkboxes.values()):
+            self.sidebar_layout.removeWidget(cb)
+            cb.deleteLater()
+        self.checkboxes = {}
+        self.lines = {}
+        base_index = 3
+        for i, name in enumerate(names):
+            cb = QCheckBox(name)
+            cb.setChecked(True)
+            cb.setCursor(Qt.PointingHandCursor)
+            hex_color = self.channel_colors.get(name, "#333")
+            cb.setStyleSheet(f"color: {hex_color}; font-weight: 600;")
+            cb.stateChanged.connect(self.update_visibility)
+            self.sidebar_layout.insertWidget(base_index + i, cb)
+            self.checkboxes[name] = cb
+        self.ax.cla()
         self.canvas.draw()
 
     def update_as_signal(self, time_array, data_dict):

@@ -1,4 +1,6 @@
 
+import os
+
 import numpy as np
 import pandas as pd
 from ..systems.system import System, SystemStatus
@@ -17,13 +19,31 @@ class VirtualEMG(System):
         self.current_coil_placement_idx = 0
         self.stimulator_amplitude = None
 
+        # Channel names and count come from .env (EMG_CHANNELS, comma
+        # separated); the cortical source element per channel is configured
+        # in the project window (element_id or xyz -> closest element) and
+        # assigned positionally via set_channel_elements().
+        self.channel_names = [n.strip() for n in
+                              os.getenv("EMG_CHANNELS", "ADC 0,ADC 1,ADC 2").split(",")
+                              if n.strip()]
+        default_elements = [5208, 5165, 4456]
+        self.channel_elements = (default_elements[:len(self.channel_names)]
+                                 + [None] * max(0, len(self.channel_names) - len(default_elements)))
+        if any(e is None for e in self.channel_elements):
+            print("WARNING: More EMG channels configured than default sources -- "
+                  "set the sources in the project window.")
 
-        # Element indices mapping muscles to E-field matrix columns
-        self.muscle_elements = {
-            "ADC 0": 5208,
-            "ADC 1": 5165,
-            "ADC 2": 4456,
-        }
+    def set_channel_elements(self, elements):
+        """Assign one cortical source element per channel (positional, in the
+        order of channel_names). Raises on a count mismatch."""
+        if len(elements) != len(self.channel_names):
+            raise ValueError(
+                f"EMG source count ({len(elements)}) does not match the "
+                f"channel count ({len(self.channel_names)}: {self.channel_names})"
+            )
+        self.channel_elements = list(elements)
+        for name, elem in zip(self.channel_names, self.channel_elements):
+            print(f"EMG channel '{name}' -> element {elem}")
 
     def set_e_matrix(self, e_matrix):
         """Called when user uploads E-field matrix via GUI"""
@@ -50,8 +70,12 @@ class VirtualEMG(System):
         if self.e_matrix is None:
             raise ValueError("E-field matrix not set. Call set_e_matrix() first.")
 
+        if any(e is None for e in self.channel_elements):
+            raise ValueError("EMG channel sources not fully configured -- "
+                             "set them in the project window.")
+
         vpps = {}
-        for name, elem_idx in self.muscle_elements.items():
+        for name, elem_idx in zip(self.channel_names, self.channel_elements):
             # Get E-field at this element for current placement
             if e_field_for_mep is not None:
                 print(f"Shape of e_field_for_mep: {e_field_for_mep}")
@@ -78,13 +102,12 @@ class VirtualEMG(System):
             vpps[name] = max(mep_mV[0] , 0.0)
             print(vpps[name])
 
-        return self._generate_polyphasic_emg(
-            vpps["ADC 0"], vpps["ADC 1"], vpps["ADC 2"]
-        )
+        return self._generate_polyphasic_emg(vpps)
 
-    def _generate_polyphasic_emg(self, vpp_a, vpp_b, vpp_c,
+    def _generate_polyphasic_emg(self, vpps,
                                  duration=0.7, sample_rate=4000):
-        # Reuse from original VirtualEMGComputer
+        # One polyphasic burst per configured channel (names from .env,
+        # cortical sources from the project window).
         t = np.linspace(0, duration, int(duration * sample_rate))
 
         def make_wave(vpp):
@@ -95,9 +118,8 @@ class VirtualEMG(System):
             wave = np.sin(2 * np.pi * freq * t) * env
             return (wave * (vpp / 2.0)) + np.random.normal(0, 0.001, len(t))
 
-        return pd.DataFrame({
-            "Time": t,
-            "ADC 0": make_wave(vpp_a),
-            "ADC 1": make_wave(vpp_b),
-            "ADC 2": make_wave(vpp_c)
-        })
+        data = {"Time": t}
+        for name, vpp in vpps.items():
+            data[name] = make_wave(vpp)
+
+        return pd.DataFrame(data)

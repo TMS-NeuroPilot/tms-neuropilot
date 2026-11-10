@@ -805,6 +805,85 @@ QToolButton:pressed {
              </item>
             </layout>
            </item>
+           <item>
+            <widget class="QLabel" name="label_emg_channels">
+             <property name="text">
+              <string>EMG channels</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_emg" stretch="5,0,0,0">
+             <item>
+              <widget class="QLineEdit" name="emg_config_label">
+               <property name="styleSheet">
+                <string notr="true">QLineEdit {
+    border: 2px solid #5dade2;   /* same light blue border */
+    border-radius: 8px;          /* rounded corners */
+    padding: 2px;                /* inner spacing */
+    background-color: #ffffff;   /* clean white background */
+    color: #333333;              /* dark gray text */
+    selection-background-color: #5dade2;  /* highlight matches button */
+}
+</string>
+               </property>
+               <property name="placeholderText">
+                <string>emg_channels.yaml</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_emg">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QToolButton" name="emgConfigBtn">
+               <property name="styleSheet">
+                <string notr="true">QToolButton {
+    border: none;
+    background: #CCBBE8;     /* clean flat look */
+    padding: 5px;
+    border-radius: 6px;          /* rounded edges */
+}
+
+QToolButton:hover {
+    background-color: #e0e0e0;   /* light gray hover */
+}
+
+QToolButton:pressed {
+    background-color: #c0c0c0;   /* darker when pressed */
+}
+</string>
+               </property>
+               <property name="text">
+                <string>...</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_emg2">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
           </layout>
          </widget>
          <widget class="QGroupBox" name="groupBox_8">
