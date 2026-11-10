@@ -1,3 +1,27 @@
+"""Controller entry point: wires the GUI, the pipeline controller and the
+relay connection together and runs the asyncio/Qt event loop.
+
+Launched as ``python -m neuropilot.controller`` (or via the ``neuropilot``
+launcher: ``neuropilot controller --sim|--real``; the supervisor starts it
+the same way for simulated stacks).
+
+Flow:
+    1. ``run()`` parses ``--sim``/``--real`` (or shows the mode selection
+       dialog) and builds the QApplication.
+    2. ``main()`` creates the relay ``Remote`` (simulated or real) from the
+       optional positional ``[host] [port]`` arguments (default
+       ``127.0.0.1 5000``), optionally shows the control panel
+       (``ENABLE_HEALTH_CHECK_AND_CONTROL_PANEL=true`` in ``.env``), builds
+       the :class:`~neuropilot.controller.pipeline_controller.PipelineController`
+       and connects to the relay server.
+    3. The pipeline (algorithm + health checks) runs as a background task
+       while the Qt/asyncio loop keeps the GUI alive.
+
+Everything runs in a single-threaded event loop. qasync bridges Qt and
+asyncio when the GUI is enabled; without the GUI, plain asyncio is used.
+No callback may block — see the asyncio notes in the repository docs.
+"""
+
 import asyncio
 import logging
 import numpy as np
@@ -12,7 +36,18 @@ import qasync
 from dotenv import load_dotenv
 import os
 
+# Global QApplication; created in run(), used by main() to attach the
+# control panel window.
+app = None
+
+
 def get_command_line_arguments():
+    """Extract the relay host/port from positional command line arguments.
+
+    Accepts ``[host] [port]``, ``[port]`` or nothing (defaults
+    ``127.0.0.1:5000``). Option flags such as ``--sim``/``--real`` are
+    ignored here — they are consumed by :func:`run`.
+    """
     default_host = '127.0.0.1'
     default_port = 5000
 
@@ -31,6 +66,15 @@ def get_command_line_arguments():
     return host, port
 
 async def main(enable_health_check_and_control_panel, simulation):
+    """Build all components and keep the event loop alive.
+
+    Creates the relay ``Remote`` (simulated or real variant, depending on
+    ``simulation``), the control panel window (if enabled) and the
+    ``PipelineController``, connects to the relay server and finally starts
+    the pipeline as a background task. The trailing sleep loop keeps the
+    coroutine alive; Qt event processing continues in parallel through the
+    qasync integration.
+    """
     # Configure logging.
     np.set_printoptions(formatter={'float': '{:0.1f}'.format})
 
@@ -39,31 +83,32 @@ async def main(enable_health_check_and_control_panel, simulation):
     else:
         from .remote_connection import Remote
 
-    ## Create remote
+    # Create the relay connection from the optional positional host/port.
     host, port = get_command_line_arguments()
     url = f'http://{host}:{port}'
     remote = Remote(url)
-    ## Control panel (if enabled in .env)
-    
+
+    # Control panel (only when ENABLE_HEALTH_CHECK_AND_CONTROL_PANEL=true).
     if enable_health_check_and_control_panel:
-        # Control Panel. The control panel is called to show by PipelineController.
+        # The control panel is shown by the PipelineController once it is
+        # ready, not here.
         app.window2 = MainWindow(simulation=simulation)
         # Otherwise the window becomes transparent frozen while the controller initializes
         await asyncio.sleep(0.1)
-    
-    ## Controller
-    # The control panel keeps track of whether we do health checks and run the control panel
-    # by checking the attribute self.control_panel != None
+
+    # The controller tracks whether health checks and the control panel are
+    # active via `control_panel is not None`.
     controller = PipelineController(remote=remote,
                                     control_panel=app.window2 if enable_health_check_and_control_panel else None,simulation=simulation)
     controller.register_remote_handlers()
     if enable_health_check_and_control_panel:
         app.window2.set_controller(controller)
-    
+
     # With everything prepped we connect to the relay server.
     await remote.connect()
-    
-    # Run the algorithm and health checks (if enabled). Create_task means it runs in parallel, instead of in sequence.
+
+    # Run the algorithm and health checks (if enabled). create_task runs it
+    # in parallel to this coroutine instead of in sequence.
     asyncio.create_task(run_pipeline(controller))
 
     while True:
@@ -72,15 +117,22 @@ async def main(enable_health_check_and_control_panel, simulation):
 
 
 async def run_pipeline(controller):
-    # Run the pipeline
+    """Run the pipeline (algorithm steps and health checks) to completion."""
     print("Running Pipeline!")
     await controller.run()
 
 def cleanup():
+    """Called when the event loop is cancelled (Ctrl+C / stack shutdown)."""
     print("Closing Pipeline!")
-    # asyncio.create_task(cleanup())
 
 def run(argv=None):
+    """Parse arguments, select the mode and run the event loop.
+
+    ``--sim``/``--real`` select the mode directly; without them the mode
+    selection dialog is shown. With the control panel enabled (``.env``),
+    the loop is ``qasync.run`` (Qt + asyncio in one thread); otherwise a
+    plain ``asyncio.run`` is sufficient. Returns a process exit code.
+    """
     global app
     import argparse
     parser = argparse.ArgumentParser(description="NeuroPilot controller")
@@ -124,7 +176,7 @@ def run(argv=None):
     load_dotenv()
     enable_health_check_and_control_panel = os.getenv('ENABLE_HEALTH_CHECK_AND_CONTROL_PANEL', 'false').lower() == 'true'
     try:
-        if enable_health_check_and_control_panel == True:
+        if enable_health_check_and_control_panel:
             qasync.run(main(enable_health_check_and_control_panel,is_simulation))
         else:
             asyncio.run(main(enable_health_check_and_control_panel,is_simulation))
