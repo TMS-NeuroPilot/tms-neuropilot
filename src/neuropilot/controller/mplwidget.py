@@ -173,9 +173,16 @@ class MplGraphWidget(QWidget):
                                for i, n in enumerate(names)}
 
         # Rebuild the sidebar checkboxes (the fixed items above them —
-        # title, separator, "CHANNELS" label — stay in place).
+        # title, separator, "CHANNELS" label — stay in place). setParent(None)
+        # detaches them immediately so pending scaling passes no longer see
+        # them; deleteLater then frees them.
         for cb in list(self.checkboxes.values()):
+            try:
+                cb.stateChanged.disconnect()
+            except TypeError:
+                pass
             self.sidebar_layout.removeWidget(cb)
+            cb.setParent(None)
             cb.deleteLater()
         self.checkboxes = {}
         self.lines = {}
