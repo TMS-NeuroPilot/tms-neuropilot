@@ -247,6 +247,59 @@ class MainWindow(QtWidgets.QMainWindow):
             self.widget_emg_signal.set_title("Last EMG")
             self.refresh_emg_nav_display()
 
+        # ── Project file tracking (Project group, Project tab) ─────────────
+        # The label under Load/Save shows the loaded project file and turns
+        # bold as soon as any project field is changed.
+        self._project_file = None
+        self._project_dirty = False
+        self._project_loading = False
+        self._project_ready = True
+        for _le in (self.savePathLineEdit, self.target_order_LineEdit,
+                    self.loadplacementlabel, self.loadmeshlabel,
+                    self.loadroilabel, self.load_e_matrix_label,
+                    self.coilspathlineedit):
+            _le.textChanged.connect(self._mark_project_dirty)
+        for _cb in (self.fitFunctionComboBox, self.pulseShapeComboBox):
+            _cb.currentTextChanged.connect(self._mark_project_dirty)
+        for _sb in (self.sampling_spinBox, self.spinBox, self.min_interval_spinBox,
+                    self.n_repetitions_spinBox, self.spinBox2, self.spinBox3):
+            _sb.valueChanged.connect(self._mark_project_dirty)
+        self._update_project_label()
+
+    # ── Project file state ─────────────────────────────────────────────────
+    def _mark_project_dirty(self, *_):
+        if not getattr(self, "_project_ready", False) or self._project_loading:
+            return
+        if not self._project_dirty:
+            self._project_dirty = True
+            self._update_project_label()
+
+    def _update_project_label(self):
+        """Render the project file label: grey 'untitled project' when no
+        file is associated, the file name otherwise, bold with an unsaved
+        marker while there are unsaved changes."""
+        lbl = self.project_file_label
+        font = lbl.font()
+        if self._project_file:
+            name = os.path.basename(self._project_file)
+            font.setItalic(False)
+            if self._project_dirty:
+                lbl.setText(f"● {name}")
+                font.setBold(True)
+                lbl.setToolTip(f"Unsaved changes — Save updates\n{self._project_file}")
+            else:
+                lbl.setText(name)
+                font.setBold(False)
+                lbl.setToolTip(self._project_file)
+            lbl.setStyleSheet("color: #4A90E2; background: transparent;")
+        else:
+            lbl.setText("untitled project")
+            font.setBold(False)
+            font.setItalic(True)
+            lbl.setStyleSheet("color: #9AA7B1; background: transparent;")
+            lbl.setToolTip("Save the project to name it")
+        lbl.setFont(font)
+
     # ── Proportional resizing ──────────────────────────────────────────────
     @staticmethod
     def _is_layout_managed(w):
@@ -1155,8 +1208,8 @@ class MainWindow(QtWidgets.QMainWindow):
         file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
                 self,
                 "Load Config",
-                "",
-                # os.getcwd(),
+                os.path.dirname(self._project_file) if self._project_file
+                else os.path.expanduser("~"),
                 "YAML Files (*.yaml *.yml)"
         )
         if file_path:
@@ -1169,13 +1222,21 @@ class MainWindow(QtWidgets.QMainWindow):
                     f"Could not load config file:\n{e}"
                 )
                 return
-            self.apply_config_dict(data)
+            self._project_loading = True
+            try:
+                self.apply_config_dict(data)
+            finally:
+                self._project_loading = False
+            self._project_file = file_path
+            self._project_dirty = False
+            self._update_project_label()
 
     def on_save_yaml(self):
         file_path, _ = QtWidgets.QFileDialog.getSaveFileName(
                 self,
                 "Select Save Location",
-                os.getcwd(),
+                os.path.dirname(self._project_file) if self._project_file
+                else os.path.expanduser("~"),
                 "YAML Files (*.yaml *.yml)"
         )
         if file_path:
@@ -1187,6 +1248,11 @@ class MainWindow(QtWidgets.QMainWindow):
             data = self.get_config_dict()
             with open(file_path, "w") as f:
                 yaml.dump(data, f, default_flow_style=False)
+
+            # 3. The saved file becomes the project file, changes are saved
+            self._project_file = file_path
+            self._project_dirty = False
+            self._update_project_label()
 
             print(f"Configuration successfully saved to: {file_path}")
 

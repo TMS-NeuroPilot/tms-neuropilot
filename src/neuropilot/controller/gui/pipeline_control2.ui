@@ -813,7 +813,7 @@ QToolButton:pressed {
             <x>740</x>
             <y>30</y>
             <width>291</width>
-            <height>121</height>
+            <height>148</height>
            </rect>
           </property>
           <property name="styleSheet">
@@ -837,11 +837,27 @@ QGroupBox::title {
 }</string>
           </property>
           <property name="title">
-           <string>Default Parameters</string>
+           <string>Project</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
           </property>
+          <widget class="QLabel" name="project_file_label">
+           <property name="geometry">
+            <rect>
+             <x>20</x>
+             <y>108</y>
+             <width>251</width>
+             <height>30</height>
+            </rect>
+           </property>
+           <property name="toolTip">
+            <string>Save the project to name it</string>
+           </property>
+           <property name="text">
+            <string>untitled project</string>
+           </property>
+          </widget>
           <widget class="QPushButton" name="load_yaml">
            <property name="geometry">
             <rect>
