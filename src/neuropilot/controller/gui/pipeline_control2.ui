@@ -1143,7 +1143,7 @@ QPushButton:disabled {
               <item>
                <widget class="QGroupBox" name="groupBox_4">
                 <property name="title">
-                 <string>EMG Computer</string>
+                 <string>EMG</string>
                 </property>
                 <widget class="QWidget" name="verticalLayoutWidget_2">
                  <property name="geometry">
@@ -3197,7 +3197,7 @@ QComboBox QAbstractItemView {
              <item>
               <widget class="QLabel" name="label_3">
                <property name="text">
-                <string>EMG Computer</string>
+                <string>EMG</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignCenter</set>
