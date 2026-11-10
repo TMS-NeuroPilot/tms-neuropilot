@@ -22,9 +22,13 @@ class MuJoCoWorld:
         self,
         use_gui: bool = True,
         end_effector_site_name: str = "coil_tcp_site",
+        head_mesh_stl: Optional[str] = None,
     ):
         self.use_gui = use_gui
         self.end_effector_site_name = end_effector_site_name
+        # Optional head phantom override (an STL path) replacing the default
+        # head88.stl — set from the project window's head mesh.
+        self.head_mesh_stl = head_mesh_stl
 
         self.model: Optional[mujoco.MjModel] = None
         self.data: Optional[mujoco.MjData] = None
@@ -46,9 +50,21 @@ class MuJoCoWorld:
         self._running = False
 
     def connect(self):
-        scene_xml_path = self._compose_scene()
-        self.model = mujoco.MjModel.from_xml_path(scene_xml_path)
-        self.data = mujoco.MjData(self.model)
+        self._build_model()
+        if self.use_gui:
+            self._running = True
+            self._viewer_thread = threading.Thread(target=self._viewer_loop, daemon=True)
+            self._viewer_thread.start()
+
+    def _build_model(self) -> None:
+        """Compose the scene, compile the model and index its structure.
+        Uses self.head_mesh_stl as the head phantom when set."""
+        scene_xml_path = self._compose_scene(self.head_mesh_stl)
+        model = mujoco.MjModel.from_xml_path(scene_xml_path)
+        data = mujoco.MjData(model)
+        with self._data_lock:
+            self.model = model
+            self.data = data
         mujoco.mj_forward(self.model, self.data)
 
         # Config poses win over the MJCF defaults: this makes head placement
@@ -60,14 +76,34 @@ class MuJoCoWorld:
         self._index_bodies_and_geoms()
         self._index_site()
 
-        if self.use_gui:
-            self._running = True
-            self._viewer_thread = threading.Thread(target=self._viewer_loop, daemon=True)
-            self._viewer_thread.start()
+    def reload_head(self, head_stl: str) -> bool:
+        """Replace the head phantom at runtime (headless worlds only — the
+        MuJoCo viewer keeps its own model copy and cannot hot-swap).
 
-    def _compose_scene(self) -> str:
+        Returns True on success. """
+        if self._viewer_thread is not None:
+            log.warning("Head mesh reload requested but the MuJoCo viewer is "
+                        "running -- restart the simulator to apply it.")
+            return False
+        previous = self.head_mesh_stl
+        self.head_mesh_stl = head_stl
+        try:
+            self._build_model()
+            log.info(f"Head phantom replaced: {head_stl}")
+            return True
+        except Exception as e:
+            log.error(f"Head mesh reload failed: {e}")
+            self.head_mesh_stl = previous
+            try:
+                self._build_model()
+            except Exception as e2:
+                log.error(f"Model restore failed: {e2}")
+            return False
+
+    def _compose_scene(self, head_mesh_stl: Optional[str] = None) -> str:
         """Compose the scene MJCF from config: robot geometry (per ROBOT),
-        optional head phantom, physics. Returns the path of the generated file."""
+        optional head phantom, physics. Returns the path of the generated file.
+        ``head_mesh_stl`` replaces the default phantom mesh in head.xml."""
         robot_mjcf = config.ROBOT_MJCF.get(config.ROBOT)
         if robot_mjcf is None:
             raise ValueError(
@@ -88,6 +124,24 @@ class MuJoCoWorld:
             if config.HEAD_MJCF_PATH
             else ""
         )
+
+        # Head mesh override: copy head.xml with the mesh file pointed at the
+        # project-derived STL (absolute path, independent of the meshdir).
+        if head_mesh_stl and config.HEAD_MJCF_PATH:
+            import re
+            head_fn = os.path.join(PROJECT_ROOT, config.HEAD_MJCF_PATH)
+            head_xml = open(head_fn).read()
+            head_xml, n = re.subn(
+                r'(<mesh\s+file=")[^"]*(" name="head_mesh")',
+                rf'\g<1>{os.path.abspath(head_mesh_stl)}\g<2>',
+                head_xml,
+            )
+            if n != 1:
+                raise ValueError(f"head.xml has no unique head_mesh asset ({n} matches).")
+            override_fn = os.path.join(composed_dir, "_head_override.xml")
+            with open(override_fn, "w") as f:
+                f.write(head_xml)
+            head_include = f'<include file="_head_override.xml"/>'
         xml = f"""<mujoco model="{config.MODEL_NAME}">
   <include file="{_include_for(robot_mjcf)}"/>
   {head_include}

@@ -1023,6 +1023,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.widget_3d_viewer.load_hdf5_mesh(file_path, mesh_type="head")
             if self.controller:
                 self.controller.online_fem_mgr.set_mesh_fn_msh(file_path)
+                self.controller.set_head_mesh(file_path)
             self._check_paths_ready()
         else:
             # The file is missing or the user typed a directory instead of a file

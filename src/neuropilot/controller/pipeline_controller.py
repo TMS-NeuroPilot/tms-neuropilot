@@ -11,6 +11,11 @@ import matplotlib
 
 from .transformations import compose_matrix
 
+# Relay topic announcing the project head mesh to the robot side (the
+# simulator converts it into its MuJoCo phantom; must match
+# neuropilot.sim_robot.config.TOPIC_SET_HEAD_MESH).
+TOPIC_SET_HEAD_MESH = "Pipeline to Robot: Set head mesh"
+
 matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
 from enum import Enum, auto
@@ -417,6 +422,12 @@ class PipelineController:
         }
         self.remote.register_handlers(pub_to_func)
 
+    def set_head_mesh(self, path: str):
+        """Announce the project head mesh to the robot (sim: replaces the
+        phantom; real robot: informational). Send path is fire-and-forget."""
+        if path:
+            self.remote.send_message(TOPIC_SET_HEAD_MESH, {"mesh_path": path})
+
     async def run(self):
         """
         Asynchronously runs the main algorithm (`run_algorithm`) and health checks (`run_health_checks`) concurrently.
@@ -425,6 +436,11 @@ class PipelineController:
         -------
         None
         """
+        # Announce the head mesh configured in the project window (session
+        # cache) so a freshly started robot sim applies it immediately.
+        if self.control_panel:
+            fn_mesh = self.control_panel.loadmeshlabel.text().strip()
+            self.set_head_mesh(fn_mesh)
         if self.control_panel:
             await asyncio.gather(
                     self.run_algorithm(),

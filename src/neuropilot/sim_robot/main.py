@@ -25,7 +25,9 @@ continuing headless.
 
 import asyncio
 import argparse
+import json
 import math
+import os
 
 from . import config
 from .state import RobotState
@@ -115,9 +117,29 @@ async def main():
     state = RobotState()
 
     # ── 2. MuJoCo world ───────────────────────────────────────────────
+    # Head phantom override persisted from a previous session (the project
+    # head mesh converted for MuJoCo): applied before the model is built.
+    head_override = None
+    state.head_mesh_source = None
+    if os.path.isfile(config.HEAD_OVERRIDE_FILE):
+        try:
+            with open(config.HEAD_OVERRIDE_FILE) as f:
+                head_override = json.load(f).get("stl_path")
+            if head_override and os.path.isfile(head_override):
+                with open(config.HEAD_OVERRIDE_FILE) as f:
+                    state.head_mesh_source = json.load(f).get("msh_path")
+                log.info(f"Head phantom override active: {state.head_mesh_source}")
+            else:
+                log.warning("Head override file missing -- using the default phantom.")
+                head_override = None
+        except (OSError, ValueError) as e:
+            log.warning(f"Head override unreadable ({e}) -- using the default phantom.")
+            head_override = None
+
     world = MuJoCoWorld(
         use_gui=args.gui,
         end_effector_site_name=config.END_EFFECTOR_SITE_NAME,
+        head_mesh_stl=head_override,
     )
     world.connect()
     log.info("MuJoCo world loaded")
@@ -173,7 +195,7 @@ async def main():
     )
 
     # ── 6. Socket.IO client ───────────────────────────────────────────
-    client = SimRobotClient(url=url, state=state)
+    client = SimRobotClient(url=url, state=state, world=world)
 
     # ── 7. Controller ─────────────────────────────────────────────────
     controller = SimRobotController(

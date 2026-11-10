@@ -50,6 +50,11 @@ class RobotState:
     # Diagnostics
     last_status_text: str = "Idle"
 
+    # Head phantom override: the project head mesh this phantom was built
+    # from (None = the default head88.stl). Used to skip redundant
+    # conversions when the pipeline re-announces the same mesh.
+    head_mesh_source: Optional[str] = None
+
     def set_connected(self, connected: bool):
         self.connected = bool(connected)
         self.last_status_text = "Connected to relay" if connected else "Disconnected from relay"

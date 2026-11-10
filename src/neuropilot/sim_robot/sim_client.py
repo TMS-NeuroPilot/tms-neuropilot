@@ -10,10 +10,10 @@ log = get_logger(__name__)
 
 
 class SimRobotClient:
-    def __init__(self, url: str, state: RobotState):
+    def __init__(self, url: str, state: RobotState, world=None):
         self.url      = url
         self.state    = state
-        self.handlers = MessageHandlers(state)
+        self.handlers = MessageHandlers(state, world=world)
 
         self.sio = socketio.AsyncClient(
             reconnection=True,

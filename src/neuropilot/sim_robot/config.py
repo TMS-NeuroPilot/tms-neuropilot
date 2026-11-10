@@ -110,6 +110,15 @@ TOPIC_SET_TARGET     = "Neuronavigation to Robot: Set target"
 TOPIC_PRESS_BUTTON   = "Press robot button"
 TOPIC_SET_OBJECTIVE  = "Neuronavigation to Robot: Set objective"
 TOPIC_STOP           = "STOP"
+TOPIC_SET_HEAD_MESH  = "Pipeline to Robot: Set head mesh"
+
+# ─────────────────────────────────────────────
+# Head phantom override (set from the project window's head mesh)
+# ─────────────────────────────────────────────
+# The controller publishes the project head mesh on TOPIC_SET_HEAD_MESH; the
+# converted phantom is persisted here so a simulator restart picks it up.
+HEAD_OVERRIDE_FILE = os.path.join(os.path.expanduser("~"), ".neuropilot",
+                                  "sim_head_override.json")
 
 # ─────────────────────────────────────────────
 # Outgoing topics (robot sim publishes these)
