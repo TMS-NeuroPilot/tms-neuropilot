@@ -35,6 +35,16 @@ def _simnibs_coil_model(sub_dir: str, file_name: str):
     return fn if os.path.isfile(fn) else None
 
 
+def _session_cache_path():
+    """Per-user cache file holding the project fields between runs.
+
+    Lives in ``~/.neuropilot`` — ``os.path.expanduser`` resolves to the
+    user's profile directory on Windows as well, so the same code works on
+    the lab PCs without adjustment.
+    """
+    return os.path.join(os.path.expanduser("~"), ".neuropilot", "last_session.yaml")
+
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, simulation):
         super().__init__()
@@ -266,10 +276,46 @@ class MainWindow(QtWidgets.QMainWindow):
             _sb.valueChanged.connect(self._mark_project_dirty)
         self._update_project_label()
 
+        # Restore the last session's project fields. The values are only
+        # stashed here — they are applied in set_controller(), once the
+        # controller (and its setters) exist.
+        self._pending_session = None
+        cache_fn = _session_cache_path()
+        if os.path.isfile(cache_fn):
+            try:
+                with open(cache_fn, "r") as f:
+                    self._pending_session = yaml.safe_load(f) or {}
+            except (OSError, yaml.YAMLError) as e:
+                print(f"Session cache unreadable, ignoring: {e}")
+
+    # ── Session cache (per-user, ~/.neuropilot/last_session.yaml) ──────────
+    def _save_session_cache(self):
+        """Persist the current project fields for the next startup."""
+        fn = _session_cache_path()
+        try:
+            os.makedirs(os.path.dirname(fn), exist_ok=True)
+            with open(fn, "w") as f:
+                yaml.dump(self.get_config_dict(), f, default_flow_style=False)
+        except OSError as e:
+            print(f"Could not write session cache: {e}")
+
+    def _apply_pending_session(self):
+        """Apply the stashed session cache, if any (called on controller
+        attach so the values also reach the controller's setters)."""
+        if not self._pending_session:
+            return
+        self._project_loading = True
+        try:
+            self.apply_config_dict(self._pending_session)
+        finally:
+            self._project_loading = False
+        self._pending_session = None
+
     # ── Project file state ─────────────────────────────────────────────────
     def _mark_project_dirty(self, *_):
         if not getattr(self, "_project_ready", False) or self._project_loading:
             return
+        self._save_session_cache()
         if not self._project_dirty:
             self._project_dirty = True
             self._update_project_label()
@@ -928,6 +974,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.controller = controller
         if self.controller:
             self.slider1_spinbox1(20)
+            # Push the restored session values to the controller (the cache
+            # was loaded before the controller existed) — this also lets the
+            # user's last amplitude override the default 20 above.
+            self._apply_pending_session()
 
     # functions for the elements in the second Tap
     # === BEGIN: Handlers for loading the Mesh ===
@@ -1260,6 +1310,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self._project_file = file_path
             self._project_dirty = False
             self._update_project_label()
+            self._save_session_cache()
 
     def on_save_yaml(self):
         file_path = self._file_dialog(
@@ -1283,6 +1334,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self._project_file = file_path
             self._project_dirty = False
             self._update_project_label()
+            self._save_session_cache()
 
             print(f"Configuration successfully saved to: {file_path}")
 
