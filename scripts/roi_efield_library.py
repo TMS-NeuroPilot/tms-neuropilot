@@ -149,15 +149,15 @@ triangles_normals = triangles_normals.T
 n_tri = tri_center_coord_mid.shape[0]
 print(f"ROI midlayer: {n_tri} triangles")
 
-roi_simnibs = [FemTargetPointCloud(center=tri_center_coord_mid,
-                                   mesh=mesh_io.read_msh(os.path.abspath(args.mesh_msh)))]
+mesh_simn = mesh_io.read_msh(os.path.abspath(args.mesh_msh))
+roi_simnibs = [FemTargetPointCloud(center=tri_center_coord_mid, mesh=mesh_simn)]
 roi_simnibs[-1].triangles_normals = triangles_normals
 
 # Prepare the OnlineFEM solver (one factorization, one RHS per placement)
 # ============================================================================
 print("Preparing OnlineFEM ...")
 ofem = OnlineFEM(
-    mesh=roi_simnibs[0].mesh,
+    mesh=mesh_simn,
     method="TMS",
     fn_coil=os.path.abspath(args.coil),
     roi=roi_simnibs,
