@@ -1095,8 +1095,8 @@ class MainWindow(QtWidgets.QMainWindow):
         # 1. Look at the target order text box to see where they loaded from
         target_path = self.target_order_LineEdit.text().strip()
 
-        # 2. Default to current working directory just in case the box is empty
-        start_folder = os.getcwd()
+        # 2. Default to the user's home directory just in case the box is empty
+        start_folder = os.path.expanduser("~")
 
         # 3. If there is a target path, extract ONLY the folder part
         if target_path:
