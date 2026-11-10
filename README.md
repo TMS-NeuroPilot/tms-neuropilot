@@ -52,14 +52,3 @@ International (CC BY-NC-SA 4.0)** license — free to use, share, and adapt for
 non-commercial purposes (research and clinical science), with attribution and
 share-alike; commercial use requires prior permission from the authors.
 See `LICENSE` for the full text.
-
-## Contributing
-
-- Ole Numssen — `numssen@cbs.mpg.de` (MPI CBS / ScaDS.AI) — maintainer, project lead
-- Abdullah Yaseen — `yaseen@cbs.mpg.de` (MPI CBS)
-- Samuel Berggren — `berggren@cbs.mpg.de` (MPI CBS)
-- Andrew Meng — `mengdrew@umich.edu` (University of Michigan)
-- Benjamin Kalloch — `kalloch@cbs.mpg.de` (MPI CBS)
-- Konstantin Weise — `konstantin.weise@htwk-leipzig.de` (HTWK Leipzig / MPI CBS)
-- Thomas R. Knösche — `knoesche@cbs.mpg.de` (MPI CBS / TU Ilmenau)
-- Renan H. Matsuda — `renan.matsuda@aalto.fi` (Aalto University)
