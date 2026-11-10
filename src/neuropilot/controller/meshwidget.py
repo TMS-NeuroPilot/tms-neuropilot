@@ -17,7 +17,8 @@ class MeshWidget(QWidget):
 
         # --- 2. Top Control Bar ---
         self.controls_frame = QFrame()
-        self.controls_frame.setFixedHeight(40)
+        # Minimum height; the layout grows the bar with the (scaled) fonts.
+        self.controls_frame.setMinimumHeight(40)
         self.controls_frame.setStyleSheet("background-color: #f0f0f0; border-bottom: 1px solid #ccc;")
         self.controls_layout = QHBoxLayout(self.controls_frame)
         self.controls_layout.setContentsMargins(10, 5, 10, 5)
@@ -27,7 +28,10 @@ class MeshWidget(QWidget):
         self.controls_layout.addWidget(lbl)
 
         self.scalar_selector = QComboBox()
-        self.scalar_selector.setFixedWidth(200)
+        # Wide enough for the longest entry; grows with the available space.
+        self.scalar_selector.setMinimumWidth(280)
+        from PyQt5.QtWidgets import QSizePolicy
+        self.scalar_selector.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.scalar_selector.setStyleSheet("""
                     /* 1. Main Box Styling */
                     QComboBox {

@@ -270,22 +270,25 @@ class MainWindow(QtWidgets.QMainWindow):
         font), so for those a properly selected rule is appended to their
         stylesheet instead — a bare declaration outside a rule block would
         be invalid CSS and silently ignored."""
+        import re
         px = max(9, px)
         f = widget.font()
         f.setPixelSize(px)
         widget.setFont(f)
         ss = widget.styleSheet()
-        if "font-size" in ss:
-            # the (scaled) stylesheet already governs this widget's font size
-            return
-        import re
-        # strip previously appended scaling rules (both forms)
-        ss = re.sub(r"\s*/\* neuropilot font scaling \*/\s*\n?\w[\w:]* \{ font-size: \d+px; \}", "", ss)
-        ss = re.sub(r"\s*/\* neuropilot font scaling \*/ font-size: \d+px;", "", ss)
-        selector = widget.metaObject().className()
-        widget.setStyleSheet(
-            ss.rstrip()
-            + f"\n/* neuropilot font scaling */\n{selector} {{ font-size: {px}px; }}\n")
+        if ss:
+            if "font-size" in ss:
+                # the stylesheet governs this widget's font size — scale it
+                ss = re.sub(r"font-size:\s*\d+px", f"font-size: {max(9, px)}px", ss)
+                widget.setStyleSheet(ss)
+                return
+            # strip previously appended scaling rules (both forms)
+            ss = re.sub(r"\s*/\* neuropilot font scaling \*/\s*\n?\w[\w:]* \{ font-size: \d+px; \}", "", ss)
+            ss = re.sub(r"\s*/\* neuropilot font scaling \*/ font-size: \d+px;", "", ss)
+            selector = widget.metaObject().className()
+            widget.setStyleSheet(
+                ss.rstrip()
+                + f"\n/* neuropilot font scaling */\n{selector} {{ font-size: {px}px; }}\n")
 
     def _capture_base_rects(self):
         """Record the design-geometry of every absolutely-positioned
