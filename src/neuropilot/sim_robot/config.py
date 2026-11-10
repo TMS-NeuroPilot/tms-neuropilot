@@ -117,6 +117,15 @@ CRANE_DISPLACEMENT_THRESHOLD_MM = 20.0        # mm — below this = direct inter
 PATH_INTERPOLATION_STEPS        = 30          # steps per path segment (tweak for visual speed)
 
 # ─────────────────────────────────────────────
+# Press-to-contact (after reaching a target; mirrors the real robot's
+# pressure PID — the coil origin sits above the skin contact point)
+# ─────────────────────────────────────────────
+PRESS_ENABLED           = True
+PRESS_FORCE_THRESHOLD   = 1.5   # pipeline stalls below force_feedback > 1
+PRESS_STEP_MM           = 2.0
+PRESS_MAX_DEPTH_MM      = 30.0
+
+# ─────────────────────────────────────────────
 # Incoming topics (robot sim listens to these)
 # ─────────────────────────────────────────────
 TOPIC_CREATE_MARKER  = "External Controller to Neuronavigation: Create Marker"

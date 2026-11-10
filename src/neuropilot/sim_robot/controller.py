@@ -24,6 +24,10 @@ class SimRobotController:
 
     async def run(self):
         self._running = True
+        # Sync the shared state from the world once, so the first motion
+        # starts from the true initial pose (planned approach) instead of
+        # snapping to the target.
+        self.motion_planner.sync_state()
         await asyncio.gather(
             self.run_control_loop(),
             self.run_publish_loop(),

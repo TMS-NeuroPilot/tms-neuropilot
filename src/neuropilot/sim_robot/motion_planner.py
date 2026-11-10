@@ -23,6 +23,7 @@ class MotionState(Enum):
     DIRECT_MOVING     = 6
     CONVERGING        = 7
     COLLISION_HALT    = 8
+    PRESS             = 9
 
 
 class MotionPlanner:
@@ -62,6 +63,8 @@ class MotionPlanner:
         self._crane_descend: List[List[float]] = []
         self._target_key: Optional[Tuple] = None
         self._target_active: List[float] = []
+        self._press_depth: float = 0.0
+        self._press_dir = None
 
         self._move_away_active: bool = False
         self._move_away_path: List[List[float]] = []
@@ -123,6 +126,9 @@ class MotionPlanner:
         elif self._motion_state == MotionState.CONVERGING:
             self._converge()
 
+        elif self._motion_state == MotionState.PRESS:
+            self._press_step()
+
     # ────────────────────────────────────────────────────────────────
     # Internal helpers
     # ────────────────────────────────────────────────────────────────
@@ -142,6 +148,8 @@ class MotionPlanner:
         self._crane_descend = []
         self._target_key = None
         self._target_active = []
+        self._press_depth = 0.0
+        self._press_dir = None
         self.state.set_motion_done(False)
         self.state.set_tracking_valid(False)
 
@@ -402,12 +410,69 @@ class MotionPlanner:
         self.state.set_motion_done(motion_done)
         self.state.set_tracking_valid(motion_done)
         if motion_done:
-            self._motion_state = MotionState.IDLE
-            log.info(f"Target '{self.state.target.label}' reached — "
-                     f"pos_err={pos_err:.2f} mm, ori_err={ori_err:.2f} deg, "
-                     f"force={self.state.force_feedback:.3f}")
+            # The coil origin (TCP) sits above the skin contact point (the
+            # SimNIBS coil casing height), so reaching the target alone does
+            # not produce contact. Press toward the head until the simulated
+            # force feedback crosses the pipeline's threshold — the analogue
+            # of the real robot's pressure PID.
+            if config.PRESS_ENABLED and \
+                    self.contact_model.compute_force_feedback() < config.PRESS_FORCE_THRESHOLD:
+                self._motion_state = MotionState.PRESS
+                self._press_depth = 0.0
+                self._press_dir = None
+                log.info(f"Target '{self.state.target.label}' reached — "
+                         f"pressing toward the head for contact "
+                         f"(pos_err={pos_err:.2f} mm, ori_err={ori_err:.2f} deg)")
+            else:
+                self._motion_state = MotionState.IDLE
+                log.info(f"Target '{self.state.target.label}' reached — "
+                         f"pos_err={pos_err:.2f} mm, ori_err={ori_err:.2f} deg, "
+                         f"force={self.state.force_feedback:.3f}")
         else:
             log.debug(f"Converging — pos_err={pos_err:.2f} mm, ori_err={ori_err:.2f} deg")
+
+    def _press_step(self):
+        """Move the coil along its axis toward the head in small increments
+        until the contact force exceeds the pipeline threshold."""
+        import numpy as np
+        from .utils.transforms import euler_deg_to_matrix
+
+        self._press_depth += config.PRESS_STEP_MM
+        if self._press_depth > config.PRESS_MAX_DEPTH_MM:
+            log.warning("Press depth limit reached without contact -- "
+                        "continuing without force feedback.")
+            self._motion_state = MotionState.IDLE
+            return
+
+        # Press along the coil axis: -z of the target orientation points
+        # from the coil origin toward the head.
+        if self._press_dir is None:
+            R = euler_deg_to_matrix(self.state.target.orientation)
+            self._press_dir = [-c for c in R[:, 2]]
+        position = [self.state.target.position[i] + self._press_dir[i] * self._press_depth
+                    for i in range(3)]
+
+        padded_initial = self._build_padded_initial()
+        success, joint_solution = self.ik_solver.solve_with_config(
+            position_mm=position,
+            orientation_deg=self.state.target.orientation,
+            initial_position=padded_initial,
+            elbow_up=config.IK_ELBOW_UP,
+            max_retries=config.IK_MAX_RETRIES,
+        )
+        if not success:
+            log.debug(f"Press: IK failed at depth {self._press_depth:.1f} mm")
+            return
+
+        self.world.reset_joint_positions(joint_solution[1:7])
+        self.world.step(n_steps=4)
+        self._sync_state()
+
+        force = self.state.force_feedback
+        if force >= config.PRESS_FORCE_THRESHOLD:
+            log.info(f"Coil pressed onto the head at {self._press_depth:.1f} mm "
+                     f"depth -- force {force:.2f}")
+            self._motion_state = MotionState.IDLE
 
     # ────────────────────────────────────────────────────────────────
     # State synchronisation
@@ -428,6 +493,11 @@ class MotionPlanner:
         self.state.update_current_pose(achieved_pos_mm, achieved_ori_deg)
         force = self.contact_model.compute_force_feedback()
         self.state.set_force_feedback(force)
+
+    def sync_state(self):
+        """Public wrapper: sync the shared state from the world (used at
+        startup so the first motion starts from the true initial pose)."""
+        self._sync_state()
 
     # ────────────────────────────────────────────────────────────────
     # Pose-error computation
