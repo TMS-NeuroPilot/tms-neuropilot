@@ -100,6 +100,12 @@ def inverse_pipeline_axis_transform(
 
     """
 
+    # TODO: this variant leaves the position untouched, while the same
+    # function in sim_nav/transforms.py also inverts the position
+    # (swap x/y, flip z) to undo the documented forward transform. Either
+    # the callers here compensate separately or this is a latent bug --
+    # check the robot message handling (message_handlers.py) before
+    # changing this.
     pos = [position[0], position[1], position[2]]
 
     # Inverse rotation: rebuild matrix, swap cols back, un-flip col2
