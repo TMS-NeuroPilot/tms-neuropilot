@@ -265,7 +265,7 @@ class EmgNavGraphWidget(MplGraphWidget):
             /* Disabled button style */
             QPushButton:disabled {
                 background-color: #A2C8E3; /* Lighter blue background when disabled */
-                color: #A6B9C9; /* Light grayish blue text */
+                color: #4A6B88; /* Medium blue-grey, consistent with the main stylesheets */
                 border: 2px solid #A2C8E3; /* Border same as background */
             
             }

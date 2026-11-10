@@ -904,7 +904,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
+    color: #4A6B88; /* Medium blue-grey: readable but soft on the disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
@@ -960,7 +960,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
+    color: #4A6B88; /* Medium blue-grey: readable but soft on the disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
@@ -1119,14 +1119,14 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
+    color: #4A6B88; /* Medium blue-grey: readable but soft on the disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
 </string>
                       </property>
                       <property name="text">
-                       <string>Try to reconnect</string>
+                       <string>Reconnect</string>
                       </property>
                      </widget>
                     </item>
@@ -1302,14 +1302,14 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
+    color: #4A6B88; /* Medium blue-grey: readable but soft on the disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
 </string>
                       </property>
                       <property name="text">
-                       <string>Try to reconnect</string>
+                       <string>Reconnect</string>
                       </property>
                      </widget>
                     </item>
@@ -1485,7 +1485,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
+    color: #4A6B88; /* Medium blue-grey: readable but soft on the disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
@@ -2033,7 +2033,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
+    color: #4A6B88; /* Medium blue-grey: readable but soft on the disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
@@ -2096,7 +2096,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
+    color: #4A6B88; /* Medium blue-grey: readable but soft on the disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
@@ -2159,7 +2159,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
+    color: #4A6B88; /* Medium blue-grey: readable but soft on the disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
@@ -2231,7 +2231,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
+    color: #4A6B88; /* Medium blue-grey: readable but soft on the disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
@@ -2303,7 +2303,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
+    color: #4A6B88; /* Medium blue-grey: readable but soft on the disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
@@ -2375,7 +2375,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #CF290A; /* Lighter blue background when disabled */
-    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
+    color: #4A6B88; /* Medium blue-grey: readable but soft on the disabled background */
     border: 2px solid #CF290A; /* Border same as background */
 
 }
@@ -2438,7 +2438,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
+    color: #4A6B88; /* Medium blue-grey: readable but soft on the disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
@@ -2863,7 +2863,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
+    color: #4A6B88; /* Medium blue-grey: readable but soft on the disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
