@@ -32,8 +32,8 @@ The FPS and D-optimal implementations come from
 Example:
     python scripts/03_create_optimized_sequences.py \
         --e-hdf5 data/ernie/efield/e.hdf5 \
-        --n-stim 500 \
-        --out-dir data/ernie/efield
+        --n-stim 500
+        # sequences land in data/ernie/coil_path by default
 """
 
 import argparse
@@ -82,7 +82,11 @@ def main():
                              "(default: 1)")
     args = parser.parse_args()
 
-    out_dir = args.out_dir or os.path.dirname(os.path.abspath(args.e_hdf5))
+    # Sequences land in a sibling coil_path/ directory of the e.hdf5
+    # (the placement sequences are consumed by the pipeline, not the
+    # E-field library itself).
+    out_dir = args.out_dir or os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(args.e_hdf5))), "coil_path")
     os.makedirs(out_dir, exist_ok=True)
 
     with h5py.File(args.e_hdf5, "r") as f:

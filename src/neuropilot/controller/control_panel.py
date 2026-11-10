@@ -58,10 +58,10 @@ class MainWindow(QtWidgets.QMainWindow):
             "target_order_LineEdit": "Optional text file with the stimulation target order\n"
                                      "(one target per line).",
             "loadplacementlabel": "Coil placement library: HDF5 with the candidate placements,\n"
-                                  "e.g. search_positions.hdf5 from scripts/roi_efield_library.py.",
+                                  "e.g. search_positions.hdf5 from scripts/02_create_roi_efield_library.py.",
             "load_e_matrix_label": "Precomputed E-field library: e.hdf5 with the E_mag dataset\n"
                                    "(n_placements x n_roi_elements), written by\n"
-                                   "scripts/roi_efield_library.py. Used by the Precomputed E-Field mode.",
+                                   "scripts/02_create_roi_efield_library.py. Used by the Precomputed E-Field mode.",
             "savePathLineEdit": "Results CSV file: MEP/regression results are written here\n"
                                 "(a .csv ending is added automatically).",
             "coilspathlineedit": "TMS coil model: SimNIBS coil file (.ccd or .ccd.nii.gz),\n"

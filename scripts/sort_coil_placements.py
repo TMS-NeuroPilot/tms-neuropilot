@@ -16,8 +16,8 @@ pynibs).
 Example:
     python scripts/sort_coil_placements.py \
         --matsimnibs data/ernie/efield/search_positions.hdf5 \
-        --coil-seq data/ernie/efield/sequences \
-        --out-dir data/ernie/efield/sequences_sorted
+        --coil-seq data/ernie/coil_path \
+        --out-dir data/ernie/coil_path
 """
 
 import argparse
