@@ -848,7 +848,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 )
                 _set_group_title("groupBox_2", "Stimulator")
 
-            elif "emg computer" in name:
+            elif "emg" in name:
                 self._bind_system(
                         system=system,
                         status_label=getattr(self, "emgStatusLabel", None),
@@ -975,7 +975,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.robot_ready = is_system_ok
         elif "stimulator" in name:
             self.stim_ready = is_system_ok
-        elif "emg computer" in name:
+        elif "emg" in name:
             self.emg_ready = is_system_ok
 
         # 2. Evaluate if ALL three systems are True (The AND Gate)

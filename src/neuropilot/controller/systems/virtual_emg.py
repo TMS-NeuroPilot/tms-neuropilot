@@ -5,8 +5,8 @@ from ..systems.system import System, SystemStatus
 from pynibs.expio.Mep import get_virtual_mep_tvs, scale_e_for_dvs
 
 
-class VirtualEMGComputer2(System):
-    NAME = "Virtual EMG Computer 2"
+class VirtualEMG(System):
+    NAME = "Virtual EMG"
     DESCRIPTION = "Simulated (E-field driven)"
     ERROR_RECOVERIES = {}
 

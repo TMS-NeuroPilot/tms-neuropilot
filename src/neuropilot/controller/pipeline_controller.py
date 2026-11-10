@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 from enum import Enum, auto
 from dotenv import load_dotenv
 from .systems.emg import EMGComputer
-from .systems.virtual_emg_computer2 import VirtualEMGComputer2
+from .systems.virtual_emg import VirtualEMG
 from .systems.stimulator import Stimulator
 from .systems.virtual_stimulator import VirtualStimulator
 from .systems.robot import Robot
@@ -87,7 +87,7 @@ class PipelineController:
             self.stimulator = Stimulator(update_control_panel_func)
             self.systems.append(self.stimulator)
         else:
-            self.emg_computer = VirtualEMGComputer2(update_control_panel_func)
+            self.emg_computer = VirtualEMG(update_control_panel_func)
             self.systems.append(self.emg_computer)
             self.stimulator = VirtualStimulator(update_control_panel_func)
             self.systems.append(self.stimulator)
@@ -288,7 +288,7 @@ class PipelineController:
                     if self.control_panel is not None:
                         self.control_panel.totaltargets1.setText(f"{self.n_positions}")
                     # pass e-matrix to the virtual emg computer
-                    if isinstance(self.emg_computer, VirtualEMGComputer2):
+                    if isinstance(self.emg_computer, VirtualEMG):
                         self.emg_computer.set_e_matrix(self.e_matrix)
                 else:
                     print(f"Error: Keys found in file: {list(f.keys())}")
@@ -829,7 +829,7 @@ class PipelineController:
             self.pressure_at_stim = self.cobotOnTarget
 
             # Feed coil position + intensity to the virtual EMG computer
-            if isinstance(self.emg_computer, VirtualEMGComputer2):
+            if isinstance(self.emg_computer, VirtualEMG):
                 self.emg_computer.set_current_state(
                     coil_placement_idx=self.current_target_index,
                     stimuator_amplitude =self.stimulator_amplitude,
