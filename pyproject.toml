@@ -34,5 +34,5 @@ Homepage = "https://gitlab.gwdg.de/tms-localization/papers/neuropilot"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"neuropilot.sim_robot" = ["assets/**/*", "mjmodel.xml"]
+"neuropilot.sim_robot" = ["assets/**/*"]
 "neuropilot.controller" = ["gui/*.png", "gui/*.ui", "example_data/*", "search_positions.hdf5"]

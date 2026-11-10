@@ -7,3 +7,4 @@ mjmodel.txt
 .idea/
 *.egg-info/
 data/
+src/neuropilot/sim_robot/assets/mjcf/_generated_scene.xml
