@@ -19,31 +19,40 @@ class VirtualEMG(System):
         self.current_coil_placement_idx = 0
         self.stimulator_amplitude = None
 
-        # Channel names and count come from .env (EMG_CHANNELS, comma
-        # separated); the cortical source element per channel is configured
-        # in the project window (element_id or xyz -> closest element) and
-        # assigned positionally via set_channel_elements().
-        self.channel_names = [n.strip() for n in
+        # The channel count comes from .env (EMG_CHANNELS, comma separated --
+        # the entries are the *display* names, e.g. FDI,APB,ADM). The data
+        # layer always speaks ADC: EMG data columns and keys are
+        # "ADC 0..N-1", and only the GUI labels and the results output use
+        # the display names. The cortical source element per channel is
+        # configured in the project window (element_id or xyz -> closest
+        # element) and assigned positionally via set_channel_elements().
+        self.display_names = [n.strip() for n in
                               os.getenv("EMG_CHANNELS", "ADC 0,ADC 1,ADC 2").split(",")
                               if n.strip()]
+        self.channel_count = len(self.display_names)
+        self.data_channel_names = [f"ADC {i}" for i in range(self.channel_count)]
         default_elements = [5208, 5165, 4456]
-        self.channel_elements = (default_elements[:len(self.channel_names)]
-                                 + [None] * max(0, len(self.channel_names) - len(default_elements)))
+        self.channel_elements = (default_elements[:self.channel_count]
+                                 + [None] * max(0, self.channel_count - len(default_elements)))
         if any(e is None for e in self.channel_elements):
             print("WARNING: More EMG channels configured than default sources -- "
                   "set the sources in the project window.")
 
     def set_channel_elements(self, elements):
         """Assign one cortical source element per channel (positional, in the
-        order of channel_names). Raises on a count mismatch."""
-        if len(elements) != len(self.channel_names):
+        order of the data channels). Raises on a count mismatch."""
+        if len(elements) != self.channel_count:
             raise ValueError(
                 f"EMG source count ({len(elements)}) does not match the "
-                f"channel count ({len(self.channel_names)}: {self.channel_names})"
+                f"channel count ({self.channel_count})"
             )
         self.channel_elements = list(elements)
-        for name, elem in zip(self.channel_names, self.channel_elements):
-            print(f"EMG channel '{name}' -> element {elem}")
+        for key, elem in zip(self.data_channel_names, self.channel_elements):
+            print(f"EMG channel '{key}' -> element {elem}")
+
+    def display_name_map(self):
+        """Mapping of data channel keys ('ADC 0'...) to display names."""
+        return {key: name for key, name in zip(self.data_channel_names, self.display_names)}
 
     def set_e_matrix(self, e_matrix):
         """Called when user uploads E-field matrix via GUI"""
@@ -75,7 +84,7 @@ class VirtualEMG(System):
                              "set them in the project window.")
 
         vpps = {}
-        for name, elem_idx in zip(self.channel_names, self.channel_elements):
+        for name, elem_idx in zip(self.data_channel_names, self.channel_elements):
             # Get E-field at this element for current placement
             if e_field_for_mep is not None:
                 print(f"Shape of e_field_for_mep: {e_field_for_mep}")

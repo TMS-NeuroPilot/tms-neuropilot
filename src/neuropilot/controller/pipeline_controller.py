@@ -505,7 +505,7 @@ class PipelineController:
             print(f"EMG config rejected: {e}")
             return
         if self.control_panel:
-            self.control_panel.set_emg_channels(list(self.emg_computer.channel_names))
+            self.control_panel.set_emg_channels(self.emg_computer.display_names)
 
     async def run(self):
         """
@@ -655,6 +655,17 @@ class PipelineController:
             results_mep = pd.DataFrame().from_dict(self.mep_history)
             results_mep_amp = pd.DataFrame().from_dict(self.emg_preac_amp_history)
             results_mep_var = pd.DataFrame().from_dict(self.emg_preac_var_history)
+            # The data layer speaks ADC; label the MEP columns with the
+            # configured display names for the results output.
+            if isinstance(self.emg_computer, VirtualEMG):
+                rename = {}
+                for key, name in self.emg_computer.display_name_map().items():
+                    rename[key] = name
+                    rename[f"{key}_preact_p2p"] = f"{name}_preact_p2p"
+                    rename[f"{key}_preact_var"] = f"{name}_preact_var"
+                results_mep = results_mep.rename(columns=rename)
+                results_mep_amp = results_mep_amp.rename(columns=rename)
+                results_mep_var = results_mep_var.rename(columns=rename)
             results = pd.concat([results.reset_index(drop=True),
                                  results_mep,
                                  results_mep_amp,

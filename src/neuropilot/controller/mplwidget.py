@@ -81,6 +81,7 @@ class MplGraphWidget(QWidget):
         self.checkboxes = {}
         self.lines = {}
         self.channel_names = ["ADC 0", "ADC 1", "ADC 2"]
+        self.channel_keys = list(self.channel_names)
 
         for name in self.channel_names:
             cb = QCheckBox(name)
@@ -163,14 +164,18 @@ class MplGraphWidget(QWidget):
                        "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
 
     def set_channels(self, names):
-        """Configure the channel list (names come from .env via the EMG
-        config): rebuilds the sidebar checkboxes and recolors the plots."""
+        """Configure the channels for display: `names` are the display names
+        (from EMG_CHANNELS in .env); the data layer keys stay 'ADC 0..N-1'.
+        Rebuilds the sidebar checkboxes (labelled with the display names)
+        and recolors the plots."""
         names = list(names)
+        data_keys = [f"ADC {i}" for i in range(len(names))]
         if names == self.channel_names:
             return
         self.channel_names = names
-        self.channel_colors = {n: self.CHANNEL_PALETTE[i % len(self.CHANNEL_PALETTE)]
-                               for i, n in enumerate(names)}
+        self.channel_keys = data_keys
+        self.channel_colors = {key: self.CHANNEL_PALETTE[i % len(self.CHANNEL_PALETTE)]
+                               for i, key in enumerate(data_keys)}
 
         # Rebuild the sidebar checkboxes (the fixed items above them —
         # title, separator, "CHANNELS" label — stay in place). setParent(None)
@@ -187,15 +192,15 @@ class MplGraphWidget(QWidget):
         self.checkboxes = {}
         self.lines = {}
         base_index = 3
-        for i, name in enumerate(names):
+        for i, (key, name) in enumerate(zip(data_keys, names)):
             cb = QCheckBox(name)
             cb.setChecked(True)
             cb.setCursor(Qt.PointingHandCursor)
-            hex_color = self.channel_colors.get(name, "#333")
+            hex_color = self.channel_colors.get(key, "#333")
             cb.setStyleSheet(f"color: {hex_color}; font-weight: 600;")
             cb.stateChanged.connect(self.update_visibility)
             self.sidebar_layout.insertWidget(base_index + i, cb)
-            self.checkboxes[name] = cb
+            self.checkboxes[key] = cb
         self.ax.cla()
         self.canvas.draw()
 
@@ -205,7 +210,7 @@ class MplGraphWidget(QWidget):
         self.lines = {}
 
         for name, data in data_dict.items():
-            if name in self.channel_names:
+            if name in self.channel_keys:
                 # Use the consistent color defined in __init__
                 c = self.channel_colors.get(name, 'black')
                 line, = self.ax.plot(time_array, data, label=name, color=c, linewidth=1.2, alpha=0.9)
@@ -226,7 +231,7 @@ class MplGraphWidget(QWidget):
         self.lines = {}
         print(f"in update_as_trend: {history_dict}")
         for name, values in history_dict.items():
-            if name in self.channel_names:
+            if name in self.channel_keys:
                 current_x = np.array(target_indices[:len(values)])
                 if exclusion is not None and len(exclusion) > 0:
                     print(f"exclusion: {exclusion}")

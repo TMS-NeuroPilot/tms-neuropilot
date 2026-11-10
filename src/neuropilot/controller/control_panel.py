@@ -1109,7 +1109,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.controller.set_emg_config(file_path)
 
     def set_emg_channels(self, names):
-        """Propagate the configured EMG channel names to the MEP plots."""
+        """Propagate the configured EMG channel display names to the MEP
+        plots (the data layer keeps its ADC keys)."""
         for attr in ("widget_mep_trend", "widget_emg_signal"):
             widget = getattr(self, attr, None)
             if widget is not None:
