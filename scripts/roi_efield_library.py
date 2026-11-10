@@ -56,7 +56,7 @@ parser.add_argument("--target-radius", type=float, default=1.0,
                     help="Target size passed to TMSoptimize (mm)")
 parser.add_argument("--anisotropy", default="scalar", choices=["scalar", "vn"],
                     help="Tissue conductivity model")
-parser.add_argument("--solver", default="",
+parser.add_argument("--solver", default="mumps",
                     help="SimNIBS solver options (empty: default direct solver; "
                          "'pardiso' requires the pardiso package)")
 parser.add_argument("--didt", type=float, default=1e6,
