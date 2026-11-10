@@ -466,10 +466,30 @@ class MainWindow(QtWidgets.QMainWindow):
         super().resizeEvent(event)
 
     def _current_scale(self):
-        base_w, base_h = self._base_rects["size"]
+        rects = getattr(self, "_base_rects", None)
+        if not rects:
+            return 1.0
+        base_w, base_h = rects["size"]
         if not base_w or not base_h:
             return 1.0
         return min(self.width() / base_w, self.height() / base_h)
+
+    def _file_dialog(self, title, start_folder, name_filter, save=False):
+        """Non-native file dialog with a size scaled to the window.
+
+        The static convenience dialogs open with a small default size that
+        does not follow the window scaling; a real dialog instance can be
+        resized to match. Returns the selected path or "" on cancel.
+        """
+        dlg = QtWidgets.QFileDialog(self, title, start_folder, name_filter)
+        dlg.setOption(QtWidgets.QFileDialog.DontUseNativeDialog, True)
+        s = self._current_scale()
+        dlg.resize(int(1000 * s), int(650 * s))
+        if save:
+            dlg.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
+        if dlg.exec_() == QtWidgets.QDialog.Accepted:
+            return dlg.selectedFiles()[0]
+        return ""
 
     def _apply_styles_if_needed(self):
         self._styles_timer_pending = False
@@ -913,11 +933,11 @@ class MainWindow(QtWidgets.QMainWindow):
     # === BEGIN: Handlers for loading the Mesh ===
     def pick_mesh(self):
         """Opens file dialog and loads mesh into the 3D widget."""
-        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
-                self,
+        file_path = self._file_dialog(
                 "Select Mesh File",
                 os.getcwd(),
-                "HDF5 Files (*.hdf5 *.h5);;VTK Files (*.vtk)"
+                "HDF5 Files (*.hdf5 *.h5);;VTK Files (*.vtk)",
+                save=False
         )
         if file_path:
             # just show path in QLineEdit
@@ -971,11 +991,11 @@ class MainWindow(QtWidgets.QMainWindow):
             current = self.coilspathlineedit.text().strip()
             start_folder = (os.path.dirname(current) if os.path.isdir(os.path.dirname(current))
                             else os.path.expanduser("~"))
-        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self,
-            "Select Coil Model File",
-            start_folder,
-            "CCD Files (*.ccd *.ccd.nii.gz)"
+        file_path = self._file_dialog(
+                "Select Coil Model File",
+                start_folder,
+                "CCD Files (*.ccd *.ccd.nii.gz)",
+                save=False
         )
         if file_path:
             self.coilspathlineedit.setText(file_path)
@@ -1009,11 +1029,11 @@ class MainWindow(QtWidgets.QMainWindow):
     # === BEGIN: Handlers for loading the ROI ===
     def pick_ROI(self):
         """Opens file dialog and loads HDF5 mesh."""
-        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
-                self,
+        file_path = self._file_dialog(
                 "Select Mesh File",
                 os.getcwd(),
-                "HDF5 Files (*.hdf5 *.h5);;VTK Files (*.vtk)"
+                "HDF5 Files (*.hdf5 *.h5);;VTK Files (*.vtk)",
+                save=False
         )
         if file_path:
             # just show path in QLineEdit
@@ -1057,11 +1077,11 @@ class MainWindow(QtWidgets.QMainWindow):
     # === BEGIN: Handlers for loading the Target Path  ===
     def pick_target_order_path(self):
         """Opens file dialog and loads Target Order txt file."""
-        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
-                self,
+        file_path = self._file_dialog(
                 "Select Target Order File",
                 os.getcwd(),
-                "Text Files (*.txt)"
+                "Text Files (*.txt)",
+                save=False
         )
         if file_path:
             # just show path in QLineEdit
@@ -1089,11 +1109,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
     # === BEGIN: Handlers for loading the coil placements  ===
     def pick_coilplacement(self):
-        file_path_coil_placement, _ = QtWidgets.QFileDialog.getOpenFileName(
-                self,
+        file_path_coil_placement = self._file_dialog(
                 "Select a file",
                 os.getcwd(),
-                "HDF5 Files (*.hdf5)"
+                "HDF5 Files (*.hdf5)",
+                save=False
         )
         if file_path_coil_placement:
             # just show path in QLineEdit
@@ -1122,11 +1142,11 @@ class MainWindow(QtWidgets.QMainWindow):
     # === BEGIN: Handlers for loading the E-Field ===
     def pick_e_field(self):
         """Opens file dialog and loads HDF5 E Field."""
-        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
-                self,
+        file_path = self._file_dialog(
                 "Select Mesh File",
                 os.getcwd(),
-                "HDF5 Files (*.hdf5)"
+                "HDF5 Files (*.hdf5)",
+                save=False
         )
         if file_path:
             # just show path in QLineEdit
@@ -1170,11 +1190,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 start_folder = extracted_folder
 
         # 4. Open the Save dialog explicitly in that 'start_folder'
-        file_path, _ = QtWidgets.QFileDialog.getSaveFileName(
-                self,
+        file_path = self._file_dialog(
                 "Select Save Location",
                 start_folder,  # <--- This tells the window exactly where to open!
-                "CSV Files (*.csv);;All Files (*)"
+                "CSV Files (*.csv);;All Files (*)",
+                save=True
         )
         if file_path:
             if not file_path.lower().endswith('.csv'):
@@ -1216,8 +1236,7 @@ class MainWindow(QtWidgets.QMainWindow):
     # ===
     def on_load_yaml(self):
         """Opens file dialog and loads YAML file."""
-        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
-                self,
+        file_path = self._file_dialog(
                 "Load Config",
                 os.path.dirname(self._project_file) if self._project_file
                 else os.path.expanduser("~"),
@@ -1243,12 +1262,12 @@ class MainWindow(QtWidgets.QMainWindow):
             self._update_project_label()
 
     def on_save_yaml(self):
-        file_path, _ = QtWidgets.QFileDialog.getSaveFileName(
-                self,
+        file_path = self._file_dialog(
                 "Select Save Location",
                 os.path.dirname(self._project_file) if self._project_file
                 else os.path.expanduser("~"),
-                "YAML Files (*.yaml *.yml)"
+                "YAML Files (*.yaml *.yml)",
+                save=True
         )
         if file_path:
             # 1. Ensure the file has the correct extension
