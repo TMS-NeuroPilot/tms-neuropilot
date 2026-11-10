@@ -115,6 +115,26 @@ class MuJoCoWorld:
         gravity = " ".join(f"{g:g}" for g in config.GRAVITY)
         composed_dir = os.path.join(PROJECT_ROOT, "assets", "mjcf")
 
+        # Overview camera for the GUI stream: looks at the midpoint between
+        # robot base and head from the front-left, slightly above.
+        import numpy as _np
+        base = _np.array(config.ROBOT_BASE_POSITION)
+        head = _np.array(config.HEAD_POSITION) + _np.array([0.0, 0.0, 0.3])
+        look_at = (_np.array(config.CAMERA_STREAM_TARGET) if config.CAMERA_STREAM_TARGET
+                   else (base + head) / 2.0)
+        cam_pos = look_at + _np.array(config.CAMERA_STREAM_OFFSET)
+        forward = look_at - cam_pos
+        forward = forward / _np.linalg.norm(forward)
+        up_world = _np.array([0.0, 0.0, 1.0])
+        right = _np.cross(forward, up_world)
+        right /= _np.linalg.norm(right)
+        up = _np.cross(right, forward)
+        pos_str = " ".join(f"{v:.3f}" for v in cam_pos)
+        xyaxes_str = " ".join(f"{v:.3f}" for v in [*right, *up])
+        gui_camera = (f'<camera name="{config.GUI_CAMERA_NAME}" mode="fixed" '
+                      f'fovy="{config.CAMERA_STREAM_FOVY}" '
+                      f'pos="{pos_str}" xyaxes="{xyaxes_str}"/>')
+
         def _include_for(path: str) -> str:
             """Include paths must be relative to the composed file's directory."""
             return os.path.relpath(os.path.join(PROJECT_ROOT, path), composed_dir)
@@ -175,6 +195,9 @@ class MuJoCoWorld:
           rgba="0 1 0 1" contype="0" conaffinity="0"/>
     <geom name="axis_z" type="capsule" size="0.005" fromto="0 0 0  0 0 0.3"
           rgba="0 0 1 0.5" contype="0" conaffinity="0"/>
+
+    <!-- Fixed overview camera for the GUI stream (robot + head in frame) -->
+    {gui_camera}
   </worldbody>
 </mujoco>
 """

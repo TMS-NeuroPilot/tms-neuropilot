@@ -1,4 +1,6 @@
 from PyQt5 import QtCore, QtWidgets, uic
+from PyQt5.QtGui import QPixmap
+from PyQt5.QtCore import Qt
 import re
 import sys
 import os
@@ -883,6 +885,24 @@ class MainWindow(QtWidgets.QMainWindow):
             recover_button.setEnabled(False)
             # capture system object in default arg
             recover_button.clicked.connect(lambda _, s=system: self.on_recover_clicked(s))
+
+    def update_robot_view(self, jpeg_bytes: bytes):
+        """Show one frame of the simulated robot's overview camera in the
+        panel below the logger. Real-hardware mode never receives frames,
+        so the panel stays clean there."""
+        label = self.robot_view_label
+        now = time.monotonic()
+        # Throttle the GUI updates (the stream is 10 Hz; painting every
+        # frame is wasted work when frames arrive faster than repaints).
+        if now - getattr(self, "_last_robot_view_update", 0.0) < 0.08:
+            return
+        self._last_robot_view_update = now
+        pixmap = QPixmap()
+        if not pixmap.loadFromData(jpeg_bytes, "JPEG"):
+            return
+        scaled = pixmap.scaled(label.width(), label.height(),
+                               Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        label.setPixmap(scaled)
 
     def update_system_status(self, system=None, status=None, message=None):
         if system is None:

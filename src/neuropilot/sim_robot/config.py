@@ -64,6 +64,20 @@ ACTUATOR_KP          = 200.0
 ACTUATOR_KV          = 10.0
 
 # ─────────────────────────────────────────────
+# GUI camera stream (fixed overview camera, JPEG over the relay)
+# ─────────────────────────────────────────────
+GUI_CAMERA_NAME      = "gui_cam"
+CAMERA_STREAM_WIDTH  = 480
+CAMERA_STREAM_HEIGHT = 360
+CAMERA_STREAM_FPS    = 10.0
+CAMERA_STREAM_QUALITY = 70
+CAMERA_STREAM_FOVY   = 55
+# Overview camera placement: look-at point (None = midpoint of robot base
+# and head, slightly above) and the camera position relative to it.
+CAMERA_STREAM_TARGET = [0.22, -0.22, 0.15]
+CAMERA_STREAM_OFFSET = [0.35, -1.05, 0.20]
+
+# ─────────────────────────────────────────────
 # Room layout (edit these to match physical room)
 # ─────────────────────────────────────────────
 ROBOT_BASE_POSITION = [0.0, 0.0, 0.0]       # [x, y, z] in meters — robot base in world
@@ -111,6 +125,9 @@ TOPIC_PRESS_BUTTON   = "Press robot button"
 TOPIC_SET_OBJECTIVE  = "Neuronavigation to Robot: Set objective"
 TOPIC_STOP           = "STOP"
 TOPIC_SET_HEAD_MESH  = "Pipeline to Robot: Set head mesh"
+
+# Outgoing: GUI camera stream (consumed by the pipeline's robot view panel)
+TOPIC_CAMERA_FRAME   = "SIM - Robot to Pipeline: Camera frame"
 
 # ─────────────────────────────────────────────
 # Head phantom override (set from the project window's head mesh)

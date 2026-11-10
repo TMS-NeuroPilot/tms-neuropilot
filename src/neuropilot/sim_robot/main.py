@@ -208,6 +208,12 @@ async def main():
     await client.connect()
     log.info("Connected to relay — starting controller loops")
 
+    # Stream overview frames of the scene to the pipeline GUI (robot view
+    # panel below the logger).
+    from .camera_streamer import CameraStreamer
+    streamer = CameraStreamer(world, client)
+    streamer.start()
+
     # Set the viewer window icon once the window exists (X11 only; the icon
     # shows in the taskbar and alt-tab). No-op on Wayland windows.
     icon_thread = threading.Thread(
@@ -235,6 +241,7 @@ async def main():
     except asyncio.CancelledError:
         log.info("Simulator shutting down")
     finally:
+        streamer.stop()
         world.disconnect()
         log.info("MuJoCo disconnected — bye")
 

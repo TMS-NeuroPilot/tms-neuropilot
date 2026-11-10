@@ -14,6 +14,7 @@ class SimRobotClient:
         self.url      = url
         self.state    = state
         self.handlers = MessageHandlers(state, world=world)
+        self.loop = None  # running event loop, captured in connect()
 
         self.sio = socketio.AsyncClient(
             reconnection=True,
@@ -33,6 +34,7 @@ class SimRobotClient:
     async def connect(self) -> None:
         # The initial connect must succeed; reconnection=True only helps
         # afterwards. Retry with a clear log instead of a raw traceback.
+        self.loop = asyncio.get_running_loop()
         while True:
             try:
                 await self.sio.connect(self.url)
