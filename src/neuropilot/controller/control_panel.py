@@ -40,7 +40,7 @@ class MainWindow(QtWidgets.QMainWindow):
         super().__init__()
 
         # ui is inside the "gui" folder
-        ui_path = resource_path(os.path.join("gui", "pipeline_control2.ui"))
+        ui_path = resource_path(os.path.join("gui", "pipeline_control.ui"))
         uic.loadUi(ui_path, self)
 
         # Default window size: open at a comfortable fraction of the screen so
