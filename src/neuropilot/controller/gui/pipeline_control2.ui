@@ -3497,9 +3497,9 @@ QLabel#led_robot[status=&quot;on&quot;][color=&quot;yellow&quot;] {
          <widget class="QRadioButton" name="online_efield_btn">
           <property name="geometry">
            <rect>
-            <x>630</x>
-            <y>10</y>
-            <width>131</width>
+            <x>668</x>
+            <y>59</y>
+            <width>24</width>
             <height>23</height>
            </rect>
           </property>
@@ -3507,15 +3507,18 @@ QLabel#led_robot[status=&quot;on&quot;][color=&quot;yellow&quot;] {
            <string notr="true"/>
           </property>
           <property name="text">
-           <string>Online E-Field</string>
+           <string/>
+          </property>
+          <property name="toolTip">
+           <string>Select the Online E-Field mode (live FEM per pulse)</string>
           </property>
          </widget>
          <widget class="QRadioButton" name="offline_efield_btn">
           <property name="geometry">
            <rect>
-            <x>450</x>
-            <y>10</y>
-            <width>171</width>
+            <x>488</x>
+            <y>59</y>
+            <width>24</width>
             <height>23</height>
            </rect>
           </property>
@@ -3523,7 +3526,42 @@ QLabel#led_robot[status=&quot;on&quot;][color=&quot;yellow&quot;] {
            <string notr="true"/>
           </property>
           <property name="text">
+           <string/>
+          </property>
+          <property name="toolTip">
+           <string>Select the Precomputed E-Field mode (e.hdf5 library)</string>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_precomputed_efield">
+          <property name="geometry">
+           <rect>
+            <x>410</x>
+            <y>10</y>
+            <width>171</width>
+            <height>45</height>
+           </rect>
+          </property>
+          <property name="text">
            <string>Precomputed E-Field</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_online_efield">
+          <property name="geometry">
+           <rect>
+            <x>610</x>
+            <y>10</y>
+            <width>131</width>
+            <height>45</height>
+           </rect>
+          </property>
+          <property name="text">
+           <string>Online E-Field</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
           </property>
          </widget>
         </widget>
