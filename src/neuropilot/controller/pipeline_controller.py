@@ -31,7 +31,7 @@ import gdist
 #    from simnibs.mesh_tools.mesh_io import read_msh
 #except ImportError:
 #    print(f"Cannot import OnlineFEM from SimNIBS")
-from .onlineFEM import OnlineFEMManager
+from .OnlineFEMManager import OnlineFEMManager
 
 load_dotenv()
 enable_health_check_and_control_panel = os.getenv('ENABLE_HEALTH_CHECK_AND_CONTROL_PANEL', 'false').lower() == 'true'
