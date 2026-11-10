@@ -1,4 +1,5 @@
 from PyQt5 import QtCore, QtWidgets, uic
+import re
 import sys
 import os
 from .systems.system import SystemStatus
@@ -266,18 +267,25 @@ class MainWindow(QtWidgets.QMainWindow):
     def _apply_font_px(cls, widget, px):
         """Set a widget's font size in pixels. Widgets with an inline
         stylesheet ignore setFont (the stylesheet style overrides the widget
-        font), so for those the size is appended to their stylesheet
-        instead."""
+        font), so for those a properly selected rule is appended to their
+        stylesheet instead — a bare declaration outside a rule block would
+        be invalid CSS and silently ignored."""
+        px = max(9, px)
         f = widget.font()
-        f.setPixelSize(max(9, px))
+        f.setPixelSize(px)
         widget.setFont(f)
         ss = widget.styleSheet()
-        if ss:
-            import re
-            # drop our previously appended rule, then re-append at the new size
-            ss = re.sub(r"\s*/\* neuropilot font scaling \*/\s*font-size:\s*\d+px;", "", ss)
-            widget.setStyleSheet(
-                ss + f"\n/* neuropilot font scaling */ font-size: {max(9, px)}px;")
+        if "font-size" in ss:
+            # the (scaled) stylesheet already governs this widget's font size
+            return
+        import re
+        # strip previously appended scaling rules (both forms)
+        ss = re.sub(r"\s*/\* neuropilot font scaling \*/\s*\n?\w[\w:]* \{ font-size: \d+px; \}", "", ss)
+        ss = re.sub(r"\s*/\* neuropilot font scaling \*/ font-size: \d+px;", "", ss)
+        selector = widget.metaObject().className()
+        widget.setStyleSheet(
+            ss.rstrip()
+            + f"\n/* neuropilot font scaling */\n{selector} {{ font-size: {px}px; }}\n")
 
     def _capture_base_rects(self):
         """Record the design-geometry of every absolutely-positioned
@@ -287,15 +295,17 @@ class MainWindow(QtWidgets.QMainWindow):
         central = self.centralwidget
         rects = {}
         fonts = {}
+        sheets = {}
         for w in central.findChildren(QtWidgets.QWidget):
             base_px = self._base_font_px(w)
             fonts[w] = base_px
-            self._apply_font_px(w, base_px)
+            sheets[w] = w.styleSheet()  # raw design stylesheet, unscaled
             if self._is_layout_managed(w):
                 continue
             rects[w] = w.geometry()
         return {"central": central, "size": self._design_size,
-                "rects": rects, "fonts": fonts}
+                "rects": rects, "fonts": fonts, "sheets": sheets,
+                "win_sheet": self.styleSheet()}
 
     def showEvent(self, event):
         # Capture base geometry once, after the first layout pass has run
@@ -360,6 +370,20 @@ class MainWindow(QtWidgets.QMainWindow):
         ox = (self.width() - base_w * s) / 2
         oy = (self.height() - base_h * s) / 2
         central = self._base_rects["central"]
+
+        # Stylesheets scale with the window: every px value in the design
+        # stylesheets (font sizes, indicators, grooves, handles, paddings)
+        # is multiplied by s. This covers the window-level rules (radio
+        # buttons...) and the per-widget rules (sliders, line edits...).
+        def scale_px(sheet):
+            return re.sub(r"(\d+(?:\.\d+)?)px",
+                          lambda m: f"{max(1, round(float(m.group(1)) * s))}px",
+                          sheet)
+
+        self.setStyleSheet(scale_px(self._base_rects["win_sheet"]))
+        for w, base_sheet in self._base_rects["sheets"].items():
+            w.setStyleSheet(scale_px(base_sheet) if base_sheet else "")
+
         # Fonts scale with the window for every descendant.
         for w, base_px in self._base_rects["fonts"].items():
             self._apply_font_px(w, max(9, round(base_px * s)))
