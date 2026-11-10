@@ -55,6 +55,7 @@ See `LICENSE` for the full text.
 
 ## Contributing
 
+- Ole Numssen — `numssen@cbs.mpg.de` (MPI CBS) — maintainer, project lead
 - Abdullah Yaseen — `yaseen@cbs.mpg.de` (MPI CBS)
 - Samuel Berggren — `berggren@cbs.mpg.de` (MPI CBS)
 - Andrew Meng — `mengdrew@umich.edu` (University of Michigan)

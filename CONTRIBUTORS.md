@@ -4,6 +4,7 @@
 
 | Contributor | Role | Contact |
 |---|---|---|
+| **Ole Numssen** | Maintainer and project lead | `numssen@cbs.mpg.de` |
 | **Abdullah Yaseen** | The controller and the simulators (virtual robot, virtual neuronavigation, sim relay) | `yaseen@cbs.mpg.de` |
 | **Samuel Berggren** | The Omron cobot interface and state machine | `berggren@cbs.mpg.de` |
 | **Andrew Meng** | The Omron cobot interface and state machine | `mengdrew@umich.edu` |
