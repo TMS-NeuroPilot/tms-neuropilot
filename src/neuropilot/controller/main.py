@@ -92,6 +92,12 @@ def run(argv=None):
     args = parser.parse_args(argv)
 
     app = QApplication(sys.argv)
+    # Window identity: without this, Qt derives the X11 WM_CLASS from the
+    # script filename ("__main__.py") and the Wayland app_id is unset, so
+    # GNOME shows a default icon in Alt+Tab. The matching desktop file is
+    # ~/.local/share/applications/neuropilot.desktop.
+    app.setApplicationName("neuropilot")
+    app.setDesktopFileName("neuropilot")
 
     # App-wide icon (dialog, control panel, taskbar)
     icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gui", "icon.png")
