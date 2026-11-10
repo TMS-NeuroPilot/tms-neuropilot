@@ -381,12 +381,20 @@ class PipelineController:
         print(f"Targets file set to: {path}")
         self.targets_file = path
 
+        # Empty counters when nothing is loaded or the file cannot be read —
+        # never show a bare 0.
+        if self.control_panel is not None:
+            self.control_panel.totaltargets2.setText("")
+            self.control_panel.totaltargets3.setText("")
+        if not path:
+            return
+
         try:
             n_coil_placements = len(self.get_initial_targets()[0])
         except TypeError:
             print(f"Could not set targets_file to {path}")
             self.targets_file = None
-            n_coil_placements = 0
+            return
 
         if self.control_panel is not None:
             self.control_panel.totaltargets2.setText(f"{n_coil_placements}")
