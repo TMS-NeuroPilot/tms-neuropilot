@@ -3,7 +3,7 @@
 This is the production EMG computer client for hardware sessions. It expects
 this hardware chain on the ANT PC (192.168.1.2):
 
-    Digitimer D360 amplifier -> CED 1401 data acquisition unit (Spike2)
+    Digitimer D360 amplifier -> CED 1401 data acquisition unit (Signal software)
         -> signal PC writes one tab-separated signal file per pulse
         -> Windows share \\\\192.168.1.2\\users\\neuro\\signal
 
