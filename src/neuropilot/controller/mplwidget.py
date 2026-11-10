@@ -114,7 +114,7 @@ class MplGraphWidget(QWidget):
 
         self.canvas = FigureCanvas(self.figure)
         self.ax = self.figure.add_subplot(111)
-        self.ax.tick_params(labelsize=12)
+        self.ax.tick_params(labelsize=14)
 
         self.layout.addWidget(self.canvas)
 
@@ -131,9 +131,9 @@ class MplGraphWidget(QWidget):
 
         # 3. Check if the title exists in our map, and apply the labels
         if title in label_map:
-            self.ax.set_title(label_map[title]["graph_title"], fontsize=15, weight='bold')
-            self.ax.set_xlabel(label_map[title]["x"], fontsize=13)
-            self.ax.set_ylabel(label_map[title]["y"], fontsize=13)
+            self.ax.set_title(label_map[title]["graph_title"], fontsize=18, weight='bold')
+            self.ax.set_xlabel(label_map[title]["x"], fontsize=15)
+            self.ax.set_ylabel(label_map[title]["y"], fontsize=15)
 
             # --- NEW LOGIC FOR THE MEP PLOT ON LOAD ---
             if title == "MEPs":
@@ -171,8 +171,8 @@ class MplGraphWidget(QWidget):
                 line, = self.ax.plot(time_array, data, label=name, color=c, linewidth=1.2, alpha=0.9)
                 self.lines[name] = line
 
-        self.ax.set_title("Raw EMG Signal", fontsize=15, weight='bold')
-        self.ax.set_xlabel("Time (s)", fontsize=13)
+        self.ax.set_title("Raw EMG Signal", fontsize=18, weight='bold')
+        self.ax.set_xlabel("Time (s)", fontsize=15)
         self.ax.grid(True, linestyle=':', alpha=0.6)
 
         # Remove legend because the sidebar acts as the legend
@@ -194,12 +194,12 @@ class MplGraphWidget(QWidget):
                     values = np.delete(values, np.array(list(exclusion)))
                 c = self.channel_colors.get(name, 'black')
 
-                line, = self.ax.plot(current_x+1, values, 'o-', label=name, color=c, markersize=4, linewidth=1.5)
+                line, = self.ax.plot(current_x+1, values, 'o-', label=name, color=c, markersize=7, linewidth=1.8)
                 self.lines[name] = line
 
-        self.ax.set_title("MEP Amplitudes", fontsize=15, weight='bold')
-        self.ax.set_xlabel("Coil Placement Index", fontsize=13)
-        self.ax.set_ylabel("MEP amplitude / [mV]", fontsize=13)
+        self.ax.set_title("MEP Amplitudes", fontsize=18, weight='bold')
+        self.ax.set_xlabel("Coil Placement Index", fontsize=15)
+        self.ax.set_ylabel("MEP amplitude / [mV]", fontsize=15)
         self.ax.grid(True, linestyle=':', alpha=0.6)
 
 
