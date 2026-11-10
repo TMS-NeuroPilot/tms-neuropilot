@@ -1,4 +1,4 @@
-"""Generate coil-placement sequences from a precomputed E-field library.
+"""Create optimized coil-placement sequences from a precomputed E-field library.
 
 Reads an ``e.hdf5`` (as written by ``roi_efield_library.py``) and produces one
 coil sequence per selection algorithm, written as ``*.txt`` files with one
@@ -14,7 +14,7 @@ The FPS and D-optimal implementations come from
 ``pynibs.optimization.coil_sampling`` (pynibs dev branch).
 
 Example:
-    python scripts/make_algo_sequences.py \
+    python scripts/create_optimized_sequences.py \
         --e-hdf5 data/ernie/efield/e.hdf5 \
         --n-stim 500 \
         --out-dir data/ernie/efield
