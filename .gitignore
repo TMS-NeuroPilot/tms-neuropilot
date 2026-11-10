@@ -5,3 +5,4 @@ results/
 MUJOCO_LOG.TXT
 mjmodel.txt
 .idea/
+*.egg-info/
