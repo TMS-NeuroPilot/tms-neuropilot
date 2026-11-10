@@ -21,7 +21,7 @@ class OnlineFEMManager:
         self.coil_fn = None
         self.anisotropy = "scalar"
         self.anisotropy_fn = ""
-        self.solver_options = "mumps"
+        self.solver_options = "pardiso"
 
         self.computer = None            # the OnlineFEM solver instance
         self.mesh = None                # SimNIBS mesh object
