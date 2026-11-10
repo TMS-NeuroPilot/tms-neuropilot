@@ -361,19 +361,51 @@ class MainWindow(QtWidgets.QMainWindow):
     def resizeEvent(self, event):
         if getattr(self, "_base_rects", None) is None:
             return
-        self._rescale()
+        # Cheap pass on every resize event: geometry only.
+        self._rescale_geometry()
+        # Expensive pass (full stylesheet repolish + setFont on every widget):
+        # deferred so dragging stays smooth, and skipped entirely when the
+        # rounded pixel sizes did not change.
+        if not getattr(self, "_styles_timer_pending", False):
+            self._styles_timer_pending = True
+            QtCore.QTimer.singleShot(150, self._apply_styles_if_needed)
         super().resizeEvent(event)
 
-    def _rescale(self):
+    def _current_scale(self):
         base_w, base_h = self._base_rects["size"]
         if not base_w or not base_h:
-            return
-        s = min(self.width() / base_w, self.height() / base_h)
-        # Center the scaled content inside the window (letterbox offset).
-        ox = (self.width() - base_w * s) / 2
-        oy = (self.height() - base_h * s) / 2
-        central = self._base_rects["central"]
+            return 1.0
+        return min(self.width() / base_w, self.height() / base_h)
 
+    def _apply_styles_if_needed(self):
+        self._styles_timer_pending = False
+        s = self._current_scale()
+        last = getattr(self, "_last_style_scale", None)
+        if last is not None and abs(s - last) < 0.04:
+            return  # rounded pixel sizes unchanged — skip the expensive pass
+        self._last_style_scale = s
+        self._rescale_styles(s)
+
+    def _rescale(self):
+        self._rescale_geometry()
+        self._rescale_styles(self._current_scale())
+        self._last_style_scale = self._current_scale()
+
+    def _rescale_geometry(self):
+        s = self._current_scale()
+        # Center the scaled content inside the window (letterbox offset).
+        ox = (self.width() - self._base_rects["size"][0] * s) / 2
+        oy = (self.height() - self._base_rects["size"][1] * s) / 2
+        central = self._base_rects["central"]
+        for w, base in self._base_rects["rects"].items():
+            x, y, ww, hh = base.x(), base.y(), base.width(), base.height()
+            if w.parentWidget() is central:
+                w.setGeometry(round(x * s + ox), round(y * s + oy),
+                              round(ww * s), round(hh * s))
+            else:
+                w.setGeometry(round(x * s), round(y * s), round(ww * s), round(hh * s))
+
+    def _rescale_styles(self, s):
         # Stylesheets scale with the window: every px value in the design
         # stylesheets (font sizes, indicators, grooves, handles, paddings)
         # is multiplied by s. This covers the window-level rules (radio
@@ -390,13 +422,6 @@ class MainWindow(QtWidgets.QMainWindow):
         # Fonts scale with the window for every descendant.
         for w, base_px in self._base_rects["fonts"].items():
             self._apply_font_px(w, max(9, round(base_px * s)))
-        for w, base in self._base_rects["rects"].items():
-            x, y, ww, hh = base.x(), base.y(), base.width(), base.height()
-            if w.parentWidget() is central:
-                w.setGeometry(round(x * s + ox), round(y * s + oy),
-                              round(ww * s), round(hh * s))
-            else:
-                w.setGeometry(round(x * s), round(y * s), round(ww * s), round(hh * s))
 
     def on_efield_mode_changed(self):
         if not (self.online_efield_btn.isChecked() or self.offline_efield_btn.isChecked()):
