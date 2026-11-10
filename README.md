@@ -45,6 +45,14 @@ Copy `.env.example` to `.env`. Cross-component settings (relay endpoint,
 data folder, readiness timeout, real-relay path) live in one place;
 component-internal constants live in each component's `config.py`.
 
+## License
+
+NeuroPilot is licensed under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+International (CC BY-NC-SA 4.0)** license — free to use, share, and adapt for
+non-commercial purposes (research and clinical science), with attribution and
+share-alike; commercial use requires prior permission from the authors.
+See `LICENSE` for the full text.
+
 ## Contributing
 
 - Abdullah Yaseen — `yaseen@cbs.mpg.de` (MPI CBS)
