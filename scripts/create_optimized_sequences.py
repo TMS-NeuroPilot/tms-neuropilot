@@ -70,6 +70,15 @@ def main():
                              "distance) or a float")
     parser.add_argument("--rbf-ridge", type=float, default=0.0,
                         help="Ridge jitter for the RBF kernel path")
+    parser.add_argument("--no-auto-sort", dest="auto_sort", action="store_false",
+                        help="Skip the automatic travel-distance sorting of the "
+                             "constructed sequences")
+    parser.add_argument("--w-pos", type=float, default=2.0,
+                        help="Travel-sort weight of the positional cost "
+                             "(default: 2)")
+    parser.add_argument("--w-ang", type=float, default=1.0,
+                        help="Travel-sort weight of the coil-rotation cost "
+                             "(default: 1)")
     args = parser.parse_args()
 
     out_dir = args.out_dir or os.path.dirname(os.path.abspath(args.e_hdf5))
@@ -116,6 +125,31 @@ def main():
         np.savetxt(fn, np.asarray(seq, dtype=int), fmt="%i")
         print(f"  {fn} ({len(seq)} placements, "
               f"{len(np.unique(seq))} unique)")
+
+    # Auto-sort: reorder each constructed sequence for minimal robot travel
+    # (position + rotation cost) with pynibs' opt_coil_placement_order, using
+    # the matsimnibs stack stored in the e.hdf5.
+    if args.auto_sort:
+        import pynibs
+
+        with h5py.File(args.e_hdf5, "r") as f:
+            matsimnibs = f["matsimnibs"][:]
+        matsimnibs = np.transpose(matsimnibs, (1, 2, 0))  # (n,4,4) -> (4,4,n)
+
+        for name, seq in sequences.items():
+            seq = np.asarray(seq, dtype=int)
+            fn_hdf5 = os.path.join(out_dir, f"ernie_coil_algo_{name}_travel_sorted.hdf5")
+            mats_opt, cost, route, cost_org = pynibs.coil.opt_coil_placement_order(
+                matsimnibs, fn_hdf5,
+                w_pos=args.w_pos, w_ang=args.w_ang,
+                opt_indices=seq)
+            route = seq[np.array(route)]
+            fn_txt = os.path.join(out_dir, f"ernie_coil_algo_{name}_travel_sorted.txt")
+            np.savetxt(fn_txt, route.astype(int), fmt="%i")
+            print(f"  {name}: travel cost {np.round(cost_org, 2)} -> "
+                  f"{np.round(cost, 2)}")
+            print(f"  {fn_txt}")
+            print(f"  {fn_hdf5}")
 
     print("Done.")
 
