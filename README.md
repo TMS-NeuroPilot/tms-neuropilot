@@ -44,16 +44,3 @@ Components communicate over Socket.IO relay topics
 Copy `.env.example` to `.env`. Cross-component settings (relay endpoint,
 data folder, readiness timeout, real-relay path) live in one place;
 component-internal constants live in each component's `config.py`.
-
-## Provenance
-
-NeuroPilot was formed in 2026-11 by merging four GitLab repositories from the
-[tms-localization group](https://gitlab.gwdg.de/tms-localization/cobot/):
-`cobot-pipeline-controller` @ `47c8cbd3`, `relay_server_sim` @ `8f583221`,
-`tms-robot-sim2` @ `1f87a633`, `virtual_neuronavigation` @ `a05e62ca`.
-Those repositories are archived; this repository supersedes them.
-
-## Design
-
-See `doc/neuropilot_design.md` in the workspace notes (v1.1) for the merge
-rationale, CLI model, and migration decisions.
