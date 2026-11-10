@@ -16,9 +16,7 @@ import matplotlib.pyplot as plt
 from enum import Enum, auto
 from dotenv import load_dotenv
 from .systems.emg import EMGComputer
-from .systems.virtual_emg_computer import VirtualEMGComputer
 from .systems.virtual_emg_computer2 import VirtualEMGComputer2
-#from systems.virtual_emg_computer3 import VirtualEMGComputer3
 from .systems.stimulator import Stimulator
 from .systems.virtual_stimulator import VirtualStimulator
 from .systems.robot import Robot
@@ -803,16 +801,6 @@ class PipelineController:
             self.pressure_at_stim = self.cobotOnTarget
 
             # Feed coil position + intensity to the virtual EMG computer
-            if isinstance(self.emg_computer, VirtualEMGComputer):
-                pos = target[0]  # [x, y, z] in mm
-                rot = target[1]  # [rota, rotb, rotc] in degrees
-                self.emg_computer.set_current_state(
-                    x=pos[0],
-                    y=pos[1],
-                    theta=rot[2],  # rotc = coil rotation around z (yaw)
-                    stim_output=self.stimulator_amplitude / 100.0  # normalize to [0,1]
-                )
-
             if isinstance(self.emg_computer, VirtualEMGComputer2):
                 self.emg_computer.set_current_state(
                     coil_placement_idx=self.current_target_index,
