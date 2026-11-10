@@ -239,8 +239,9 @@ class EmgNavGraphWidget(MplGraphWidget):
                 font-weight: bold; /* Bold text */
                 text-align: center;
                 outline: none; /* Remove the focus outline */
-                width: 120%; /* Remove the focus outline */
-            
+                /* No fixed width: the buttons must grow with the scaled
+                   font or the text clips ("Previous E...", "ext EMG"). */
+
             }
             
             /* Hover effect for QPushButton */
@@ -289,14 +290,15 @@ class EmgNavGraphWidget(MplGraphWidget):
         self.btn_prev = QPushButton("< Previous EMG")
         self.btn_next = QPushButton("Next EMG >")
 
-        # Spacer to push buttons to the right or center
+        # Elastic layout: stretches absorb the extra room so the buttons
+        # always get their size hint (fixed spacings squeezed them below
+        # the hint and clipped the text at scaled font sizes).
         self.nav_layout.addWidget(self.chk_include)
         self.nav_layout.addStretch()
         self.nav_layout.addWidget(self.btn_prev)
-        self.nav_layout.addSpacing(100)
+        self.nav_layout.addSpacing(40)
         self.nav_layout.addWidget(self.btn_next)
         self.nav_layout.addStretch()
-        self.nav_layout.addSpacing(150)
 
         # 2. Re-arrange the main layout
         # Currently, self.layout is a QHBoxLayout [Sidebar | Canvas]
