@@ -1562,12 +1562,12 @@ QAbstractSpinBox::down-button {
 QAbstractSpinBox::up-button {
     subcontrol-position: top right;
     border-top-right-radius: 6px;
-    height: 14,5%;
+    height: 50%;
 }
 QAbstractSpinBox::down-button {
     subcontrol-position: bottom right;
     border-bottom-right-radius: 6px;
-    height: 14,5%;
+    height: 50%;
 }
 
 /* Hover */
@@ -1692,12 +1692,12 @@ QAbstractSpinBox::down-button {
 QAbstractSpinBox::up-button {
     subcontrol-position: top right;
     border-top-right-radius: 6px;
-    height: 14,5%;
+    height: 50%;
 }
 QAbstractSpinBox::down-button {
     subcontrol-position: bottom right;
     border-bottom-right-radius: 6px;
-    height: 14,5%;
+    height: 50%;
 }
 
 /* Hover */
@@ -1782,12 +1782,12 @@ QAbstractSpinBox::down-button {
 QAbstractSpinBox::up-button {
     subcontrol-position: top right;
     border-top-right-radius: 6px;
-    height: 14,5%;
+    height: 50%;
 }
 QAbstractSpinBox::down-button {
     subcontrol-position: bottom right;
     border-bottom-right-radius: 6px;
-    height: 14,5%;
+    height: 50%;
 }
 
 /* Hover */
@@ -2659,12 +2659,12 @@ QAbstractSpinBox::down-button {
 QAbstractSpinBox::up-button {
     subcontrol-position: top right;
     border-top-right-radius: 6px;
-    height: 14,5%;
+    height: 50%;
 }
 QAbstractSpinBox::down-button {
     subcontrol-position: bottom right;
     border-bottom-right-radius: 6px;
-    height: 14,5%;
+    height: 50%;
 }
 
 /* Hover */
@@ -2854,12 +2854,12 @@ QAbstractSpinBox::down-button {
 QAbstractSpinBox::up-button {
     subcontrol-position: top right;
     border-top-right-radius: 6px;
-    height: 14,5%;
+    height: 50%;
 }
 QAbstractSpinBox::down-button {
     subcontrol-position: bottom right;
     border-bottom-right-radius: 6px;
-    height: 14,5%;
+    height: 50%;
 }
 
 /* Hover */
@@ -3021,12 +3021,12 @@ QAbstractSpinBox::down-button {
 QAbstractSpinBox::up-button {
     subcontrol-position: top right;
     border-top-right-radius: 6px;
-    height: 14,5%;
+    height: 50%;
 }
 QAbstractSpinBox::down-button {
     subcontrol-position: bottom right;
     border-bottom-right-radius: 6px;
-    height: 14,5%;
+    height: 50%;
 }
 
 /* Hover */
