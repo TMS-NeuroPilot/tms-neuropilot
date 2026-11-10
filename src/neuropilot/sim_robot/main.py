@@ -215,26 +215,29 @@ async def main():
     streamer.start()
 
     # Set the viewer window icon once the window exists (X11 only; the icon
-    # shows in the taskbar and alt-tab). No-op on Wayland windows.
-    icon_thread = threading.Thread(
-        target=set_viewer_icon_when_ready,
-        args=(f"MuJoCo : {config.MODEL_NAME}", "assets/icon.png"),
-        daemon=True,
-    )
-    icon_thread.start()
+    # shows in the taskbar and alt-tab). No-op on Wayland windows. Only
+    # relevant with the native viewer (--gui); the headless sim streams to
+    # the pipeline GUI instead.
+    if args.gui:
+        icon_thread = threading.Thread(
+            target=set_viewer_icon_when_ready,
+            args=(f"MuJoCo : {config.MODEL_NAME}", "assets/icon.png"),
+            daemon=True,
+        )
+        icon_thread.start()
 
-    async def watch_viewer_window():
-        """Alt+F4 on the viewer closes the window; shut the simulator down
-        instead of continuing headless."""
-        while True:
-            await asyncio.sleep(0.5)
-            if world.viewer_handle_closed():
-                log.info("Viewer window closed — shutting down")
-                for task in asyncio.all_tasks() - {asyncio.current_task()}:
-                    task.cancel()
-                return
+        async def watch_viewer_window():
+            """Alt+F4 on the viewer closes the window; shut the simulator down
+            instead of continuing headless."""
+            while True:
+                await asyncio.sleep(0.5)
+                if world.viewer_handle_closed():
+                    log.info("Viewer window closed — shutting down")
+                    for task in asyncio.all_tasks() - {asyncio.current_task()}:
+                        task.cancel()
+                    return
 
-    window_watcher = asyncio.create_task(watch_viewer_window())
+        window_watcher = asyncio.create_task(watch_viewer_window())
 
     try:
         await controller.run()

@@ -56,7 +56,7 @@ ROBOT_URDF_PATH = "assets/urdf/robot_tm5x_700_v2.urdf"
 # ─────────────────────────────────────────────
 # MuJoCo world
 # ─────────────────────────────────────────────
-USE_GUI              = True
+USE_GUI              = False   # the pipeline GUI shows the robot view via the camera stream; --gui re-enables the native MuJoCo viewer for debugging
 SIM_TIMESTEP         = 0.002
 GRAVITY              = (0.0, 0.0, -9.81)
 END_EFFECTOR_SITE_NAME = "coil_tcp_site"
