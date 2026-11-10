@@ -51,6 +51,6 @@ component-internal constants live in each component's `config.py`.
 - Samuel Berggren — `berggren@cbs.mpg.de` (MPI CBS)
 - Andrew Meng — `mengdrew@umich.edu` (University of Michigan)
 - Benjamin Kalloch — `kalloch@cbs.mpg.de` (MPI CBS)
-- Konstantin Weise — `kweise@cbs.mpg.de` (MPI CBS)
+- Konstantin Weise — `konstantin.weise@htwk-leipzig.de` (HTWK Leipzig)
 - Thomas R. Knösche — `knoesche@cbs.mpg.de` (MPI CBS)
 - Renan H. Matsuda — `renan.matsuda@aalto.fi` (Aalto University)
