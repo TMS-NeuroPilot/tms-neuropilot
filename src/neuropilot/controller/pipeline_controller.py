@@ -15,7 +15,7 @@ matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
 from enum import Enum, auto
 from dotenv import load_dotenv
-from .systems.emg_computer import EMGComputer
+from .systems.emg import EMGComputer
 from .systems.virtual_emg_computer import VirtualEMGComputer
 from .systems.virtual_emg_computer2 import VirtualEMGComputer2
 #from systems.virtual_emg_computer3 import VirtualEMGComputer3

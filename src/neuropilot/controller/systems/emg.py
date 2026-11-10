@@ -1,3 +1,19 @@
+"""Real-EMG system driver.
+
+This is the production EMG computer client for hardware sessions. It expects
+this hardware chain on the ANT PC (192.168.1.2):
+
+    Digitimer D360 amplifier -> CED 1401 data acquisition unit (Spike2)
+        -> signal PC writes one tab-separated signal file per pulse
+        -> Windows share \\\\192.168.1.2\\users\\neuro\\signal
+
+This class polls that SMB share (smbprotocol): health checks verify the
+session and the shared folder, and :meth:`EMGComputer.get_latest_emg_df`
+reads the newest signal file (time column renamed to ``Time``) for the
+MEP analysis. The simulated counterpart is ``systems/virtual_emg_computer*.py``
+(the pipeline selects between them by the Simulation/Real mode).
+"""
+
 from smbprotocol.exceptions import SMBException
 import smbclient
 from ..systems.system import System, SystemStatus
@@ -6,7 +22,12 @@ import os
 import pandas as pd
 
 class EMGComputer(System):
-    # Cluster defaults; override via .env (EMG_COMPUTER_IP / USERNAME / PASSWORD)
+    """Health-checked client for the real EMG signal PC (CED 1401 + Digitimer D360
+    setup, see the module docstring). Connection is via SMB to the signal share;
+    override the credentials through the .env keys below."""
+
+    # Defaults match the MPI lab setup; override via .env
+    # (EMG_COMPUTER_IP / EMG_COMPUTER_USERNAME / EMG_COMPUTER_PASSWORD)
     # — read at instantiation, after load_dotenv().
     EMG_COMPUTER_IP_DEFAULT = "192.168.1.2"
     # EMG_OUTPUT_FOLDER_PATH = r"\\192.168.137.3\users\neuro\signal" # old config
