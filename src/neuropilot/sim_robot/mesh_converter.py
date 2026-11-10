@@ -6,11 +6,9 @@ collision/render geometry. The project window's head mesh is a SimNIBS
 so the skin surface is extracted, decimated to a manageable triangle count
 and written as a binary STL next to the source mesh.
 
-The skin is identified as the *outermost* labelled surface (largest mean
-vertex distance from the mesh centre) rather than by a fixed tag: SimNIBS
-charm meshes label their surfaces with the neighbouring compartment, and
-the mapping differs between versions (classic meshes tag the skin as 1,
-current ones as 5).
+The skin is identified by its tissue number: SimNIBS labels skin
+tetrahedra with tag 5 and their boundary triangles with tag 1005 (the
+tag numbering runs from the inside out, WM=1...SCALP=5).
 
 Conversion runs in the simulator process on demand (see message_handlers)
 and is cached: the STL is regenerated only when the source mesh is newer or
@@ -29,7 +27,8 @@ log = get_logger(__name__)
 # The default phantom (head88.stl) has 200k triangles; keep the converted
 # skin in the same range so physics/contact behaviour stays comparable.
 MAX_TRIANGLES = 200_000
-CONVERTER_VERSION = 2  # bump to invalidate cached STLs after logic changes
+CONVERTER_VERSION = 3  # bump to invalidate cached STLs after logic changes
+SKIN_TRIANGLE_TAG = 5  # SimNIBS: skin triangles carry tag 1005 (== 5 mod 1000)
 
 
 def convert_head_mesh(fn_msh: str) -> str:
@@ -64,21 +63,14 @@ def convert_head_mesh(fn_msh: str) -> str:
     tris = m.elm.node_number_list[tri_mask][:, :3].astype(int) - 1
     tags = m.elm.tag1[tri_mask]
 
-    # The skin is the outermost labelled surface: pick the tag whose
-    # vertices lie farthest from the mesh centre on average. Do NOT rely on
-    # a fixed tissue number — the labels differ between mesh generators.
-    center = nodes.mean(axis=0)
-    best_tag, best_dist = None, -1.0
-    for tag in np.unique(tags):
-        verts = nodes[tris[tags == tag]].reshape(-1, 3)
-        dist = float(np.mean(np.linalg.norm(verts - center, axis=1)))
-        log.debug(f"Surface tag {tag}: {int((tags == tag).sum())} triangles, "
-                  f"mean radius {dist:.1f} mm")
-        if dist > best_dist:
-            best_tag, best_dist = int(tag), dist
-    skin = tris[tags == best_tag]
-    log.info(f"Skin surface: tag {best_tag} ({len(skin)} triangles, "
-             f"mean radius {best_dist:.1f} mm)")
+    # Skin triangles carry tag 1005 (== 5 mod 1000) in SimNIBS meshes.
+    skin = tris[(tags % 1000) == SKIN_TRIANGLE_TAG]
+    if len(skin) == 0:
+        raise ValueError(
+            f"No skin surface (tag {SKIN_TRIANGLE_TAG}) found in {fn_msh} -- "
+            "is this a SimNIBS head mesh?"
+        )
+    log.info(f"Skin surface: {len(skin)} triangles")
 
     faces = np.hstack((np.full((len(skin), 1), 3), skin)).flatten().astype(int)
     surf = pv.PolyData(nodes, faces).clean()
@@ -91,6 +83,6 @@ def convert_head_mesh(fn_msh: str) -> str:
     surf.save(out_fn, binary=True)
     with open(version_fn, "w") as f:
         json.dump({"converter_version": CONVERTER_VERSION,
-                   "source": fn_msh, "skin_tag": int(best_tag)}, f)
+                   "source": fn_msh}, f)
     log.info(f"Head mesh written: {out_fn} ({surf.n_cells} triangles)")
     return out_fn
