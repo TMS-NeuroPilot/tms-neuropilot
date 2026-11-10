@@ -25,7 +25,7 @@ from .config import (
 from .evaluator import is_pose_within_tolerance
 from .state import VirtualNeuronavigationState
 from .transforms import (
-    pybullet_world_to_simnibs,
+    nav_world_to_simnibs,
     simnibs_orientation_to_external_controller,
     pipeline_orientation_to_simnibs,
 )
@@ -108,7 +108,7 @@ class SimNeuronavigationClient:
         )
 
         # Forward to tms-robot-sim via "Neuronavigation to Robot: Set target"
-        # tms-robot-sim will transform pipeline coords → PyBullet world
+        # the navigation sim will transform pipeline coords → navigation world
         await self.send_message("Neuronavigation to Robot: Set target", {
             "position": position,
             "orientation": orientation,
@@ -149,9 +149,9 @@ class SimNeuronavigationClient:
         if not self.state.tracking_valid:
             return
 
-        # Transform current pose from PyBullet world → raw SimNIBS
-        # position is in mm, pybullet_world_to_simnibs expects meters
-        raw_simnibs_pos, raw_simnibs_ori = pybullet_world_to_simnibs(
+        # Transform current pose from the navigation world frame → raw SimNIBS
+        # position is in mm, nav_world_to_simnibs expects meters
+        raw_simnibs_pos, raw_simnibs_ori = nav_world_to_simnibs(
             world_pos_m=[v / 1000.0 for v in position],  # mm → meters
             world_euler_deg=orientation,
             head_position_m=HEAD_POSITION,
@@ -203,9 +203,9 @@ class SimNeuronavigationClient:
             print("[virtual_neuronavigation] No stim pose available")
             return
 
-        # Transform PyBullet world → raw SimNIBS
-        # pose["position"] is in mm, pybullet_world_to_simnibs expects meters
-        raw_simnibs_pos, raw_simnibs_ori = pybullet_world_to_simnibs(
+        # Transform the navigation world frame → raw SimNIBS
+        # pose["position"] is in mm, nav_world_to_simnibs expects meters
+        raw_simnibs_pos, raw_simnibs_ori = nav_world_to_simnibs(
             world_pos_m=[v / 1000.0 for v in pose["position"]],  # mm → meters
             world_euler_deg=pose["orientation"],
             head_position_m=HEAD_POSITION,

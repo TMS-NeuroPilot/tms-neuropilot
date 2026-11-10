@@ -29,6 +29,6 @@ TOPIC_STIM_MARKER = "Create marker"
 # Richer sim message from tms-robot-sim
 TOPIC_SIM_TRACKING_STATE = "SIM - Robot to Neuronavigation: Tracking State"
 
-# Head position and orientation in PyBullet world (must match tms-robot-sim/config.py)
+# Head position and orientation in the navigation world frame
 HEAD_POSITION = [0.4, -0.4, 0.0]       # [x, y, z] in meters — SimNIBS origin in world
 HEAD_ORIENTATION = [0.0, 0.0, -90.0]   # [rx, ry, rz] in degrees — head rotation

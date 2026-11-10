@@ -40,14 +40,14 @@ def inverse_pipeline_axis_transform(
     return pos_inv, euler_inv
 
 
-def simnibs_to_pybullet_world(
+def simnibs_to_nav_world(
     simnibs_pos_mm: List[float],
     simnibs_euler_deg: List[float],
     head_position_m: List[float],
     head_orientation_deg: List[float],
 ) -> Tuple[List[float], List[float]]:
     """
-    Convert a target from raw SimNIBS space (mm) to PyBullet world
+    Convert a target from raw SimNIBS space (mm) to the navigation
     coordinates (meters, robot base frame).
 
     Steps:
@@ -82,15 +82,15 @@ def m_to_mm(position_m: List[float]) -> List[float]:
     return [v * 1000.0 for v in position_m]
 
 
-def pybullet_world_to_simnibs(
+def nav_world_to_simnibs(
     world_pos_m: List[float],
     world_euler_deg: List[float],
     head_position_m: List[float],
     head_orientation_deg: List[float],
 ) -> Tuple[List[float], List[float]]:
     """
-    Convert a target from PyBullet world coordinates (meters) back to raw SimNIBS space (mm).
-    This is the inverse of simnibs_to_pybullet_world.
+    Convert a target from the navigation world frame (meters) back to raw SimNIBS space (mm).
+    This is the inverse of simnibs_to_nav_world.
 
     Steps:
       1. Build head rotation matrix
