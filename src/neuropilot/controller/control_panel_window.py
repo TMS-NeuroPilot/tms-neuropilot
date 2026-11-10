@@ -9,7 +9,7 @@ import time
 
 class ControlPanelWindow(QWidget):
     def initialize(self, all_error_recoveries):
-        self.setWindowTitle("Pipeline Control Panel")
+        self.setWindowTitle("NeuroPilot Control Panel")
         self.resize(1000, 200)
         self.controller = None
         #self.setStyleSheet("background-color: white; color: black;")
