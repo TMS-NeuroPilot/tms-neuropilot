@@ -28,6 +28,13 @@ import argparse
 import os
 import sys
 
+import h5py
+import numpy as np
+
+# Live progress output even when stdout is redirected to a file (Python
+# block-buffers by default, which hides prints for hours on long FEM runs).
+sys.stdout.reconfigure(line_buffering=True)
+
 parser = argparse.ArgumentParser(
     description="Compute ROI E-fields for a coil-placement library around a target"
 )
@@ -57,8 +64,8 @@ parser.add_argument("--target-radius", type=float, default=1.0,
 parser.add_argument("--anisotropy", default="scalar", choices=["scalar", "vn"],
                     help="Tissue conductivity model")
 parser.add_argument("--solver", default="pardiso",
-                    help="SimNIBS solver options (empty: default direct solver; "
-                         "'pardiso' requires the pardiso package)")
+                    help="SimNIBS solver options: 'pardiso' (default, MKL-backed "
+                         "simnibs module), 'mumps', 'hypre', 'petsc_pardiso'")
 parser.add_argument("--didt", type=float, default=1e6,
                     help="Coil current rate of change (A/s); 1e6 A/s = 1 A/us")
 args = parser.parse_args()
@@ -66,8 +73,6 @@ args = parser.parse_args()
 # Solver options must be set before SimNIBS is imported.
 os.environ["SIMNIBS_SOLVER_OPTIONS"] = args.solver
 
-import h5py  # noqa: E402
-import numpy as np  # noqa: E402
 import pynibs  # noqa: E402
 from simnibs import mesh_io, opt_struct  # noqa: E402
 from simnibs.simulation.onlinefem import FemTargetPointCloud, OnlineFEM  # noqa: E402
