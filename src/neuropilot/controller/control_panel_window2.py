@@ -30,22 +30,10 @@ class MainWindow(QtWidgets.QMainWindow):
         # scaled together with the geometry in _rescale — the .ui's scattered
         # 9pt fonts made sizes inconsistent, and fixed pixel fonts read badly
         # on high-DPI screens.
-        # Align the Start/Back/Next buttons with the status LEDs above them:
-        # the LED centers sit at x = 65/201/336 inside their container, the
-        # button row is a different container where they landed at 49/202/355.
-        btn_row = QtWidgets.QWidget.layout(self.start_btn.parentWidget())
-        if btn_row is not None:
-            from PyQt5.QtWidgets import QSpacerItem, QSizePolicy
-            btn_row.insertSpacerItem(0, QSpacerItem(16, 20, QSizePolicy.Fixed, QSizePolicy.Minimum))
-            for idx, width in ((2, 38), (4, 37)):
-                spacer = btn_row.itemAt(idx).spacerItem()
-                if spacer is not None:
-                    spacer.changeSize(width, 20, QSizePolicy.Fixed, QSizePolicy.Minimum)
-            for i in range(btn_row.count()):
-                btn_row.setStretch(i, 0)
-            # Keep Move Coil Up / Finish pushed to the right.
-            btn_row.setStretch(btn_row.count() - 2, 1)
-            btn_row.setStretch(btn_row.count() - 1, 1)
+        # The Start/Back/Next buttons are flattened out of their layout in
+        # _flatten_button_row (called right before the base-geometry capture)
+        # so they can be centered under the status LEDs exactly and scaled
+        # with everything else.
 
         # Absolute-positioned form: capture the design geometry (1244x894) so
         # resizeEvent can scale every child proportionally (see _rescale).
@@ -245,10 +233,45 @@ class MainWindow(QtWidgets.QMainWindow):
         super().showEvent(event)
 
     def _capture_base_rects_now(self):
+        self._flatten_button_row()
         self._base_rects = self._capture_base_rects()
         # Apply the current scale immediately so a window resized before the
         # capture is consistent from the first paint after it.
         self._rescale()
+
+    def _flatten_button_row(self):
+        """Detach the Start/Back/Next buttons (and Move Coil Up / Finish)
+        from their QHBoxLayout so they can be positioned exactly, then
+        center the first three under the status LEDs. The LEDs and their
+        labels live in a different container with the same x origin, so the
+        container-relative LED centers are the button centers too."""
+        container = self.start_btn.parentWidget()
+        lay = QtWidgets.QWidget.layout(container)
+        if lay is None:
+            return
+        row_widgets = []
+        for i in range(lay.count()):
+            it = lay.itemAt(i)
+            if it.widget() is not None:
+                row_widgets.append(it.widget())
+        for wd in row_widgets:
+            lay.removeWidget(wd)
+        for i in reversed(range(lay.count())):
+            it = lay.itemAt(i)
+            if it.widget() is None and it.spacerItem() is not None:
+                lay.removeItem(it)
+        led_x = led_center = None
+        led_container = self.led_stim.parentWidget()
+        x_offset = container.geometry().x() - led_container.geometry().x()
+        led_centers = [led.geometry().center().x() + x_offset
+                       for led in (self.led_stim, self.led_emg, self.led_robot)]
+        for button, center in zip((self.start_btn, self.back_btn, self.skiptarget),
+                                  led_centers):
+            hint = button.sizeHint()
+            y = button.geometry().y()
+            button.setGeometry(round(center - hint.width() / 2), y,
+                               hint.width(), hint.height())
+        # Move Coil Up / Finish keep their current positions.
 
     def resizeEvent(self, event):
         if getattr(self, "_base_rects", None) is None:
