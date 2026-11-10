@@ -3,12 +3,27 @@
 Reads an ``e.hdf5`` (as written by ``roi_efield_library.py``) and produces one
 coil sequence per selection algorithm, written as ``*.txt`` files with one
 placement index per line (the format consumed by
-``scripts/sort_coil_placements.py``):
+``scripts/sort_coil_placements.py``). The selection schemes and their
+reference publications:
 
 - ``RANDOM``            uniformly random ordering (seeded)
+                        — Numssen et al. 2021, "Efficient high-resolution TMS
+                        mapping of the human motor cortex by nonlinear
+                        regression", NeuroImage 245:118654 (random sampling
+                        baseline for nonlinear-regression mapping)
 - ``FPS``               farthest-point sampling in E-field space
+                        — Schultheiss et al. 2025, "Efficient prospective
+                        electric field-informed localization of motor cortical
+                        targets of transcranial magnetic stimulation",
+                        Imaging Neuroscience 3 (introduced FPS for TMS motor
+                        mapping)
 - ``D-Optimal``         greedy D-optimal selection, linear kernel
 - ``D-Optimal(RBF)``    greedy D-optimal selection, RBF kernel (auto bandwidth)
+                        — Qiu et al. 2026, "Optimal Pre-Experimental Coil Sequence Selection
+                        for TMS Motor Mapping" (bioRxiv 2026.05.26.727891; casts the
+                        sequence design as a subset-selection problem and
+                        compares FPS against linear and RBF-kernelized
+                        D-optimal objectives)
 
 The FPS and D-optimal implementations come from
 ``pynibs.optimization.coil_sampling`` (pynibs dev branch).
