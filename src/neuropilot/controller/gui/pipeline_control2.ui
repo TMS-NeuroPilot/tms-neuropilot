@@ -867,7 +867,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #A6B9C9; /* Light grayish blue text */
+    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
@@ -923,7 +923,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #A6B9C9; /* Light grayish blue text */
+    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
@@ -1082,7 +1082,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #A6B9C9; /* Light grayish blue text */
+    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
@@ -1265,7 +1265,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #A6B9C9; /* Light grayish blue text */
+    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
@@ -1448,7 +1448,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #A6B9C9; /* Light grayish blue text */
+    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
@@ -1547,6 +1547,10 @@ QAbstractSpinBox {
     font-size: 13px;
     selection-background-color: #4CAF50;
     selection-color: white;
+}
+
+QAbstractSpinBox:disabled {
+    color: #444444; /* keep disabled values readable */
 }
 
 /* Up/Down button geometry */
@@ -1679,6 +1683,10 @@ QAbstractSpinBox {
     selection-color: white;
 }
 
+QAbstractSpinBox:disabled {
+    color: #444444; /* keep disabled values readable */
+}
+
 /* Up/Down button geometry */
 QAbstractSpinBox::up-button,
 QAbstractSpinBox::down-button {
@@ -1767,6 +1775,10 @@ QAbstractSpinBox {
     font-size: 13px;
     selection-background-color: #4CAF50;
     selection-color: white;
+}
+
+QAbstractSpinBox:disabled {
+    color: #444444; /* keep disabled values readable */
 }
 
 /* Up/Down button geometry */
@@ -1984,7 +1996,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #A6B9C9; /* Light grayish blue text */
+    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
@@ -2047,7 +2059,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #A6B9C9; /* Light grayish blue text */
+    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
@@ -2110,7 +2122,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #A6B9C9; /* Light grayish blue text */
+    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
@@ -2182,7 +2194,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #A6B9C9; /* Light grayish blue text */
+    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
@@ -2254,7 +2266,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #A6B9C9; /* Light grayish blue text */
+    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
@@ -2326,7 +2338,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #CF290A; /* Lighter blue background when disabled */
-    color: #A6B9C9; /* Light grayish blue text */
+    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
     border: 2px solid #CF290A; /* Border same as background */
 
 }
@@ -2389,7 +2401,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #A6B9C9; /* Light grayish blue text */
+    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
@@ -2646,6 +2658,10 @@ QAbstractSpinBox {
     selection-color: white;
 }
 
+QAbstractSpinBox:disabled {
+    color: #444444; /* keep disabled values readable */
+}
+
 /* Up/Down button geometry */
 QAbstractSpinBox::up-button,
 QAbstractSpinBox::down-button {
@@ -2810,7 +2826,7 @@ QPushButton:focus {
 /* Disabled button style */
 QPushButton:disabled {
     background-color: #A2C8E3; /* Lighter blue background when disabled */
-    color: #A6B9C9; /* Light grayish blue text */
+    color: #3D5A75; /* Dark blue-grey: readable on the light disabled background */
     border: 2px solid #A2C8E3; /* Border same as background */
 
 }
@@ -2839,6 +2855,10 @@ QAbstractSpinBox {
     font-size: 13px;
     selection-background-color: #4CAF50;
     selection-color: white;
+}
+
+QAbstractSpinBox:disabled {
+    color: #444444; /* keep disabled values readable */
 }
 
 /* Up/Down button geometry */
@@ -3006,6 +3026,10 @@ QAbstractSpinBox {
     font-size: 13px;
     selection-background-color: #4CAF50;
     selection-color: white;
+}
+
+QAbstractSpinBox:disabled {
+    color: #444444; /* keep disabled values readable */
 }
 
 /* Up/Down button geometry */
