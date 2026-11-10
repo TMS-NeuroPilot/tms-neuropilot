@@ -1,10 +1,37 @@
+"""Relay client for real-hardware operation: connects the controller to the
+production Socket.IO relay server (tms-robot-control ``relay_server.py``)
+over the external-controller channel.
+
+The relay re-routes the ``from_external_controller`` / ``to_external_controller``
+events between the components; a message carries ``{"topic": str,
+"data": dict}``. Incoming messages are dispatched by topic to handlers
+registered by the ``PipelineController`` (:meth:`Remote.register_handlers`);
+outgoing messages are fire-and-forget — sends while disconnected are
+dropped with a one-time warning instead of raising, because the senders run
+as background tasks where a raise would only produce lost messages and
+unhandled-exception noise. The client reconnects automatically and
+indefinitely (1–5 s backoff), so relay restarts recover without operator
+action.
+
+The simulated stack uses the identical interface in
+``neuropilot.controller.sim_remote_connection``.
+"""
+
 import socketio
 import asyncio
 import warnings
 
 
 class Remote:
+    """Asynchronous Socket.IO client for the external-controller relay channel."""
+
     def __init__(self, url, topic_handlers=None):
+        """Connect to the relay at ``url`` and subscribe to incoming messages.
+
+        ``topic_handlers`` optionally maps topic names to async callables
+        (``async def handler(payload_dict)``); more can be added later via
+        :meth:`register_handler` / :meth:`register_handlers`.
+        """
         warnings.filterwarnings("ignore", message="coroutine 'ClientWebSocketResponse.receive' was never awaited")
         self.sio = socketio.AsyncClient(
             reconnection=True,
@@ -24,17 +51,30 @@ class Remote:
         self.sio.on('to_external_controller', self.on_message_received)
 
     def register_handler(self, topic, func):
+        """Register ``func`` as the handler for messages with ``topic``."""
         self.topic_handlers[topic] = func
 
     def register_handlers(self, handlers):
+        """Register a ``{topic: handler}`` mapping in one call."""
         for topic, func in handlers.items():
             self.topic_handlers[topic] = func
 
     async def connect(self):
+        """Connect to the relay and keep the connection alive.
+
+        ``sio.wait()`` runs as a background task so this coroutine returns
+        after the connection is established (the client reconnects on its
+        own if the relay goes away).
+        """
         await self.sio.connect(self.url)
         asyncio.create_task(self.sio.wait())
 
     async def send_message(self, topic, data=None):
+        """Emit a ``from_external_controller`` message; return True on success.
+
+        Messages sent while disconnected are dropped (with a warning once
+        per outage) rather than raised — see the module docstring.
+        """
         if data is None:
             data = {}
 
@@ -73,6 +113,7 @@ class Remote:
         print(f"[REMOTE] Disconnected from relay at {self.url} -- reconnecting")
 
     async def on_message_received(self, data):
+        """Dispatch one relay message to the handler registered for its topic."""
         topic = data.get('topic')
         payload = data.get('data')
 
