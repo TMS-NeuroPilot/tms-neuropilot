@@ -1,4 +1,4 @@
-from PyQt5 import QtWidgets, uic
+from PyQt5 import QtCore, QtWidgets, uic
 import sys
 import os
 from .systems.system import SystemStatus
@@ -26,12 +26,25 @@ class MainWindow(QtWidgets.QMainWindow):
         ui_path = resource_path(os.path.join("gui", "pipeline_control2.ui"))
         uic.loadUi(ui_path, self)
 
-        # The .ui files set label fonts in point sizes, which scale with the
-        # X screen's reported DPI (high-DPI screens render ~2x and clip the
-        # fixed-width labels). Pixel-based label fonts are DPI-independent.
-        # Group-box titles (Stimulator / Robot / Mapping ...) otherwise inherit
-        # the app default font and render larger than everything else.
-        self.setStyleSheet(self.styleSheet() + "\nQLabel { font-size: 14px; }\nQGroupBox::title { font-size: 14px; }")
+        # The .ui files set per-widget fonts in point sizes (9pt ≈ 12px), which
+        # vary with the X screen's reported DPI and next to the app-default
+        # group-box titles render at inconsistent sizes. One suite stylesheet
+        # gives every widget class the same pixel-based size (labels 14px,
+        # interactive widgets 13px), DPI-independent, overriding the .ui fonts.
+        self.setStyleSheet(
+            "\n".join([
+                "QWidget { font-size: 13px; }",
+                "QLabel { font-size: 14px; }",
+                "QGroupBox { font-size: 14px; font-weight: 600; }",
+                "QTabBar::tab { font-size: 14px; }",
+            ])
+        )
+
+        # Absolute-positioned form: capture the design geometry (1244x894) so
+        # resizeEvent can scale every child proportionally (see _rescale).
+        # Capture must wait for the first layout pass — before it, the
+        # centralwidget still has its 100x30 placeholder size.
+        self._base_rects = None
 
         # create a pipeline controller instance
         self.controller = None
@@ -154,6 +167,74 @@ class MainWindow(QtWidgets.QMainWindow):
         if hasattr(self, 'widget_emg_signal'):
             self.widget_emg_signal.set_title("Last EMG")
             self.refresh_emg_nav_display()
+
+    # ── Proportional resizing ──────────────────────────────────────────────
+    @staticmethod
+    def _is_layout_managed(w):
+        """True when a QLayout positions this widget (scaling its geometry
+        would fight the layout). Tab/stack pages are excluded: the stacked
+        container positions them, but their geometry still must scale."""
+        p = w.parentWidget()
+        if p is None:
+            return False
+        if isinstance(p, (QtWidgets.QTabWidget, QtWidgets.QStackedWidget)):
+            return False
+        # Unbound call: MeshWidget shadows .layout with a QVBoxLayout attribute.
+        lay = QtWidgets.QWidget.layout(p)
+        if lay is None:
+            return False
+        try:
+            return lay.indexOf(w) != -1
+        except RuntimeError:
+            return False
+
+    def _capture_base_rects(self):
+        """Record the design-geometry of every absolutely-positioned
+        descendant of the central widget; layout-managed widgets reflow
+        inside the containers we scale."""
+        central = self.centralwidget
+        rects = {}
+        for w in central.findChildren(QtWidgets.QWidget):
+            if self._is_layout_managed(w):
+                continue
+            rects[w] = w.geometry()
+        return {"central": central, "size": (self.width(), self.height()), "rects": rects}
+
+    def showEvent(self, event):
+        # Capture base geometry once, after the first layout pass has run
+        # (a zero-timer fires when the event loop next processes events).
+        if self._base_rects is None:
+            QtCore.QTimer.singleShot(0, self._capture_base_rects_now)
+        super().showEvent(event)
+
+    def _capture_base_rects_now(self):
+        self._base_rects = self._capture_base_rects()
+        # Apply the current scale immediately so a window resized before the
+        # capture is consistent from the first paint after it.
+        self._rescale()
+
+    def resizeEvent(self, event):
+        if getattr(self, "_base_rects", None) is None:
+            return
+        self._rescale()
+        super().resizeEvent(event)
+
+    def _rescale(self):
+        base_w, base_h = self._base_rects["size"]
+        if not base_w or not base_h:
+            return
+        s = min(self.width() / base_w, self.height() / base_h)
+        # Center the scaled content inside the window (letterbox offset).
+        ox = (self.width() - base_w * s) / 2
+        oy = (self.height() - base_h * s) / 2
+        central = self._base_rects["central"]
+        for w, base in self._base_rects["rects"].items():
+            x, y, ww, hh = base.x(), base.y(), base.width(), base.height()
+            if w.parentWidget() is central:
+                w.setGeometry(round(x * s + ox), round(y * s + oy),
+                              round(ww * s), round(hh * s))
+            else:
+                w.setGeometry(round(x * s), round(y * s), round(ww * s), round(hh * s))
 
     def on_efield_mode_changed(self):
         if not (self.online_efield_btn.isChecked() or self.offline_efield_btn.isChecked()):
