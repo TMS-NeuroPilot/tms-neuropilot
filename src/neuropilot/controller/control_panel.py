@@ -19,6 +19,22 @@ def resource_path(relative_path: str) -> str:
 
     return os.path.join(base_path, relative_path)
 
+
+def _simnibs_coil_model(sub_dir: str, file_name: str):
+    """
+    Absolute path of a coil model shipped with SimNIBS, or None if SimNIBS is
+    not installed in the running environment. SimNIBS is not imported here —
+    the package location is resolved from its spec only.
+    """
+    import importlib.util
+    spec = importlib.util.find_spec("simnibs")
+    if spec is None or not spec.origin:
+        return None
+    fn = os.path.join(os.path.dirname(spec.origin), "resources", "coil_models",
+                      sub_dir, file_name)
+    return fn if os.path.isfile(fn) else None
+
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, simulation):
         super().__init__()
@@ -170,6 +186,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.online_efield_btn.toggled.connect(self.on_efield_mode_changed)
         self.offline_efield_btn.toggled.connect(self.on_efield_mode_changed)
+
+        # Default coil model: the MCF-B65 CCD shipped with SimNIBS (the same
+        # model the precomputed E-field library was computed with). Goes
+        # through paste_coil_path so validation and the FEM manager update
+        # exactly like a hand-entered path.
+        default_coil = _simnibs_coil_model("Drakaki_BrainStim_2022",
+                                           "MagVenture_MCF-B65_new.ccd")
+        if default_coil:
+            self.coilspathlineedit.setText(default_coil)
+            self.paste_coil_path()
 
 
         self.led_labels = {}  # map LED labels to systems
