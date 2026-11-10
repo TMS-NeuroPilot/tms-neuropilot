@@ -49,7 +49,7 @@ component-internal constants live in each component's `config.py`.
 
 - Abdullah Yaseen — `yaseen@cbs.mpg.de` (MPI CBS)
 - Samuel Berggren — `berggren@cbs.mpg.de` (MPI CBS)
-- Andrey Zhdanov — `andrey.zhdanov@helsinki.fi` (University of Helsinki / Aalto University)
+- Andrew Meng — `mengdrew@umich.edu` (University of Michigan)
 - Benjamin Kalloch — `kalloch@cbs.mpg.de` (MPI CBS)
 - Konstantin Weise — `kweise@cbs.mpg.de` (MPI CBS)
 - Thomas R. Knösche — `knoesche@cbs.mpg.de` (MPI CBS)
