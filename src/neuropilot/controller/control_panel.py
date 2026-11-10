@@ -296,13 +296,24 @@ class MainWindow(QtWidgets.QMainWindow):
         inside the containers we scale. Font sizes are handled for all
         descendants (geometry management does not affect fonts)."""
         central = self.centralwidget
-        rects = {}
         fonts = {}
         sheets = {}
+        # Pass 1: apply the base fonts everywhere, then let every layout
+        # settle — geometry read too early reflects the old (smaller) fonts.
         for w in central.findChildren(QtWidgets.QWidget):
             base_px = self._base_font_px(w)
             fonts[w] = base_px
             sheets[w] = w.styleSheet()  # raw design stylesheet, unscaled
+            self._apply_font_px(w, base_px)
+        for w in central.findChildren(QtWidgets.QWidget):
+            lay = QtWidgets.QWidget.layout(w)
+            if lay is not None:
+                lay.activate()
+        # Pass 2: flatten the button row (needs the settled LED positions and
+        # button size hints) and only then read the design geometry.
+        self._flatten_button_row()
+        rects = {}
+        for w in central.findChildren(QtWidgets.QWidget):
             if self._is_layout_managed(w):
                 continue
             rects[w] = w.geometry()
@@ -318,7 +329,6 @@ class MainWindow(QtWidgets.QMainWindow):
         super().showEvent(event)
 
     def _capture_base_rects_now(self):
-        self._flatten_button_row()
         self._base_rects = self._capture_base_rects()
         # Apply the current scale immediately so a window resized before the
         # capture is consistent from the first paint after it.
@@ -356,7 +366,12 @@ class MainWindow(QtWidgets.QMainWindow):
             y = button.geometry().y()
             button.setGeometry(round(center - hint.width() / 2), y,
                                hint.width(), hint.height())
-        # Move Coil Up / Finish keep their current positions.
+        # Move Coil Up / Finish keep their centers, fitted to their hints so
+        # the scaled text is never clipped.
+        for button in (self.move_coil_up, self.finish_btn):
+            hint = button.sizeHint()
+            g = button.geometry()
+            button.setGeometry(g.x(), g.y(), hint.width(), hint.height())
 
     def resizeEvent(self, event):
         if getattr(self, "_base_rects", None) is None:
