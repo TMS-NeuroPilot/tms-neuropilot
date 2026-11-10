@@ -18,6 +18,11 @@ class SystemStatus(Enum):
             print(f"Error: Could not match '{string}' to SystemStatus enum!")
         
 class System(ABC):
+    # Human-readable description of the concrete hardware/backend shown in
+    # the Connections page ("Stimulator — Simulated", ...). Subclasses that
+    # implement a specific device set this; None falls back to NAME.
+    DESCRIPTION = None
+
     def __init__(self, update_control_panel_func=None):
         self.status = SystemStatus.NAN
         self.update_control_panel_func = update_control_panel_func

@@ -33,6 +33,7 @@ class EMGComputer(System):
     # EMG_OUTPUT_FOLDER_PATH = r"\\192.168.137.3\users\neuro\signal" # old config
     
     NAME = "EMG Computer"
+    DESCRIPTION = "Real (CED 1401 / Signal, SMB)"
     
     ERROR_RECOVERIES = {
         'Could not connect to IP' : 'Try to reconnect',

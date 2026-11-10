@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 class Stimulator(System):
     NAME = "Stimulator"
+    DESCRIPTION = "Real (MagVenture via magicpy)"
     ERROR_RECOVERIES = {
         'No Connection' : None
     }

@@ -6,6 +6,7 @@ import subprocess
 
 class VirtualStimulator(System):
     NAME = "Virtual Stimulator"
+    DESCRIPTION = "Simulated"
 
     # Matched with real Stimulator for UI safety
     ERROR_RECOVERIES = {

@@ -7,6 +7,7 @@ from pynibs.expio.Mep import get_virtual_mep_tvs, scale_e_for_dvs
 
 class VirtualEMGComputer2(System):
     NAME = "Virtual EMG Computer 2"
+    DESCRIPTION = "Simulated (E-field driven)"
     ERROR_RECOVERIES = {}
 
     def __init__(self, update_control_panel_func=None):

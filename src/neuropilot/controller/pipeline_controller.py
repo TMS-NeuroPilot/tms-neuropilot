@@ -73,6 +73,10 @@ class PipelineController:
         self.robot = Robot(update_control_panel_func, self.remote)
         self.systems.append(self.robot)
         self.simulation = simulation
+        # The Robot system speaks the relay protocol in both modes; only the
+        # controller knows which one is behind it (the sim robot process).
+        self.robot.DESCRIPTION = ("Simulated (virtual twin)" if simulation
+                                  else "Real (via relay)")
 
         if not simulation:
             self.emg_computer = EMGComputer(update_control_panel_func)

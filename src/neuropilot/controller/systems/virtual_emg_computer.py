@@ -12,6 +12,7 @@ from collections import deque
 
 class VirtualEMGComputer(System):
     NAME = "Virtual EMG Computer"
+    DESCRIPTION = "Simulated"
 
     ERROR_RECOVERIES = {}
 

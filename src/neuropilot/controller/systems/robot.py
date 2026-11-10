@@ -4,6 +4,7 @@ from ..systems.system import SystemStatus, System
 
 class Robot(System):
     NAME = "Robot"
+    DESCRIPTION = "Real (via relay)"
     
     ERROR_RECOVERIES = {
         'Socket Broken' : 'Restart Robot Connection',

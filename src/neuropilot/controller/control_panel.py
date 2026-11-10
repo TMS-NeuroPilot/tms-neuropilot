@@ -819,6 +819,14 @@ class MainWindow(QtWidgets.QMainWindow):
         # Wire each system to its labels & Recover button in the .ui
         for system, err_map in all_error_recoveries.items():
             name = getattr(system, "NAME", "").lower()
+            description = getattr(system, "DESCRIPTION", None) or getattr(system, "NAME", "")
+            # Show the concrete hardware/backend on the Connections page
+            # group ("Stimulator — Simulated", ...) so the mode is always
+            # visible; new hardware variants only set DESCRIPTION.
+            def _set_group_title(group_attr, base):
+                group = getattr(self, group_attr, None)
+                if group is not None:
+                    group.setTitle(f"{base} — {description}")
 
             if "robot" in name:
                 self._bind_system(
@@ -829,6 +837,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         last_update_label=getattr(self, "robotLastUpdateLabel", None),
                         led_label=getattr(self, "led_robot", None) # the status of the led in the connection tap
                 )
+                _set_group_title("groupBox_3", "Robot")
 
             elif "stimulator" in name:  # stimulator
                 self._bind_system(
@@ -839,6 +848,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         last_update_label=getattr(self, "stimLastUpdateLabel", None),
                         led_label=getattr(self, "led_stim", None)  # the status of the led in the connection tap
                 )
+                _set_group_title("groupBox_2", "Stimulator")
 
             elif "emg computer" in name:
                 self._bind_system(
@@ -849,6 +859,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         last_update_label=getattr(self, "emgLastUpdateLabel", None),
                         led_label=getattr(self, "led_emg", None)  # the status of the led in the connection tap
                 )
+                _set_group_title("groupBox_4", "EMG")
 
         # Initialize display
         for sys_obj, lbl in self.status_labels.items():
