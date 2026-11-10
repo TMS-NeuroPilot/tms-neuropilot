@@ -44,3 +44,13 @@ Components communicate over Socket.IO relay topics
 Copy `.env.example` to `.env`. Cross-component settings (relay endpoint,
 data folder, readiness timeout, real-relay path) live in one place;
 component-internal constants live in each component's `config.py`.
+
+## Contributing
+
+- Abdullah Yaseen — `yaseen@cbs.mpg.de` (MPI CBS)
+- Samuel Berggren — `berggren@cbs.mpg.de` (MPI CBS)
+- Andrey Zhdanov — `andrey.zhdanov@helsinki.fi` (University of Helsinki / Aalto University)
+- Benjamin Kalloch — `kalloch@cbs.mpg.de` (MPI CBS)
+- Konstantin Weise — `kweise@cbs.mpg.de` (MPI CBS)
+- Thomas R. Knösche — `knoesche@cbs.mpg.de` (MPI CBS)
+- Renan H. Matsuda — `renan.matsuda@aalto.fi` (Aalto University)
