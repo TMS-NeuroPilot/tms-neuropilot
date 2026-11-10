@@ -3497,8 +3497,8 @@ QLabel#led_robot[status=&quot;on&quot;][color=&quot;yellow&quot;] {
          <widget class="QRadioButton" name="online_efield_btn">
           <property name="geometry">
            <rect>
-            <x>450</x>
-            <y>40</y>
+            <x>630</x>
+            <y>10</y>
             <width>131</width>
             <height>23</height>
            </rect>
@@ -3513,8 +3513,8 @@ QLabel#led_robot[status=&quot;on&quot;][color=&quot;yellow&quot;] {
          <widget class="QRadioButton" name="offline_efield_btn">
           <property name="geometry">
            <rect>
-            <x>590</x>
-            <y>40</y>
+            <x>450</x>
+            <y>10</y>
             <width>171</width>
             <height>23</height>
            </rect>
