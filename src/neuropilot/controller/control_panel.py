@@ -960,10 +960,21 @@ class MainWindow(QtWidgets.QMainWindow):
     # === BEGIN: Handlers for loading the coil path ===
     def pick_coil_path(self):
         """Opens file dialog for TMS coil model (.ccd) file."""
+        # Start in the SimNIBS coil-model folder: that is where the
+        # shipped .ccd files (e.g. the default MCF-B65) live. Fall back
+        # to the current selection's folder, then to the home directory.
+        coil_models_dir = _simnibs_coil_model("Drakaki_BrainStim_2022",
+                                              "MagVenture_MCF-B65_new.ccd")
+        if coil_models_dir:
+            start_folder = os.path.dirname(coil_models_dir)
+        else:
+            current = self.coilspathlineedit.text().strip()
+            start_folder = (os.path.dirname(current) if os.path.isdir(os.path.dirname(current))
+                            else os.path.expanduser("~"))
         file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
             self,
             "Select Coil Model File",
-            os.getcwd(),
+            start_folder,
             "CCD Files (*.ccd *.ccd.nii.gz)"
         )
         if file_path:
