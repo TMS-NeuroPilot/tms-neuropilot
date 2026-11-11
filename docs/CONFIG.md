@@ -63,7 +63,8 @@ placement colour metric, display toggles, mapping parameters (fit
 function, subsampling). Config page: everything listed above.
 
 Values entered in the Control page are written into the project file on
-save; the E-field mode is not persisted.
+save; the E-field mode travels with the project (`efield_mode`), so a subject
+resumes in the same mode.
 
 The E-field mode itself is switchable at any time, also while a mapping is
 running: every pulse records the E-field it was stimulated with (from the
