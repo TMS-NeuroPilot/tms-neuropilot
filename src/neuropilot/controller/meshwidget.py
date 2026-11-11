@@ -380,7 +380,7 @@ class MeshWidget(QWidget):
     def _refresh_overlays(self):
         """Redraw placement spheres/handles/path and the best-element mark."""
         for name in ("placements", "coil_handles", "placement_path",
-                     "best_element", "best_element_pt", "bar_title"):
+                     "best_element", "best_element_pt"):
             self.plotter.remove_actor(name)
 
         on_head = self.current_mesh is self.mesh_head
@@ -388,7 +388,6 @@ class MeshWidget(QWidget):
             self._draw_placements()
         if self.current_mesh is self.mesh_roi and self._best_element is not None:
             self._draw_best_element()
-        self._add_bar_title()
         self._update_overlay_labels()
         self.plotter.render()
 
@@ -474,30 +473,16 @@ class MeshWidget(QWidget):
             return None
 
     def _add_scalar_bar(self, title):
-        """Value bar with its title drawn as separate text above it.
+        """Legend bar with its title.
 
-        VTK puts the built-in title straight over the middle tick label at
-        these sizes; a text actor gives as much separation as we want (and
-        it is included in screenshots)."""
+        Two labels (min/max) instead of four: VTK draws the title directly
+        above the tick row, so a middle label would sit on it.  Title and
+        labels then share one font, which keeps their sizes consistent
+        (a separate text actor rendered far larger than the tick values)."""
         self._bar_title = title or ""
-        # Leave the bar's label font at pyvista's default; only the title is
-        # ours (drawn above the bar so it never sits on the tick labels).
-        self.plotter.add_scalar_bar(title="", n_labels=4, vertical=False,
-                                    height=0.12, width=0.5,
+        self.plotter.add_scalar_bar(title=title or "", n_labels=2,
+                                    vertical=False, height=0.16, width=0.5,
                                     position_x=0.25, position_y=0.02)
-        self._add_bar_title()
-
-    def _add_bar_title(self):
-        """(Re-)add the bar's title text - plotter.clear() and the overlay
-        refresh both drop it."""
-        if not getattr(self, "_bar_title", ""):
-            return
-        font = max(10, int(self.height() * 0.016))
-        # viewport=True: the tuple is in viewport fractions, otherwise
-        # pyvista reads it as pixels and the text lands in the corner.
-        self.plotter.add_text(self._bar_title, position=(0.25, 0.175),
-                              viewport=True, font_size=font,
-                              color="#3C444D", name="bar_title")
 
     def _draw_best_element(self):
         import numpy as np
