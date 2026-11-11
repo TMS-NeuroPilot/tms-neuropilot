@@ -17,6 +17,7 @@ QMainWindow, QWidget#centralwidget, QWidget[page="true"] { background: #F4F5F7; 
 QLabel { background: transparent; }
 QGroupBox { background: transparent; }
 
+QTabWidget { background: #FFFFFF; }
 QTabWidget::pane { border: 0; background: #F4F5F7; }
 QTabBar { background: #FFFFFF; }
 QTabBar::tab {

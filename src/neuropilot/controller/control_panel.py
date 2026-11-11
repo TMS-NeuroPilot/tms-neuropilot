@@ -37,6 +37,21 @@ def _simnibs_coil_model(sub_dir: str, file_name: str):
     return fn if os.path.isfile(fn) else None
 
 
+class _TabCornerFrame(QtWidgets.QFrame):
+    """Frame for the tab bar's top-right corner.
+
+    QTabWidget places the corner widget bottom-aligned with its size hint
+    height; reporting the tab bar's height makes the frame cover the whole
+    strip, so the LEDs sit on the same white as the tabs."""
+
+    def sizeHint(self):
+        hint = super().sizeHint()
+        parent = self.parentWidget()
+        tab_bar = getattr(parent, "tabBar", None)
+        height = tab_bar().height() if callable(tab_bar) else hint.height()
+        return QtCore.QSize(hint.width(), max(hint.height(), height))
+
+
 def _control_ui_icons():
     """Write the small PNG assets the style sheet needs (a check tick and the
     spin-box chevrons) and return their paths. Qt style sheets cannot draw
@@ -242,9 +257,22 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Status LEDs live in the tab bar's top-right corner (right of the
         # tab strip) instead of on the Control page.
-        corner = QtWidgets.QWidget(self.tabWidget)
+        # The empty part of the tab strip is painted by QTabBar itself from
+        # the palette, not from the style sheet — fill it white so the strip
+        # reads as one bar from the tabs to the LEDs.
+        bar = self.tabWidget.tabBar()
+        bar.setAutoFillBackground(True)
+        bar_palette = bar.palette()
+        bar_palette.setColor(QtGui.QPalette.Window, QtGui.QColor("#FFFFFF"))
+        bar.setPalette(bar_palette)
+
+        corner = _TabCornerFrame(self.tabWidget)
+        self._tab_corner = corner
         corner.setObjectName("tab_corner")
-        corner.setStyleSheet("QWidget#tab_corner { background: transparent; }")
+        # Same white as the tab strip — a transparent corner showed the
+        # window grey behind the LEDs.
+        corner.setStyleSheet(
+            "QFrame#tab_corner { background: #FFFFFF; border: none; }")
         corner_layout = QtWidgets.QHBoxLayout(corner)
         corner_layout.setContentsMargins(0, 0, 12, 0)
         corner_layout.setSpacing(14)
@@ -398,6 +426,22 @@ class MainWindow(QtWidgets.QMainWindow):
         finally:
             self._project_loading = False
         self._pending_session = None
+
+    def _place_tab_corner(self):
+        """Size the LED corner to its (scaled) contents.  QTabWidget only
+        re-runs its corner placement on resize, so after a font/style pass
+        the captions would clip at the right edge."""
+        corner = getattr(self, "_tab_corner", None)
+        if corner is None:
+            return
+        lay = corner.layout()
+        if lay is not None:
+            lay.activate()
+        hint = corner.sizeHint()
+        bar = self.tabWidget.tabBar()
+        corner.setGeometry(self.tabWidget.width() - hint.width(), 0,
+                           hint.width(), max(hint.height(), bar.height()))
+        corner.raise_()
 
     def _install_ui_assets(self):
         icons = _control_ui_icons()
@@ -560,6 +604,10 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
         p = w.parentWidget()
         if p is None:
             return False
+        # The tab bar's corner widget is positioned by QTabWidget itself;
+        # scaling its geometry would drag it away from the strip.
+        if isinstance(p, QtWidgets.QTabWidget) and p.cornerWidget() is w:
+            return True
         if isinstance(p, (QtWidgets.QTabWidget, QtWidgets.QStackedWidget)):
             return False
         # Unbound call: MeshWidget shadows .layout with a QVBoxLayout attribute.
@@ -755,6 +803,7 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
             if lay is not None:
                 lay.activate()
         self.centralwidget.updateGeometry()
+        self._place_tab_corner()
 
     def on_efield_mode_changed(self):
         if not (self.online_efield_btn.isChecked() or self.offline_efield_btn.isChecked()):
