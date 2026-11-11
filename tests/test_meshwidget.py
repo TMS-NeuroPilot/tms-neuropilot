@@ -1,0 +1,136 @@
+"""Loading meshes into the 3D view (valid, corrupt and mismatched files)."""
+
+import numpy as np
+import pytest
+
+pytest.importorskip("PyQt5.QtWidgets")
+pytest.importorskip("pyvista")
+
+
+@pytest.fixture()
+def view(qapp, gui_env):
+    from neuropilot.controller.meshwidget import MeshWidget
+    widget = MeshWidget()
+    widget.resize(500, 400)
+    qapp.processEvents()
+    return widget
+
+
+def test_valid_roi_mesh_is_loaded(view, qapp, roi_hdf5):
+    view.load_hdf5_mesh(str(roi_hdf5), mesh_type="roi")
+    qapp.processEvents()
+    assert view.mesh_roi is not None
+    assert view.mesh_roi.n_cells == 4
+    assert view.radio_roi.isChecked()
+
+
+def test_tissue_types_are_attached_per_cell(view, qapp, h5file):
+    nodes = np.zeros((6, 3))
+    tris = np.array([[0, 1, 2], [1, 2, 3]])
+    path = h5file({"mesh/nodes/node_coord": nodes,
+                   "mesh/elm/triangle_number_list": tris,
+                   "mesh/elm/tri_tissue_type": np.array([1, 2])}, "roi.hdf5")
+    view.load_hdf5_mesh(str(path), mesh_type="roi")
+    qapp.processEvents()
+    assert "Tissue Type" in view.mesh_roi.cell_data
+
+
+def test_mismatched_tissue_types_are_skipped(view, qapp, h5file):
+    nodes = np.zeros((6, 3))
+    tris = np.array([[0, 1, 2], [1, 2, 3]])
+    path = h5file({"mesh/nodes/node_coord": nodes,
+                   "mesh/elm/triangle_number_list": tris,
+                   "mesh/elm/tri_tissue_type": np.array([1])}, "roi.hdf5")
+    view.load_hdf5_mesh(str(path), mesh_type="roi")
+    qapp.processEvents()
+    assert view.mesh_roi is not None            # the geometry still loads
+    assert "Tissue Type" not in view.mesh_roi.cell_data
+
+
+def test_hdf5_without_the_mesh_datasets_keeps_the_old_view(view, qapp, h5file,
+                                                           roi_hdf5):
+    view.load_hdf5_mesh(str(roi_hdf5), mesh_type="roi")
+    previous = view.mesh_roi
+    bad = h5file({"something": np.zeros(2)}, "bad.hdf5")
+    view.load_hdf5_mesh(str(bad), mesh_type="roi")   # prints, does not raise
+    qapp.processEvents()
+    assert view.mesh_roi is previous
+
+
+def test_corrupt_hdf5_keeps_the_old_view(view, qapp, tmp_path):
+    bad = tmp_path / "roi.hdf5"
+    bad.write_text("not hdf5")
+    view.load_hdf5_mesh(str(bad), mesh_type="roi")
+    qapp.processEvents()
+    assert view.mesh_roi is None
+
+
+def test_empty_path_clears_the_mesh(view, qapp, roi_hdf5):
+    view.load_hdf5_mesh(str(roi_hdf5), mesh_type="roi")
+    view.load_hdf5_mesh("", mesh_type="roi")
+    qapp.processEvents()
+    assert view.mesh_roi is None
+
+
+def test_unreadable_msh_keeps_the_previous_head(view, qapp, tmp_path, monkeypatch):
+    from neuropilot.controller import meshwidget
+
+    class FakeHead:
+        n_cells = 4
+        n_points = 6
+
+    monkeypatch.setattr(meshwidget.pv, "PolyData",
+                        lambda nodes, faces: _StubMesh())
+    good = tmp_path / "head.msh"
+    good.write_text("x")
+    monkeypatch.setattr(view, "_load_simnibs_msh",
+                        lambda path: (np.zeros((6, 3)), np.array([[0, 1, 2], [1, 2, 3]]),
+                                      np.array([1, 2])))
+    view.load_hdf5_mesh(str(good), mesh_type="head")
+    qapp.processEvents()
+    assert view.mesh_head is not None
+
+    bad = tmp_path / "bad.msh"
+    bad.write_text("x")
+    monkeypatch.setattr(view, "_load_simnibs_msh", lambda path: None)
+    view.load_hdf5_mesh(str(bad), mesh_type="head")
+    qapp.processEvents()
+    assert view.mesh_head is not None              # unchanged, not wiped
+
+
+class _StubMesh:
+    """Minimal stand-in for pyvista.PolyData (the test avoids the GL pipeline)."""
+
+    n_points = 6
+    n_cells = 2
+    point_data = {}
+    cell_data = {}
+
+    def decimate(self, fraction):
+        return self
+
+
+def test_channel_display_names_are_remembered(view):
+    view.set_channel_display_names(["FDI", "APB"])
+    assert view.channel_display_names == {"ADC 0": "FDI", "ADC 1": "APB"}
+
+
+def test_pulse_count_reaches_the_corner_label(view, qapp):
+    view.set_pulse_count(7)
+    qapp.processEvents()
+    assert "7" in view._label_pulses.text()
+
+
+def test_marks_can_be_cleared_without_scores(view, qapp):
+    view.clear_marks()
+    assert view._best_element is None
+    assert view._best_channel is None
+
+
+def test_placement_metric_and_options_are_accepted(view, qapp):
+    view.set_placement_metric("aim")
+    view.set_placement_options(show=True, handles=True, path=True)
+    qapp.processEvents()          # no exception is the assertion
+
+
+pytestmark = pytest.mark.gui

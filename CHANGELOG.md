@@ -7,7 +7,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- GUI and robustness test suite: `tests/` now has ~460 tests, including
+- GUI and robustness test suite: `tests/` now has ~490 tests, including
   real-window tests for all six pages, resizing, the results table and
   readout, exports/screenshots, manual mode, the status LEDs and the
   "click every button on every page" sweep (with an exception hook so a

@@ -72,8 +72,9 @@ need a display and are skipped automatically when `DISPLAY` and
 `WAYLAND_DISPLAY` are both unset.
 
 Everything the tests write goes to `tmp_path`: the session cache and the
-Config tab's `.env` are redirected in `tests/conftest.py`, so a test run
-never touches `~/.neuropilot` or the repository's `.env`.
+Config tab's `.env` are redirected in `tests/conftest.py`, and an autouse
+fixture fails any test that rewrites `~/.neuropilot/last_session.yaml` or
+the repository's `.env`.
 
 ## License
 
