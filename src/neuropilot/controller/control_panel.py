@@ -471,7 +471,8 @@ class MainWindow(QtWidgets.QMainWindow):
         values, but layout widths do not scale with the window: compute
         them from the current scale so the text always fits."""
         width = max(320, round(330 * scale))
-        for attr in ("groupBox_results", "groupBox_display", "groupBox_selection"):
+        for attr in ("groupBox_results", "groupBox_display", "groupBox_selection",
+                     "groupBox_7"):
             card = getattr(self, attr, None)
             if card is None:
                 continue

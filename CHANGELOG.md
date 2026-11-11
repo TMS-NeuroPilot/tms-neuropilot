@@ -7,6 +7,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The E-field mode selector moved from the status strip into its own
+  card on the Control page (where the mapping parameters were), and the
+  mapping parameters (fit function, subsampling) moved to the results
+  page, which is now called "Cortical results".
+
+## [Unreleased]
+
+### Changed
+
 - The simulated robot no longer streams JPEG frames to the pipeline.  The
   controller renders the same MuJoCo scene in the robot-view panel, so the
   operator can orbit (drag), pan (right drag), zoom (wheel) and reset

@@ -176,7 +176,16 @@ class RobotSceneView(QtCore.QObject):
                     self._renderer.close()
                 except Exception:
                     pass
-            self._renderer = mujoco.Renderer(self._model, height=height, width=width)
+            try:
+                self._renderer = mujoco.Renderer(self._model, height=height,
+                                                 width=width)
+            except Exception as e:
+                # No usable OpenGL (headless session, remote display): stop
+                # rendering instead of taking the whole window down.
+                print(f"[RobotSceneView] OpenGL unavailable, view disabled: {e}")
+                self._timer.stop()
+                self.label.setText("3D robot view unavailable (no OpenGL)")
+                return
             self._render_size = (width, height)
 
         camera = self._camera
