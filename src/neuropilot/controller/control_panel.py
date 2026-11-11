@@ -642,12 +642,12 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
         p = w.parentWidget()
         if p is None:
             return False
-        # The tab bar's corner widget is positioned by QTabWidget itself;
-        # scaling its geometry would drag it away from the strip.
-        if isinstance(p, QtWidgets.QTabWidget) and p.cornerWidget() is w:
-            return True
+        # Tab/stack pages (and the tab bar's corner widget) are positioned
+        # by the stacked container itself.  Rescaling their geometry on top
+        # of that double-applied the window scale: the pages grew past the
+        # window during a resize and pushed the page content out of view.
         if isinstance(p, (QtWidgets.QTabWidget, QtWidgets.QStackedWidget)):
-            return False
+            return True
         # Unbound call: MeshWidget shadows .layout with a QVBoxLayout attribute.
         lay = QtWidgets.QWidget.layout(p)
         if lay is None:
