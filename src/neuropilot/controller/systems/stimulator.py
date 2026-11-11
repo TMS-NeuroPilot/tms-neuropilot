@@ -35,27 +35,55 @@ class Stimulator(System):
     TTL_PORT = os.getenv("STIMULATOR_TTL_PORT", "/dev/parport0")
 
     def try_connect(self):
+        """Open the serial port (and the TTL port if the PC has one).
+
+        Any failure leaves the system in ERROR with a message -- never in a
+        state where the health loop later raises out of an unconnected
+        device (that used to take the whole pipeline down).
+        """
+        self.stimulator = None
+        self.avail = False
         try:
-            self.stimulator = mp.MagVenture(self.PORT, ttl_port=self.TTL_PORT)  ## pavian
+            self.stimulator = mp.MagVenture(self.PORT, ttl_port=self.TTL_PORT)
             self.stimulator.connect()
             self.avail = True
         except FileNotFoundError:
-            print(f"Cannot connect to parallel port. ")
-            self.stimulator = mp.MagVenture(self.PORT)  ## pavian
-        except serial.serialutil.SerialException:
-            print(f"Cannot connect to serial port.")
-        self.set_details({"Port": self.PORT, "TTL port": self.TTL_PORT})
-        asyncio.create_task(self.check_system())
+            print("Cannot open the TTL/parallel port; trying the serial port only.")
+            try:
+                self.stimulator = mp.MagVenture(self.PORT)
+                self.stimulator.connect()
+                self.avail = True
+            except Exception as e:
+                print(f"Cannot connect to the stimulator on {self.PORT}: {e}")
+                self.stimulator = None
+        except serial.serialutil.SerialException as e:
+            print(f"Cannot connect to serial port {self.PORT}: {e}")
+            self.stimulator = None
+        except Exception as e:                  # magicpy raises a mixed bag
+            print(f"Stimulator initialisation failed: {e}")
+            self.stimulator = None
+
+        self.set_details({"Port": self.PORT, "TTL port": self.TTL_PORT,
+                          "Connected": "yes" if self.avail else "no"})
+        if not self.avail:
+            super().set_system_status(SystemStatus.ERROR, 'No Connection')
+        try:
+            asyncio.create_task(self.check_system())
+        except RuntimeError:
+            pass                                # no loop yet (GUI-only code)
     
     async def check_system(self):
         loop = asyncio.get_running_loop()
-        # run blocking call in a thread
+        if self.stimulator is None:
+            super().set_system_status(SystemStatus.ERROR, 'No Connection')
+            return
+        # run blocking call in a thread; an unplugged device raises a mix of
+        # pyserial exceptions (PortNotOpenError is not a ValueError).
         try:
             info, error = await loop.run_in_executor(
                 self._serial_executor, self.stimulator.get_status)
-        except ValueError as e:
-            print("Cannot get status from stimulator.")
-            print(e)
+        except Exception as e:
+            print(f"Cannot get status from stimulator: {e}")
             super().set_system_status(SystemStatus.ERROR, 'No Connection')
             return
 
@@ -80,24 +108,37 @@ class Stimulator(System):
         pass
     
     def arm(self):
+        if self.stimulator is None:
+            print("Stimulator not connected -- cannot arm.")
+            return
         self._run_off_thread(self.stimulator.arm)
 
     def fire(self):
+        if self.stimulator is None:
+            print("Stimulator not connected -- pulse not delivered.")
+            super().set_system_status(SystemStatus.ERROR, 'No Connection')
+            return
         try:
             resp, error = self.stimulator.fire(get_response=True)   # Send TMS pulse and get stimulator response
         except Exception as e:
-            print("Couldn't fire stimulator.")
-            print(e)
+            print(f"Couldn't fire stimulator: {e}")
+            super().set_system_status(SystemStatus.ERROR, 'No Connection')
 
     def disarm(self):
+        if self.stimulator is None:
+            return
         self._run_off_thread(self.stimulator.disarm)
 
     def set_amplitude(self, amplitude):
         if not 0 <= amplitude <= 100:
             raise ValueError(f"Amplitude must be between 0 and 100, got {amplitude}")
+        if self.stimulator is None:
+            return
         self._run_off_thread(self.stimulator.set_amplitude, amplitude)
 
     def set_waveform(self, waveform):
         if waveform not in ("Biphasic", "Monophasic"):
             raise ValueError(f"Unsupported pulse shape: {waveform}")
+        if self.stimulator is None:
+            return
         self._run_off_thread(self.stimulator.set_waveform, waveform)

@@ -514,6 +514,22 @@ class MainWindow(QtWidgets.QMainWindow):
     def closeEvent(self, event):
         """Stop timers/threads that would otherwise outlive the window."""
         self._closing = True
+        controller = getattr(self, "controller", None)
+        if controller is not None and getattr(controller, "is_running", False):
+            # The loop dies with the window: finish the session explicitly so
+            # the robot is released and the results file is written.
+            print("[WARN] window closed during a mapping session -- finishing it.")
+            try:
+                controller.finish_experiment()
+                controller.move_robot_away_from_head()
+            except Exception as e:            # pragma: no cover - teardown
+                print(f"[WARN] could not finish the session: {e}")
+        stimulator = getattr(controller, "stimulator", None) if controller else None
+        if stimulator is not None:
+            try:
+                stimulator.disarm()
+            except Exception:                 # pragma: no cover - hardware
+                pass
         for attr in ("_info_timer", "_styles_timer"):
             timer = getattr(self, attr, None)
             if timer is not None:
@@ -908,6 +924,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def on_study_apply(self):
         """Push the study values into the live controls."""
+        if self._run_in_progress():
+            self.cfg_study_status.setText(
+                "Not applied: a mapping session is running (finish it first).")
+            return
         values = self._study_dict()
         applied, deferred = [], []
         try:
@@ -2832,6 +2852,11 @@ QLabel#efield_hint[tone="error"] { color: #B50E0E; }
                     f"Could not load config file:\n{error}"
                 )
 
+    def _run_in_progress(self):
+        controller = getattr(self, "controller", None)
+        running = getattr(controller, "is_running", False)
+        return running is True
+
     def load_project_file(self, file_path):
         """Load a project YAML without a dialog.
 
@@ -2840,6 +2865,9 @@ QLabel#efield_hint[tone="error"] { color: #B50E0E; }
         file cannot be read or does not hold a mapping, so a wrong file can
         never leave the GUI half-configured.
         """
+        if self._run_in_progress():
+            return ("a mapping session is running -- finish it before loading "
+                    "another project")
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f)
@@ -3038,6 +3066,11 @@ QLabel#efield_hint[tone="error"] { color: #B50E0E; }
         """
         if not isinstance(d, dict):
             print(f"[WARN] project config ignored: expected a mapping, got {type(d).__name__}")
+            return False
+        if self._run_in_progress():
+            # Swapping the library/placements/subsampling under a live run
+            # changes what the map means (or crashes the analysis).
+            print("[WARN] project config ignored: a mapping session is running.")
             return False
         # YAML gives whatever the user typed: 3.7, "many", .nan.  Each widget
         # kind is coerced here, and a value that cannot be coerced is skipped

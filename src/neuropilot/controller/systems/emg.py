@@ -19,6 +19,7 @@ import smbclient
 from ..systems.system import System, SystemStatus
 import asyncio
 import os
+import time
 import pandas as pd
 
 class EMGComputer(System):
@@ -45,6 +46,10 @@ class EMGComputer(System):
         self.EMG_COMPUTER_USERNAME = os.getenv("EMG_COMPUTER_USERNAME", "neuro")
         self.EMG_COMPUTER_PASSWORD = os.getenv("EMG_COMPUTER_PASSWORD", "")
         self.EMG_OUTPUT_FOLDER_PATH = f"\\{self.EMG_COMPUTER_IP}\\users\\neuro\\signal"
+        # One SMB round trip every few seconds is enough to notice a share
+        # that went away; the health loop runs at ~2 Hz.
+        self.probe_interval_s = float(os.getenv("EMG_PROBE_INTERVAL_S", "5"))
+        self._last_probe = 0.0
     
     def _publish_details(self):
         channels = [c.strip() for c in
@@ -71,32 +76,74 @@ class EMGComputer(System):
         self.try_connect()
     
     async def check_system(self):
-        if self.recovery_queue:
-            recovery = self.recovery_queue.popleft()
-            if recovery == 'Try to connect':
-                try:
-                    await asyncio.wait_for(
-                        asyncio.to_thread(lambda: list(smbclient.listdir(self.EMG_OUTPUT_FOLDER_PATH))),
-                        timeout=5.0
-                    )
-                    super().set_system_status(SystemStatus.OK)
-                except (ValueError, asyncio.TimeoutError, SMBException):
-                    super().set_system_status(SystemStatus.ERROR, 'Could not connect to IP')
-            else:
-                print(f"Error: Recovery method '{recovery}' for system '{self.NAME}' not implemented!")
-        
-    
-    def get_latest_emg_df(self, idx=None, e_field_for_mep=None):
+        """Poll the share so a connection lost mid-session turns red.
+
+        The probe is throttled (it costs a round trip) and runs in a thread so
+        it can never block the event loop; failures always end in ERROR, never
+        in an exception (the health loop would take the pipeline down).
+        """
+        now = time.monotonic()
+        forced = bool(self.recovery_queue)
+        while self.recovery_queue:
+            self.recovery_queue.popleft()
+        if not forced and now - getattr(self, "_last_probe", 0.0) < self.probe_interval_s:
+            return
+        self._last_probe = now
+        try:
+            await asyncio.wait_for(
+                asyncio.to_thread(
+                    lambda: list(smbclient.listdir(self.EMG_OUTPUT_FOLDER_PATH))),
+                timeout=5.0)
+        except Exception as e:
+            if self.status is not SystemStatus.ERROR:
+                print(f"EMG share unavailable: {type(e).__name__}: {e}")
+            super().set_system_status(SystemStatus.ERROR, 'Could not connect to IP')
+            return
+        if self.status is SystemStatus.ERROR:
+            print("EMG share reachable again.")
+        super().set_system_status(SystemStatus.OK)
+
+    def signal_files(self):
+        """Sorted list of the signal files (names only) on the share.
+
+        Used as a snapshot before a pulse: the pulse's own file must not be
+        one that was already there, otherwise the previous sweep would be
+        paired with the new placement.
+        """
+        folder = self.EMG_OUTPUT_FOLDER_PATH
+        names = []
+        for name in smbclient.listdir(folder):
+            path = os.path.join(folder, name).replace("/", "\\")
+            try:
+                if not smbclient.path.isfile(path):
+                    continue
+            except (OSError, SMBException):
+                continue
+            names.append(name)
+        return sorted(names)
+
+    def get_latest_emg_df(self, idx=None, e_field_for_mep=None, after=None):
         """Newest signal file as a DataFrame.
 
         ``e_field_for_mep`` is accepted for interface parity with the virtual
         EMG (the controller always passes it); the real acquisition does not
         need it — the field is only used to synthesise MEPs in simulation.
+
+        ``after`` is the file list snapshotted *before* the pulse: only a file
+        that appeared since then is a candidate, so a slow Signal PC cannot
+        hand back the previous pulse's sweep (which would look plausible and
+        silently corrupt the map).  Returns None when nothing new is there.
         """
+        files = self.signal_files()
+        if after is not None:
+            known = set(after)
+            files = [name for name in files if name not in known]
+            if not files:
+                return None
+        if not files:
+            return None
         if idx is None:
             idx = -1
-        files = list(smbclient.listdir(self.EMG_OUTPUT_FOLDER_PATH))
-        files.sort()
         last_file_path = os.path.join(self.EMG_OUTPUT_FOLDER_PATH, files[idx]).replace("/", "\\")
         #file_paths = []
         #for f in files:

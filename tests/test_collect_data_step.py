@@ -19,10 +19,14 @@ collect_data_step = PipelineController.collect_data_step
 
 
 class FakeEMG:
+    """Stands in for the virtual EMG (the sweep content is not used)."""
+
+    data_channel_names = ["ADC 0"]
+
     def __init__(self):
         self.calls = []
 
-    def get_latest_emg_df(self, idx=None, e_field_for_mep=None):
+    def get_latest_emg_df(self, idx=None, e_field_for_mep=None, after=None):
         self.calls.append(e_field_for_mep)
         return object()          # opaque: compute_meps is stubbed
 
@@ -86,6 +90,8 @@ def make_controller(online=False, e_matrix=None, computed=None, amplitude=70):
         datetime_str="20260101_000000",
         steps=[],
         current_step=Step.COLLECT_DATA,
+        emg_timeout_s=5.0,
+        _emg_files_before=None,
         _fire_mono=0.0,
         _realized_mono=None,
         collect_timeout_s=20.0,
@@ -96,6 +102,10 @@ def make_controller(online=False, e_matrix=None, computed=None, amplitude=70):
     ctrl._log_step = lambda text: ctrl.steps.append(text)
     ctrl._pulse_width = None
     ctrl._check_row_width = lambda row: PipelineController._check_row_width(ctrl, row)
+    import types
+    ctrl._read_emg = types.MethodType(PipelineController._read_emg, ctrl)
+    ctrl._aim_error = PipelineController._aim_error
+    ctrl.max_aim_error_mm = 5.0
     return ctrl
 
 
@@ -245,7 +255,7 @@ def test_collect_gives_up_when_no_realized_target_arrives():
 def test_pulse_is_discarded_when_the_step_is_aborted_during_the_read():
     ctrl = make_controller(online=False, e_matrix=np.ones((2, 2)))
 
-    def aborting_read(idx=None, e_field_for_mep=None):
+    def aborting_read(idx=None, e_field_for_mep=None, after=None):
         ctrl.current_step = Step.SKIP
         return object()
 
@@ -253,3 +263,21 @@ def test_pulse_is_discarded_when_the_step_is_aborted_during_the_read():
     run_step(ctrl)
     assert ctrl.pulse_e_fields == []
     assert ctrl.mep_history == {}
+
+
+def test_precomputed_pulse_with_a_large_aim_error_is_flagged():
+    ctrl = make_controller(online=False, e_matrix=np.ones((2, 2)))
+    ctrl.realized_target = {"markers": [[10.0, 0.0, 0.0], [0.0, 0.0, 0.0]]}
+    ctrl.target_at_stim = [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
+    run_step(ctrl)
+    assert any("planned position" in str(step) for step in ctrl.steps)
+
+
+def test_online_pulse_is_not_flagged_for_the_aim_error():
+    # The online solver computes the field at the realized position, so a miss
+    # is not a mismatch between the field and the anatomy.
+    ctrl = make_controller(online=True, computed=np.ones(2))
+    ctrl.realized_target = {"markers": [[10.0, 0.0, 0.0], [0.0, 0.0, 0.0]]}
+    ctrl.target_at_stim = [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
+    run_step(ctrl)
+    assert not any("planned position" in str(step) for step in ctrl.steps)

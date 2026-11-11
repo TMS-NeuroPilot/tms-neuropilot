@@ -87,7 +87,13 @@ class VirtualEMG(System):
         self.stimulator_amplitude = stimuator_amplitude
         print("HEREEEEEEEEEE", f"Current coil placement index: {self.current_coil_placement_idx}")
 
-    def get_latest_emg_df(self, idx=None, e_field_for_mep = None):
+    def get_latest_emg_df(self, idx=None, e_field_for_mep=None, after=None):
+        """Synthesise the sweep for the current coil placement.
+
+        ``after`` is part of the real EMG's interface (the files that existed
+        before the pulse); the simulated sweep is generated on demand, so it
+        is ignored.
+        """
         if self.e_matrix is None:
             raise ValueError("E-field matrix not set. Call set_e_matrix() first.")
 

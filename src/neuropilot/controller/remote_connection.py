@@ -19,6 +19,7 @@ The simulated stack uses the identical interface in
 
 import socketio
 import asyncio
+import inspect
 import warnings
 
 
@@ -113,13 +114,24 @@ class Remote:
         print(f"[REMOTE] Disconnected from relay at {self.url} -- reconnecting")
 
     async def on_message_received(self, data):
-        """Dispatch one relay message to the handler registered for its topic."""
+        """Dispatch one relay message to the handler registered for its topic.
+
+        Handlers may be plain functions (most controller callbacks) or
+        coroutines; awaiting a plain function's return value used to raise
+        ``TypeError`` per message, and a non-object frame raised in the
+        socket.io receive task.
+        """
+        if not isinstance(data, dict):
+            print(f"[REMOTE] ignoring non-object message: {type(data).__name__}")
+            return
         topic = data.get('topic')
         payload = data.get('data')
 
-        if topic in self.topic_handlers:
-            if self.topic_handlers[topic] is not None:
-                await self.topic_handlers[topic](payload)
-            else:
-                # Optionally log or handle the missing topic handler
-                print(f"No handler defined for topic: {topic}")
+        handler = self.topic_handlers.get(topic)
+        if handler is None:
+            # Optionally log or handle the missing topic handler
+            print(f"No handler defined for topic: {topic}")
+            return
+        result = handler(payload)
+        if inspect.isawaitable(result):
+            await result

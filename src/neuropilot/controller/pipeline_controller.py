@@ -236,7 +236,9 @@ class PipelineController:
                                       else "Real (via relay)")
         else:
             self.robot = None
-            self.simulation = False
+            # Keep the mode the caller asked for: manual only removes the
+            # robot, it does not turn a simulated session into a real one.
+            self.simulation = simulation
             if self.control_panel:
                 self.control_panel.set_robot_manual()
 
@@ -387,6 +389,13 @@ class PipelineController:
         # How long to wait for InVesalius to confirm the realized coil pose
         # before the pulse is skipped (never spin forever).
         self.collect_timeout_s = float(os.getenv("COLLECT_TIMEOUT_S", "20"))
+        # How long to wait for the EMG file of a pulse (the Signal PC writes
+        # it after the sweep); then the pulse is recorded without a MEP.
+        self.emg_timeout_s = float(os.getenv("EMG_TIMEOUT_S", "5"))
+        # A precomputed pulse whose coil missed the planned placement by more
+        # than this is flagged in the step log (the field is the planned one).
+        self.max_aim_error_mm = float(os.getenv("MAX_AIM_ERROR_MM", "5"))
+        self._emg_files_before = None
         self.aborted_by = None
         self.debug_geodesic = os.getenv("NEUROPILOT_DEBUG_GEODESIC", "").lower() in ("1", "true", "yes")
 
@@ -647,6 +656,8 @@ class PipelineController:
 
     def OnRobotTrackingState(self, payload):
         """Joint configuration of the simulated robot -> embedded 3D view."""
+        if not isinstance(payload, dict):
+            return
         if self.control_panel is None or not self.simulation:
             return
         qpos = payload.get("qpos")
@@ -1060,6 +1071,11 @@ class PipelineController:
             # sends are best effort.
             pass
 
+    @property
+    def is_running(self):
+        """A session has started and has not finished yet."""
+        return self.start_of_experiment is not None and not self.is_finished
+
     def switch_step(self, new_step):
         """
         This method updates:
@@ -1312,6 +1328,17 @@ class PipelineController:
             self.realized_target = None
             self._fire_mono = self.mono_now()
 
+            # Remember which EMG files already exist: the pulse's own sweep
+            # must not be one of them (a slow Signal PC would otherwise hand
+            # back the previous pulse's data, which looks plausible).
+            self._emg_files_before = None
+            snapshot = getattr(self.emg_computer, "signal_files", None)
+            if callable(snapshot):
+                try:
+                    self._emg_files_before = snapshot()
+                except Exception as e:
+                    self._log_step(f"[WARN] could not list the EMG folder: {e}")
+
             #self.stimulator.fire()
             self.trigger_stim()
 
@@ -1371,6 +1398,15 @@ class PipelineController:
             self.realized_targets['rotb_target'].append(self.target_at_stim[1][1])
             self.realized_targets['rotc_target'].append(self.target_at_stim[1][2])
 
+            aim = self._aim_error(marker, self.target_at_stim)
+            if (aim is not None and not self.online_fem_mgr.is_online
+                    and aim > self.max_aim_error_mm):
+                # Precomputed mode uses the *planned* placement's field, so a
+                # miss means the regression is fed a field the cortex did not
+                # get.  Say so instead of hiding it.
+                self._log_step(f"[WARN] coil was {aim:.1f} mm from the planned "
+                               f"position -- the precomputed field is the planned one.")
+
             self.realized_targets['pressure'].append(self.pressure_at_stim)
             self.realized_targets['intensity'].append(self.stimulator_amplitude_at_stim)
             self.realized_targets['e_field_mode'].append(
@@ -1390,13 +1426,8 @@ class PipelineController:
                                                 self.stimulator_amplitude_at_stim)
                 pulse_mode = "precomputed"
 
-            if self.online_fem_mgr.is_online and e_row is not None:
-                e_field_for_mep = e_row  # last computed online efield
-                # SMB reads are blocking network I/O; run them on a worker thread
-                emg_data = await asyncio.to_thread(self.emg_computer.get_latest_emg_df, None, e_field_for_mep)
-            else:
-                # emg_data = self.emg_computer.get_latest_emg_df(idx=self.current_pulse_idx) # TODO: None -> latest file, for skipped targets.
-                emg_data = await asyncio.to_thread(self.emg_computer.get_latest_emg_df, None, None)  # TODO: None -> latest file, for skipped targets.
+            e_field_for_mep = e_row if self.online_fem_mgr.is_online else None
+            emg_data = await self._read_emg(e_field_for_mep)
 
             if self.current_step != Step.COLLECT_DATA:
                 # Skip/Finish arrived while the EMG was being read: drop this
@@ -1404,7 +1435,27 @@ class PipelineController:
                 self._log_step("Pulse discarded: the step was aborted while reading the EMG.")
                 return
 
-            meps, emg_preac_amp, emg_preac_var = self.compute_meps(emg_data)
+            if emg_data is None:
+                # Never fall back to the previous sweep: record the pulse with
+                # an unmeasurable MEP so the map reports it instead of using
+                # another pulse's amplitude.
+                self._log_step("[WARN] no new EMG file for this pulse -- "
+                               "recorded without a MEP.")
+                channels = list(getattr(self.emg_computer, "data_channel_names", [])
+                                or self.mep_history.keys())
+                nan = {ch: float("nan") for ch in channels}
+                meps, emg_preac_amp, emg_preac_var = nan, dict(nan), dict(nan)
+            else:
+                try:
+                    meps, emg_preac_amp, emg_preac_var = self.compute_meps(emg_data)
+                except ValueError as e:
+                    # A sweep without channel columns: keep the histories
+                    # aligned with NaNs instead of aborting the pulse.
+                    self._log_step(f"[WARN] could not analyse the EMG sweep: {e}")
+                    channels = list(getattr(self.emg_computer, "data_channel_names", [])
+                                    or self.mep_history.keys())
+                    nan = {ch: float("nan") for ch in channels}
+                    meps, emg_preac_amp, emg_preac_var = nan, dict(nan), dict(nan)
 
             # --- 1. STORE DATA in the pipeline_controller for the analysis ---
             # if meps:
@@ -1541,8 +1592,9 @@ class PipelineController:
         self.switch_step(Step.COMPLETE)
 
     async def CobotOnTarget(self, data):
-        # print(f"CobotOnTarget called, [TargetReached] is {data["force_feedback"]}")
-        self.cobotOnTarget = data["force_feedback"]
+        """Force sensor state from the relay (payload may be incomplete)."""
+        if isinstance(data, dict) and "force_feedback" in data:
+            self.cobotOnTarget = data["force_feedback"]
 
     async def OnCoilAtTarget(self, data):
         """
@@ -1561,8 +1613,10 @@ class PipelineController:
         -------
         None
         """
-        if data["state"] == True:
-            self.target_reached = True
+        if isinstance(data, dict) and "state" in data:
+            # InVesalius sends the transition in both directions; follow it so
+            # a coil that leaves the target is noticed instead of latching.
+            self.target_reached = data["state"] is True or data["state"] == 1
 
     async def GetRealizedTarget(self, data):
         """
@@ -1691,6 +1745,41 @@ class PipelineController:
                         sampling_rate=self.config["SAMPLING_RATE"],
                 ))
         return meps, emg_preac_amp, emg_preac_var
+
+    @staticmethod
+    def _aim_error(realized, planned):
+        """Distance (mm) between the realized and the planned coil centre."""
+        try:
+            return float(np.linalg.norm(np.asarray(realized[0], dtype=float)
+                                        - np.asarray(planned[0], dtype=float)))
+        except (TypeError, ValueError, IndexError):
+            return None
+
+    async def _read_emg(self, e_field_for_mep=None):
+        """This pulse's EMG sweep, waiting briefly for the file to appear.
+
+        The SMB read is blocking, so it runs on a worker thread.  ``None``
+        means "no new file": the caller records the pulse without a MEP.
+        """
+        after = getattr(self, "_emg_files_before", None)
+        deadline = time.monotonic() + self.emg_timeout_s
+        while True:
+            try:
+                if isinstance(self.emg_computer, VirtualEMG):
+                    data = await asyncio.to_thread(
+                        self.emg_computer.get_latest_emg_df, None, e_field_for_mep)
+                else:
+                    data = await asyncio.to_thread(
+                        self.emg_computer.get_latest_emg_df, None,
+                        e_field_for_mep, after)
+            except Exception as e:
+                self._log_step(f"[WARN] EMG read failed: {type(e).__name__}: {e}")
+                return None
+            if data is not None:
+                return data
+            if time.monotonic() > deadline:
+                return None
+            await asyncio.sleep(0.25)
 
     def run_analysis(self, generation=None):
         """Regress every channel on the collected pulses.
