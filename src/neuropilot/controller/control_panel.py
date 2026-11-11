@@ -460,6 +460,10 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         lay = corner.layout()
         if lay is not None:
+            # Breathing room between the last caption ("Robot") and the
+            # window edge; scales with the UI so it stays visible at 2x.
+            margin = max(14, round(14 * self._current_scale()))
+            lay.setContentsMargins(0, 0, margin, 0)
             lay.activate()
         hint = corner.sizeHint()
         bar = self.tabWidget.tabBar()
