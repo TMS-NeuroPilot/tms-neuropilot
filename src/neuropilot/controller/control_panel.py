@@ -550,6 +550,14 @@ class MainWindow(QtWidgets.QMainWindow):
         for w, base_px in self._base_rects["fonts"].items():
             self._apply_font_px(w, max(9, round(base_px * s)))
 
+        # Font and style changes alter size hints; re-activate the layout tree
+        # so rows sized from label/font metrics stop clipping at larger scales.
+        for widget in self.centralwidget.findChildren(QtWidgets.QWidget):
+            lay = QtWidgets.QWidget.layout(widget)
+            if lay is not None:
+                lay.activate()
+        self.centralwidget.updateGeometry()
+
     def on_efield_mode_changed(self):
         if not (self.online_efield_btn.isChecked() or self.offline_efield_btn.isChecked()):
             return
