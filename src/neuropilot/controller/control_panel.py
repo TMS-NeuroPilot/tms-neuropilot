@@ -463,6 +463,29 @@ class MainWindow(QtWidgets.QMainWindow):
                            hint.width(), max(hint.height(), bar.height()))
         corner.raise_()
 
+    def _size_choice_popups(self):
+        """Give the short choice menus (pulse shape, fit function) a popup
+        tall enough for every item.
+
+        Qt sizes the popup from the delegate's row hint, which the scaled
+        style sheet can leave smaller than the rendered text, so the last
+        entry ends up clipped.  The view's minimum height is set from the
+        real row heights after every font rescale."""
+        combos = [getattr(self, name, None) for name in
+                  ("pulseShapeComboBox", "fitFunctionComboBox",
+                   "placement_metric_combo")]
+        view_widget = getattr(self, "widget_3d_viewer", None)
+        if view_widget is not None:
+            combos.append(getattr(view_widget, "scalar_selector", None))
+        for combo in combos:
+            if combo is None or combo.count() == 0:
+                continue
+            view = combo.view()
+            row = max(view.sizeHintForRow(i) for i in range(combo.count()))
+            visible = min(combo.count(), 8)
+            combo.setMaxVisibleItems(visible)
+            view.setMinimumHeight(visible * row + 2 * view.frameWidth() + 10)
+
     def _sync_project_gap(self):
         """Keep the gap above the results row at about one input row."""
         grid = self.groupBox_files.layout()
@@ -515,6 +538,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Sync the viewer with the checkbox defaults in the .ui.
         self.on_placement_options_changed()
+        self._size_choice_popups()
         self._update_results_controls()
         self._set_selection_info("Hover the mesh for R² values; click to pin.\n"
                                  "On the head view, hover a coil placement for trial data.")
@@ -1214,6 +1238,7 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
         self.centralwidget.updateGeometry()
         self._place_tab_corner()
         self._sync_project_gap()
+        self._size_choice_popups()
 
     def on_efield_mode_changed(self):
         if not (self.online_efield_btn.isChecked() or self.offline_efield_btn.isChecked()):
