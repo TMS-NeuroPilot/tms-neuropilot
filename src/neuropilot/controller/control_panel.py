@@ -262,6 +262,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.online_efield_btn.toggled.connect(self.on_efield_mode_changed)
         self.offline_efield_btn.toggled.connect(self.on_efield_mode_changed)
 
+        # Nothing may run before a mode and a ready stack exist: start with the
+        # whole transport row (and Finish) disabled.
+        self.update_button_states()
+
         # Status LEDs live in the tab bar's top-right corner (right of the
         # tab strip) instead of on the Control page.
         # The empty part of the tab strip is painted by QTabBar itself from
@@ -1243,10 +1247,19 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
             self.offline_efield_btn.setEnabled(bool(all_set))
 
     def update_button_states(self):
+        """Gate the transport buttons: nothing runs before the E-field mode is
+        chosen, and only a ready stack may start a mapping."""
+        # Finish stays available while an experiment is running so it can
+        # always be stopped, even if a system drops out mid-session.
+        running = bool(self.controller
+                       and getattr(self.controller, "start_of_experiment", None)
+                       and not getattr(self.controller, "is_finished", False))
+
         if not self.efield_mode_selected:
-            self.start_btn.setEnabled(False)
-            self.skiptarget.setEnabled(False)
-            self.back_btn.setEnabled(False)
+            for button in (self.start_btn, self.skiptarget, self.back_btn,
+                           self.move_coil_up):
+                button.setEnabled(False)
+            self.finish_btn.setEnabled(running)
             return
 
         fem_ok = True
@@ -1257,14 +1270,11 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
         robot_ok = ((self.controller is not None and getattr(self.controller, "manual", False))
                     or self.robot_ready)
 
-        if robot_ok and self.stim_ready and self.emg_ready and fem_ok:
-            self.start_btn.setEnabled(True)
-            self.skiptarget.setEnabled(True)
-            self.back_btn.setEnabled(True)
-        else:
-            self.start_btn.setEnabled(False)
-            self.skiptarget.setEnabled(False)
-            self.back_btn.setEnabled(False)
+        ready = robot_ok and self.stim_ready and self.emg_ready and fem_ok
+        for button in (self.start_btn, self.skiptarget, self.back_btn,
+                       self.move_coil_up):
+            button.setEnabled(ready)
+        self.finish_btn.setEnabled(ready or running)
 
     def update_mesh_coloring(self, scores_dict):
         """R² maps from the regression (per channel, one value per ROI element).
