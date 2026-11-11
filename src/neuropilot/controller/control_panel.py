@@ -835,18 +835,24 @@ class MainWindow(QtWidgets.QMainWindow):
                                     "TMS_ROBOT_CONTROL_PATH")}
 
     def _robot_key(self):
-        """The ROBOT key currently selected (label shown, key stored)."""
+        """The ROBOT key currently selected (label shown, key stored).
+
+        An editable combo keeps ``currentData()`` from the last selected item
+        even after the user types something else, so the data only counts when
+        the shown text is that item's label.
+        """
         combo = self.cfg_robot_type
-        data = combo.currentData()
-        if data:
-            return str(data)
         text = combo.currentText().strip()
+        index = combo.currentIndex()
+        data = combo.currentData()
+        if data and 0 <= index < combo.count() and combo.itemText(index) == text:
+            return str(data)
         try:
             from ..sim_robot.robots import ROBOTS
-            known = {spec.label: key for key, spec in ROBOTS.items()}
+            by_label = {spec.label: key for key, spec in ROBOTS.items()}
         except Exception:                            # pragma: no cover
-            known = {}
-        return known.get(text, text).lower()
+            by_label = {}
+        return by_label.get(text, text).lower()
 
     def _set_robot_key(self, key):
         combo = self.cfg_robot_type

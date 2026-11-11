@@ -351,3 +351,31 @@ def test_default_study_path_follows_the_data_folder(window, tmp_path):
 
 
 pytestmark = pytest.mark.gui
+
+
+# ── robot selector ─────────────────────────────────────────────────────
+
+def test_robot_selector_lists_the_registry(window):
+    from neuropilot.sim_robot.robots import labels
+    combo = window.cfg_robot_type
+    shown = [(combo.itemText(i), combo.itemData(i)) for i in range(combo.count())]
+    assert shown == [(label, key) for key, label in labels()]
+
+
+def test_robot_selector_saves_the_key(window):
+    window.on_config_save()
+    assert window._lab_profile.read()["ROBOT"] == "omron"
+
+
+def test_robot_selector_restores_the_key(window):
+    window._set_robot_key("omron")
+    assert window._robot_key() == "omron"
+    assert window.cfg_robot_type.currentText() == "Omron TM5X-700"
+
+
+def test_unknown_robot_stays_visible(window):
+    # A machine whose robot is not in this build must not be silently
+    # replaced by another one.
+    window._set_robot_key("kuka")
+    assert window.cfg_robot_type.currentText().strip() == "kuka"
+    assert window._robot_key() == "kuka"
