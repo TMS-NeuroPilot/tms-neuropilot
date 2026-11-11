@@ -356,11 +356,11 @@ class MeshWidget(QWidget):
         self._placement_metric = (kind, channel)
         self._refresh_overlays()
 
-    def _placement_values(self):
+    def _placement_values(self, records=None):
         """(values, title) for the current placement colour metric."""
         kind, channel = self._placement_metric
         values = []
-        for rec in self.placements:
+        for rec in (records if records is not None else self.placements):
             if kind == "trial":
                 values.append(float(rec.get("trial", 0)))
             elif kind == "aim":
@@ -393,10 +393,10 @@ class MeshWidget(QWidget):
 
     def _draw_placements(self):
         import numpy as np
-        points = np.array([rec["position"] for rec in self.placements
-                           if rec.get("position")], dtype=float)
-        if points.size == 0:
+        records = [rec for rec in self.placements if rec.get("position")]
+        if not records:
             return
+        points = np.array([rec["position"] for rec in records], dtype=float)
         # Lift the markers a few mm off the scalp (radial from the head
         # centre): the recorded coil points sit on the skin and would
         # otherwise be half-buried in the (opaque) head surface.
@@ -405,7 +405,8 @@ class MeshWidget(QWidget):
             radial = points - centre
             norm = np.linalg.norm(radial, axis=1, keepdims=True) + 1e-9
             points = points + radial / norm * 6.0
-        values, title = self._placement_values()
+
+        values, title = self._placement_values(records)
         values = np.asarray(values, dtype=float)
         finite = values[np.isfinite(values)]
         if finite.size:
@@ -423,18 +424,17 @@ class MeshWidget(QWidget):
         self._add_scalar_bar(title)
 
         if self._show_coil_handles:
-            segments = [self._coil_handle_segment(rec) for rec in self.placements
-                        if rec.get("position") and rec.get("rotation")]
+            segments = [self._coil_handle_segment(rec, point)
+                        for rec, point in zip(records, points)]
             segments = [s for s in segments if s is not None]
             if segments:
-                import numpy as _np
                 vertices, lines = [], []
                 for k, (start, end) in enumerate(segments):
                     vertices.extend([start, end])
                     lines.extend([2, 2 * k, 2 * k + 1])
-                poly = pv.PolyData(_np.asarray(vertices), lines=_np.asarray(lines))
-                # Sticks along the coil axis; light grey was invisible on the
-                # light scalp, so use a dark slate and a wider line.
+                poly = pv.PolyData(np.asarray(vertices), lines=np.asarray(lines))
+                # Sticks along the coil handle; dark slate reads on the light
+                # scalp where a pale grey disappeared.
                 self.plotter.add_mesh(poly, color="#3C4A56", line_width=5,
                                       opacity=0.9, name="coil_handles")
 
@@ -443,8 +443,7 @@ class MeshWidget(QWidget):
             # Colour the path by acquisition order so the sequence stays
             # readable even when the coil jumps between targets.
             trials = np.array([float(rec.get("trial", i))
-                               for i, rec in enumerate(self.placements)
-                               if rec.get("position")])
+                               for i, rec in enumerate(records)])
             if trials.size == path.n_points:
                 path["trial"] = trials
                 self.plotter.add_mesh(path, scalars="trial", cmap="turbo",
@@ -454,21 +453,22 @@ class MeshWidget(QWidget):
                 self.plotter.add_mesh(path, color="#D97706", line_width=4,
                                       name="placement_path")
 
-    def _coil_handle_segment(self, record):
-        """(start, end) of a short stick along the coil axis, oriented by the
-        recorded rotation (SimNIBS xyz Euler angles) and always pointing away
-        from the scalp - the coil's local z can face either way."""
+    def _coil_handle_segment(self, record, origin=None):
+        """(start, end) of the coil handle, in world space.
+
+        SimNIBS coil frame: +z is the coil normal (pointing into the head),
+        the figure-8 lobes lie along +/-x and the handle runs along **-y**
+        (the casing of the B65 extends ~160 mm in that direction).  Using
+        the normal here drew a spike out of the scalp instead of a handle.
+        """
         import numpy as np
         from scipy.spatial.transform import Rotation
         try:
-            pos = np.asarray(record["position"], dtype=float)
+            pos = np.asarray(origin if origin is not None else record["position"])
             rot = record.get("rotation") or [0.0, 0.0, 0.0]
-            normal = Rotation.from_euler("xyz", rot, degrees=True).apply([0.0, 0.0, 1.0])
-            if self.mesh_head is not None:
-                outward = pos - np.asarray(self.mesh_head.center)
-                if float(np.dot(normal, outward)) < 0.0:
-                    normal = -normal
-            return pos + normal * 4.0, pos + normal * 26.0
+            rotation = Rotation.from_euler("xyz", rot, degrees=True)
+            handle = rotation.apply([0.0, -1.0, 0.0])
+            return pos + handle * 6.0, pos + handle * 70.0
         except Exception:
             return None
 
