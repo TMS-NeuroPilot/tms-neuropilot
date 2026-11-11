@@ -99,6 +99,7 @@ def _session_cache_path():
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, simulation):
         super().__init__()
+        self.simulation = simulation
 
         # ui is inside the "gui" folder
         ui_path = resource_path(os.path.join("gui", "pipeline_control.ui"))
@@ -304,6 +305,8 @@ class MainWindow(QtWidgets.QMainWindow):
             corner_layout.addLayout(pair)
             self._corner_pairs[attr] = (led, cap)
         self.tabWidget.setCornerWidget(corner, QtCore.Qt.TopRightCorner)
+
+        self._setup_robot_scene_view(self.simulation)
 
         # Mapping-results panel: state, table and wiring.
         self._mapping_scores = {}        # channel key -> R2 per ROI element
@@ -1643,27 +1646,32 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
             # capture system object in default arg
             recover_button.clicked.connect(lambda _, s=system: self.on_recover_clicked(s))
 
-    def update_robot_view(self, jpeg_bytes: bytes):
-        """Show one frame of the simulated robot's overview camera in the
-        panel below the logger. Real-hardware mode never receives frames,
-        so the panel stays clean there."""
-        if getattr(self, "_robot_view_disabled", False):
+    def _setup_robot_scene_view(self, simulation):
+        """Simulation only: render the robot scene locally instead of
+        receiving JPEG frames, so the operator can orbit around it."""
+        self._robot_scene_view = None
+        if not simulation:
             return
-        label = self.robot_view_label
-        now = time.monotonic()
-        # Throttle the GUI updates (the stream is 10 Hz; painting every
-        # frame is wasted work when frames arrive faster than repaints).
-        if now - getattr(self, "_last_robot_view_update", 0.0) < 0.08:
+        label = getattr(self, "robot_view_label", None)
+        if label is None:
             return
-        self._last_robot_view_update = now
-        pixmap = QPixmap()
-        if not pixmap.loadFromData(jpeg_bytes, "JPEG"):
-            return
-        # Fill the panel completely (crop the overflow) so no dark bands
-        # appear above/below the frame.
-        scaled = pixmap.scaled(label.width(), label.height(),
-                               Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
-        label.setPixmap(scaled)
+        try:
+            from .robot_scene_view import RobotSceneView
+            label.setStyleSheet("QLabel[role=\"bed\"] { background: #101317;"
+                                " border-radius: 8px; }")
+            label.setToolTip("Drag to orbit, right-drag to pan, wheel to zoom,"
+                             " double click to reset")
+            self._robot_scene_view = RobotSceneView(label, parent=self)
+            self._robot_scene_view.start()
+        except Exception as e:
+            print(f"[WARN] embedded robot view unavailable: {e}")
+            self._robot_scene_view = None
+
+    def update_robot_scene(self, qpos):
+        """Joint configuration published by the simulated robot."""
+        view = getattr(self, "_robot_scene_view", None)
+        if view is not None:
+            view.set_qpos(qpos)
 
     # Maps a system name fragment to its details card widget prefix.
     INFO_PREFIXES = (("stim", "stim_info"), ("emg", "emg_info"),

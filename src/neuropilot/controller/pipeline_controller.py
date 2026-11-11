@@ -440,20 +440,17 @@ class PipelineController:
             'From Neuronavigation: Coil at target': self.OnCoilAtTarget,
             'From Neuronavigation: Coil target created' : self.GetRealizedTarget,
             'Robot to Neuronavigation: Send force sensor data': self.CobotOnTarget,
-            'SIM - Robot to Pipeline: Camera frame': self.OnRobotCameraFrame,
+            'SIM - Robot to Neuronavigation: Tracking State': self.OnRobotTrackingState,
         }
         self.remote.register_handlers(pub_to_func)
 
-    def OnRobotCameraFrame(self, payload):
-        """JPEG frame from the simulated robot's overview camera -> GUI."""
-        if not self.control_panel:
+    def OnRobotTrackingState(self, payload):
+        """Joint configuration of the simulated robot -> embedded 3D view."""
+        if self.control_panel is None or not self.simulation:
             return
-        import base64
-        try:
-            jpeg = base64.b64decode(payload.get("jpeg", ""))
-            self.control_panel.update_robot_view(jpeg)
-        except Exception as e:
-            print(f"Camera frame decode failed: {e}")
+        qpos = payload.get("qpos")
+        if qpos:
+            self.control_panel.update_robot_scene(qpos)
 
     def set_head_mesh(self, path: str):
         """Announce the project head mesh to the robot (sim: replaces the

@@ -81,6 +81,10 @@ class SimRobotClient:
                 "collision":     self.state.collision,
                 "motion_done":   self.state.motion_done,
                 "tracking_valid": self.state.tracking_valid,
+                # Full joint configuration: the pipeline renders the same
+                # MuJoCo scene locally, so it needs the exact qpos.
+                "qpos": (list(self.world.data.qpos)
+                         if getattr(self, "world", None) is not None else []),
             },
         )
 

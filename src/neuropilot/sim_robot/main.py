@@ -208,12 +208,6 @@ async def main():
     await client.connect()
     log.info("Connected to relay — starting controller loops")
 
-    # Stream overview frames of the scene to the pipeline GUI (robot view
-    # panel below the logger).
-    from .camera_streamer import CameraStreamer
-    streamer = CameraStreamer(world, client)
-    streamer.start()
-
     # Set the viewer window icon once the window exists (X11 only; the icon
     # shows in the taskbar and alt-tab). No-op on Wayland windows. Only
     # relevant with the native viewer (--gui); the headless sim streams to
