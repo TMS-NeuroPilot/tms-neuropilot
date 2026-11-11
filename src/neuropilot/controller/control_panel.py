@@ -1074,6 +1074,9 @@ class MainWindow(QtWidgets.QMainWindow):
                  self._kv("xyz", f"{pos[0]:7.1f}, {pos[1]:7.1f}, {pos[2]:7.1f}  mm"),
                  self._kv("aim error", f"{rec.get('aim_error_mm', 0.0):6.1f}  mm"),
                  self._kv("intensity", f"{rec.get('intensity', 0):6.0f}  %MSO")]
+        if rec.get("e_field_mode"):
+            # Which E-field source this pulse used (it can change mid-run).
+            lines.append(self._kv("E-field", rec["e_field_mode"]))
         for key, value in (rec.get("mep") or {}).items():
             if value is not None:
                 lines.append(self._kv(f"MEP {self._display_name(key)}", f"{value:6.2f}  mV"))

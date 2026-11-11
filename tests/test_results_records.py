@@ -135,6 +135,35 @@ def test_csv_handles_records_without_geometry(tmp_path):
     assert rows[1][3:12] == [""] * 9           # x/y/z realized + rotation + target
 
 
+def make_readout_panel(names=("FDI", "APB")):
+    panel = SimpleNamespace(_selection_pinned=False, _emg_display_names=list(names))
+    panel.text = None
+    panel._kv = MainWindow._kv                     # staticmethod
+    panel._set_selection_info = lambda text: setattr(panel, "text", text)
+    panel._display_name = lambda key: display_name(panel, key)
+    return panel
+
+
+def test_placement_readout_names_the_e_field_source():
+    panel = make_readout_panel()
+    MainWindow.on_placement_picked(panel, {"record": {
+        "trial": 3, "pulse_index": 3, "position": (1.0, 2.0, 3.0),
+        "aim_error_mm": 0.4, "intensity": 55, "e_field_mode": "online",
+        "mep": {"ADC 0": 0.42},
+    }})
+    assert "TRIAL 3" in panel.text
+    assert "E-field" in panel.text and "online" in panel.text
+    assert "MEP FDI" in panel.text and "0.42" in panel.text
+
+
+def test_placement_readout_omits_unknown_sources():
+    panel = make_readout_panel()
+    MainWindow.on_placement_picked(panel, {"record": {
+        "trial": 0, "pulse_index": 0, "intensity": 50, "mep": {},
+    }})
+    assert "E-field" not in panel.text
+
+
 class TestResultsSummaryPrefix:
     def test_empty_session(self):
         assert MainWindow._results_prefix([]) == ""
