@@ -352,6 +352,22 @@ class PipelineController:
         asyncio.create_task(self.remote.send_message('GUI to Robot: set tuning speed robot', data={'tuning_speed_ratio': value/100}))
         print(f"Tuning speed {value} has been sent to the Robot")
 
+    def push_robot_settings(self):
+        """Send the current GUI settings to the robot.
+
+        The sliders are restored from the session cache before the relay is
+        connected, so the sends at that moment are dropped and the robot keeps
+        its own defaults (the simulated robot starts at 25 % / 10 %).  Pushing
+        again when the run actually starts guarantees the robot uses the values
+        shown in the GUI without the operator having to nudge a slider."""
+        if self.control_panel is None:
+            return
+        try:
+            self.set_default_speed(self.control_panel.spinBox2.value())
+            self.set_tuning_speed(self.control_panel.spinBox3.value())
+        except Exception as e:
+            print(f"[WARN] could not push robot speeds: {e}")
+
     def finish_experiment(self):
         self.is_finished = True
         print("Finish pressed.")
@@ -550,6 +566,11 @@ class PipelineController:
 
         target_queue, target_order = self.get_initial_targets()
         print("Coil targets are read")
+
+        # The robot must run with the speeds shown in the GUI, not with its
+        # power-on defaults (the restored slider values were sent while the
+        # relay was still connecting and were dropped).
+        self.push_robot_settings()
 
         if self.control_panel is not None:
             self.control_panel.totaltargets3.setText(f"{len(target_queue)}")

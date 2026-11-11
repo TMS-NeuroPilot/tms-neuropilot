@@ -1800,6 +1800,11 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
             # was loaded before the controller existed) — this also lets the
             # user's last amplitude override the default 20 above.
             self._apply_pending_session()
+            # The restored slider values do not emit valueChanged when they
+            # already match the .ui defaults, so the robot would keep its own
+            # defaults until a slider is touched.
+            if hasattr(self.controller, "push_robot_settings"):
+                self.controller.push_robot_settings()
 
     # functions for the elements in the second Tap
     # === BEGIN: Handlers for loading the Mesh ===
