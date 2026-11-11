@@ -107,6 +107,12 @@ class MainWindow(QtWidgets.QMainWindow):
         # the pixel-based UI (fonts scale with the window in _rescale) is
         # readable on high-DPI displays. Override with NEUROPILOT_UI_SCALE.
         self._design_size = (self.width(), self.height())
+        # The pages are laid out for this size and the font scaler bottoms
+        # out at 1.0, so shrinking further only breaks the layout.
+        # The control page's card stack needs a little more height than the
+        # .ui's design box; below that the cards clip their last row.
+        self.setMinimumSize(QtCore.QSize(self._design_size[0],
+                                         max(self._design_size[1], 960)))
         scale_env = os.getenv("NEUROPILOT_UI_SCALE")
         if scale_env:
             scale = float(scale_env)
@@ -754,6 +760,10 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
             return
         # Cheap pass on every resize event: geometry only.
         self._rescale_geometry()
+        # The tab bar itself is resized by the layout after this event, so
+        # place the LED corner once that has settled (otherwise it keeps the
+        # old x position and the last LED is clipped).
+        QtCore.QTimer.singleShot(0, self._place_tab_corner)
         # Expensive pass (full stylesheet repolish + setFont on every widget):
         # deferred so dragging stays smooth, and skipped entirely when the
         # rounded pixel sizes did not change.

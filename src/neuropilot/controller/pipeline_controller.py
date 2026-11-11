@@ -586,9 +586,9 @@ class PipelineController:
 
             self.current_target_index = target_id
             # self.current_pulse_idx = pulse_idx
-            current_target_text = (f"pulse {self.current_target_order_idx: >3} "
-                                   f"({self.current_rep}/{self.n_repetitions}) "
-                                   f"(target id: {target_id})")
+            current_target_text = (f"pulse {self.current_target_order_idx}"
+                                   f" · {self.current_rep}/{self.n_repetitions}"
+                                   f" · target {target_id}")
             if self.control_panel is not None:
                 self.control_panel.currenttarget.setText(current_target_text)
             if self.control_panel is not None:
