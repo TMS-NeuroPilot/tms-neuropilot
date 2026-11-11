@@ -540,13 +540,35 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
             with h5py.File(fn, "r") as f:
                 if "E_mag" in f:
                     a, b = f["E_mag"].shape
-                    return f"{a:,} × {b:,} (placements × ROI elems)"
+                    return f"{a:,} × {b:,} placements × elements"
                 return "no E_mag dataset"
         set_info("info_efield", cached(e_fn, "e", efield_info)
                  if e_fn and os.path.isfile(e_fn) else "")
 
         coil_fn = self.coilspathlineedit.text().strip()
-        set_info("info_coil", (os.path.basename(coil_fn)) if coil_fn and os.path.isfile(coil_fn) else "")
+        if coil_fn and os.path.isfile(coil_fn):
+            done = self._info_cache.get((coil_fn, "coil"))
+            pending = self._info_cache.get((coil_fn, "coil_pending"))
+            if done is not None:
+                set_info("info_coil", done)
+            elif pending is None:
+                self._info_cache[(coil_fn, "coil_pending")] = True
+                def _coil_worker():
+                    # SimNIBS knows the model's own brand/name (a .ccd header
+                    # carries them); the import is slow, hence the thread.
+                    try:
+                        from simnibs.simulation.tms_coil.tms_coil import TmsCoil
+                        coil = TmsCoil.from_file(coil_fn)
+                        text = " ".join(x for x in (coil.brand, coil.name) if x)
+                        text = text or os.path.basename(coil_fn)
+                    except Exception:
+                        text = os.path.basename(coil_fn)
+                    self._info_cache[(coil_fn, "coil")] = text
+                    QtCore.QTimer.singleShot(0, lambda: set_info("info_coil", text))
+                import threading
+                threading.Thread(target=_coil_worker, daemon=True).start()
+        else:
+            set_info("info_coil", "")
 
         emg_fn = self.emg_config_label.text().strip()
         def emg_info(fn):
