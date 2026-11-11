@@ -51,6 +51,21 @@ component-internal constants live in each component's `config.py`.
 pytest                      # runs tests/ (pytest is in the `pipeline` env)
 pytest tests/test_gui_window.py -v
 pytest -m "not gui"         # nothing that needs a display
+scripts/run_tests.sh        # the same headless set the CI job runs
+```
+
+CI runs `pytest -m "not gui"` on every push and merge request
+(`.gitlab-ci.yml`); it expects a runner with the `pipeline` environment (set
+`PYTHON` in the CI/CD variables, or uncomment the runner tag in the file).
+
+The six pages are snapshotted (`tests/test_gui_snapshots.py`): a coarse
+32×24 pixel fingerprint plus the geometry of every named widget, compared
+against `tests/baselines/gui_pages.json`.  A `.ui` or style-sheet regression
+fails the test and leaves the current rendering in pytest's `tmp_path`.
+After an intentional design change regenerate the baseline:
+
+```bash
+UPDATE_GUI_BASELINES=1 pytest tests/test_gui_snapshots.py
 ```
 
 The suite covers the parts that do not need hardware: the fit-function

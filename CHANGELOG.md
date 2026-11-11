@@ -7,6 +7,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- CI: `.gitlab-ci.yml` runs the headless suite (`pytest -m "not gui"`)
+  on every push and merge request and publishes a JUnit report;
+  `scripts/run_tests.sh` runs the same set locally.
+- GUI snapshots (`tests/test_gui_snapshots.py`): each of the six pages is
+  compared against a committed baseline — a coarse 32x24 pixel fingerprint
+  plus the geometry of every named widget — so a broken `.ui` file or a
+  style-sheet regression fails the suite.  `UPDATE_GUI_BASELINES=1`
+  regenerates the baseline; a failing page is saved to `tmp_path`.
+## [Unreleased]
+
+### Added
+
 - The chosen E-field mode is saved in the project file (`efield_mode`), so
   a session resumes in the mode it was run with; loading a project whose
   paths are not usable yet remembers the mode and selects it as soon as

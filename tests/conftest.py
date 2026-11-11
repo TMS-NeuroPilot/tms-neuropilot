@@ -17,6 +17,8 @@ if str(SRC) not in sys.path:
 
 CONTROLLER_DIR = SRC / "neuropilot" / "controller"
 
+from helpers import build_window  # noqa: E402  (tests/ is on sys.path)
+
 # The suite writes results/study files under ROOT_FOLDER in a few code paths;
 # keep those out of the user's home.  `.env` does not override an existing
 # variable (load_dotenv(override=False)), so this wins.
@@ -79,24 +81,8 @@ def gui_env(monkeypatch, tmp_path):
 
 @pytest.fixture()
 def window(qapp, gui_env, monkeypatch):
-    """A real MainWindow in simulation mode, isolated from the user's files.
-
-    The session cache *and* the Config tab's ``.env`` are redirected into
-    ``tmp_path``: clicking "Save to .env" in a test must never rewrite the
-    repository's (or the developer's) configuration.
-    """
-    from neuropilot.controller import control_panel as cp
-    from neuropilot.controller.config_store import ConfigStore
-    from neuropilot.lab_profile import LabProfile
-
-    cache = gui_env / "last_session.yaml"
-    monkeypatch.setattr(cp, "_session_cache_path", lambda: str(cache))
-
-    win = cp.MainWindow(simulation=True)
-    win._config_store = ConfigStore(gui_env / ".env")
-    win._lab_profile = LabProfile(gui_env / "lab.yaml")
-    win.resize(1244, 960)
-    qapp.processEvents()
+    """A real MainWindow in simulation mode, isolated from the user's files."""
+    win = build_window(qapp, gui_env, monkeypatch)
     try:
         yield win
     finally:

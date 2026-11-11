@@ -1,0 +1,36 @@
+# GitLab CI -- headless test suite.
+#
+# The tests import PyQt5, pynibs, simnibs and mujoco at collection time, so
+# the job needs the project's `pipeline` conda environment (see README).
+# Point PYTHON at that interpreter (e.g. /opt/conda/envs/pipeline/bin/python)
+# in the project's CI/CD variables, or install the dependencies in the image.
+#
+# GUI tests (marked `gui`) build a real window and need an X display; they are
+# excluded here and can be run on a workstation with `pytest` (see README).
+
+stages:
+  - test
+
+variables:
+  PYTHON: python
+  # Keep every artefact out of the runner's home directory.
+  ROOT_FOLDER: "$CI_PROJECT_DIR/.ci-data"
+  NEUROPILOT_LAB_FILE: "$CI_PROJECT_DIR/.ci-data/lab.yaml"
+  PYTHONDONTWRITEBYTECODE: "1"
+
+test:
+  stage: test
+  script:
+    - mkdir -p "$ROOT_FOLDER"
+    - $PYTHON -m pytest -m "not gui" -q --junitxml=report.xml
+  artifacts:
+    when: always
+    expire_in: 1 week
+    reports:
+      junit: report.xml
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+  # Uncomment and set the tag of a runner that has the `pipeline` env:
+  # tags:
+  #   - pipeline
