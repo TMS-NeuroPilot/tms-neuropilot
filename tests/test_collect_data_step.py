@@ -94,6 +94,8 @@ def make_controller(online=False, e_matrix=None, computed=None, amplitude=70):
     ctrl.push_mapping_results = lambda: None
     ctrl.switch_step = lambda step: ctrl.steps.append(step)
     ctrl._log_step = lambda text: ctrl.steps.append(text)
+    ctrl._pulse_width = None
+    ctrl._check_row_width = lambda row: PipelineController._check_row_width(ctrl, row)
     return ctrl
 
 

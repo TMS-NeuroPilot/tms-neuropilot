@@ -448,4 +448,20 @@ def test_system_details_drop_empty_values_and_repeats():
     assert system.status is SystemStatus.NAN
 
 
+def test_scores_from_a_worker_thread_reach_the_table(window, qapp):
+    import threading, time
+    import numpy as np
+    seen = []
+    window.scores_ready.connect(
+        lambda scores: seen.append(threading.current_thread().name))
+    thread = threading.Thread(
+        target=lambda: window.scores_ready.emit({"ADC 0": np.zeros(3)}))
+    thread.start(); thread.join()
+    deadline = time.time() + 2
+    while time.time() < deadline and not seen:
+        qapp.processEvents(); time.sleep(0.02)
+    assert seen and seen[0] == threading.main_thread().name
+    assert window.results_table.rowCount() == 1
+
+
 pytestmark = pytest.mark.gui

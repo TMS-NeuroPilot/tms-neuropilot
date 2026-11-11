@@ -118,6 +118,8 @@ class MainWindow(QtWidgets.QMainWindow):
     file_info_ready = QtCore.pyqtSignal(str, str)
     # Same for the online solver finishing its (background) initialisation.
     online_fem_ready = QtCore.pyqtSignal()
+    # Finished R² maps from the analysis worker thread.
+    scores_ready = QtCore.pyqtSignal(dict)
 
     def __init__(self, simulation):
         super().__init__()
@@ -130,6 +132,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.file_info_ready.connect(self._on_file_info_ready)
         self.online_fem_ready.connect(self.update_button_states)
+        self.scores_ready.connect(self.update_mesh_coloring)
 
         # Default window size: open at a comfortable fraction of the screen so
         # the pixel-based UI (fonts scale with the window in _rescale) is

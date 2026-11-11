@@ -146,10 +146,17 @@ def assemble_analysis_matrix(pulse_e_fields, valid_indices):
     history. Returns ``(kept_indices, matrix)`` with ``matrix is None`` when
     no pulse carries an E-field.
     """
-    keep = [int(i) for i in valid_indices
-            if 0 <= int(i) < len(pulse_e_fields) and pulse_e_fields[int(i)] is not None]
-    if not keep:
+    usable = [int(i) for i in valid_indices
+              if 0 <= int(i) < len(pulse_e_fields)
+              and pulse_e_fields[int(i)] is not None]
+    if not usable:
         return np.empty(0, dtype=int), None
+    # A session that mixed two E-field sources of different width (another ROI
+    # in the online solver) must not take the whole analysis down: keep the
+    # majority width and drop the outliers.
+    widths = [len(pulse_e_fields[i]) for i in usable]
+    width = max(set(widths), key=widths.count)
+    keep = [i for i in usable if len(pulse_e_fields[i]) == width]
     return np.asarray(keep, dtype=int), np.vstack([pulse_e_fields[i] for i in keep])
 
 # Qt5Agg needs a display; on a headless machine (tests, batch tools) forcing
@@ -370,6 +377,10 @@ class PipelineController:
         self._online_hold_logged = False
         self._health_hold_logged = False
         self._amplitude_hold_logged = False
+        self._analysis_generation = 0
+        self._pulse_width = None
+        self._library_mats = None
+        self.library_warning = None
         self._fire_mono = None
         self._realized_mono = None
         self._last_pulse_mono = None
@@ -462,6 +473,13 @@ class PipelineController:
                 print(f"Error: E_mag has non-numeric dtype {data.dtype}")
                 return
             self.e_matrix = data
+            self._library_mats = None
+            try:
+                with h5py.File(path, 'r') as f:
+                    if 'matsimnibs' in f:
+                        self._library_mats = f['matsimnibs'][:]
+            except (OSError, KeyError):
+                self._library_mats = None
             print(f" -> E-Matrix loaded. Shape: {self.e_matrix.shape}")
             self.n_elms = self.e_matrix.shape[1]
             self.n_positions = self.e_matrix.shape[0]
@@ -469,6 +487,7 @@ class PipelineController:
             # pass e-matrix to the virtual emg computer
             if isinstance(self.emg_computer, VirtualEMG):
                 self.emg_computer.set_e_matrix(self.e_matrix)
+            self._check_library_consistency()
         except Exception as e:
             self.e_matrix = None
             self.n_elms = None
@@ -608,6 +627,7 @@ class PipelineController:
 
         if self.control_panel is not None:
             self.control_panel.totaltargets3.setText(f"{n_coil_placements}")
+        self._check_library_consistency()
 
     def register_remote_handlers(self):
         """
@@ -1388,6 +1408,8 @@ class PipelineController:
 
             # --- 1. STORE DATA in the pipeline_controller for the analysis ---
             # if meps:
+            e_row = self._check_row_width(e_row)
+
             # Store the index of the coil position used
             self.used_coil_placements_idx.append(self.current_target_index)
             # ... and the E-field row of the same pulse (kept index-aligned)
@@ -1484,9 +1506,7 @@ class PipelineController:
 
         if valid_count >= 3:
             print(f"--- Triggering Real-Time Analysis ({valid_count} valid pulses) ---")
-            loop = asyncio.get_running_loop()
-            task = loop.run_in_executor(None, self.run_analysis)
-            self.running_analyses_tasks.append(task)
+            self.request_analysis()
         else:
             print(f"Skipping analysis (Only {valid_count} valid pulses).")
 
@@ -1508,12 +1528,7 @@ class PipelineController:
             #     # nothing else here: we do NOT touch current_step from the worker
             #
             # loop.run_in_executor(self._analysis_executor, _background)
-            loop = asyncio.get_running_loop()
-            task = loop.run_in_executor(
-                    None,  # default executor
-                    self.run_analysis
-            )
-            self.running_analyses_tasks.append(task)  # optional tracking
+            self.request_analysis()
 
             # task = asyncio.create_task(self.run_analysis(self.used_coil_placements_idx))
             # self.running_analyses_tasks.append(task)  # optional book-keeping
@@ -1677,8 +1692,16 @@ class PipelineController:
                 ))
         return meps, emg_preac_amp, emg_preac_var
 
-    def run_analysis(self):
+    def run_analysis(self, generation=None):
+        """Regress every channel on the collected pulses.
+
+        ``generation`` identifies the request: results of a superseded run
+        (the operator toggled an exclusion or loaded another library while it
+        was running) are discarded instead of overwriting the newer map.
+        """
         print("--- Running Analysis ---")
+        generation = (self._analysis_generation if generation is None
+                      else generation)
         if not self.online_fem_mgr.is_online and self.e_matrix is None and not self.pulse_e_fields:
             print("Skipping: No E-Matrix loaded yet.")
             return
@@ -1698,25 +1721,39 @@ class PipelineController:
         # collected from the precomputed matrix and from the online solver are
         # both in V/m for the applied amplitude, so they mix without a mode
         # switch invalidating the run; pulses without a field are dropped.
+        recorded = len(valid_indices)
         valid_indices, e_matrix_subset = assemble_analysis_matrix(self.pulse_e_fields, valid_indices)
         if e_matrix_subset is None or len(valid_indices) < 3:
             print(f"Skipping analysis: {len(valid_indices)} pulse(s) with an E-field (need 3).")
             return
+        dropped = recorded - len(valid_indices)
+        if dropped:
+            # Never hide a pulse that has no field: the map is then built from
+            # an undisclosed subset of the session.
+            self._log_step(f"[WARN] {dropped} pulse(s) without an E-field were "
+                           f"left out of the map ({len(valid_indices)} used).")
         if self.online_fem_mgr.is_online:
             print(f"online pulses: {self.pulse_modes.count('online')} / "
                   f"precomputed pulses: {self.pulse_modes.count('precomputed')}")
-        # 3. Filter the MEP history to match
-        filtered_mep_history = {
-            ch: [mep_list[i] for i in valid_indices]
-            for ch, mep_list in self.mep_history.items()
-        }
-
-        # 4. Pass the filtered data to the ProcessPoolExecutor
-
-        tasks = [
-            (channel_name, filtered_mep_list, e_matrix_subset, self.fit_fun, self.elm_idx_list, self.n_elms)
-            for channel_name, filtered_mep_list in filtered_mep_history.items()
-        ]
+        # 3. Filter the MEP history to match, per channel: a non-finite MEP
+        # (empty/partial EMG sweep) would otherwise turn the whole channel's
+        # R² map into NaN.
+        tasks = []
+        for channel_name, mep_list in self.mep_history.items():
+            meps = [mep_list[i] if i < len(mep_list) else float("nan")
+                    for i in valid_indices]
+            finite = [pos for pos, value in enumerate(meps)
+                      if value is not None and np.isfinite(value)]
+            if len(finite) < 3:
+                self._log_step(f"[WARN] channel {channel_name}: only {len(finite)} "
+                               f"finite MEP(s) -- no map for this channel.")
+                continue
+            if len(finite) != len(meps):
+                self._log_step(f"[WARN] channel {channel_name}: {len(meps) - len(finite)} "
+                               f"MEP(s) were not measurable and are left out.")
+            tasks.append((channel_name, [meps[pos] for pos in finite],
+                          e_matrix_subset[finite], self.fit_fun,
+                          self.elm_idx_list, self.n_elms))
 
         # Optionally reset or keep accumulating
         # self.final_scores = {}
@@ -1736,16 +1773,105 @@ class PipelineController:
                     print(f"Skipping {channel_name}: Length mismatch.")
                     continue
 
+                if generation != self._analysis_generation:
+                    # A newer request superseded this run; its results win.
+                    self._log_step(f"[INFO] discarding a superseded analysis "
+                                   f"result for {channel_name}.")
+                    continue
+
                 # Update shared dict
                 self.final_scores[ch_name] = scores
 
-                # Push *incremental* update for this channel
-                if self.control_panel:
-                    print(f"Channel {ch_name} ready. Updating mesh coloring.")
-                    # Send only the updated channel to avoid redrawing all if you want:
-                    self.control_panel.update_mesh_coloring({ch_name: scores})
-                    # or send the whole accumulated dict:
-                    # self.control_panel.update_mesh_coloring(self.final_scores)
+                # Push *incremental* update for this channel.  This runs on a
+                # worker thread, so it is delivered through a Qt signal.
+                print(f"Channel {ch_name} ready. Updating mesh coloring.")
+                self._deliver_scores({ch_name: scores})
+
+    def _check_library_consistency(self):
+        """Warn when the E-field library does not match the placements file.
+
+        The two files are chosen independently in the Project page; mixing
+        generations gives every pulse another placement's field while the map
+        still looks plausible.
+        """
+        self.library_warning = None
+        if self.e_matrix is None or not self.targets_file:
+            return True
+        try:
+            n_placements = validate_simnibs_targets_file(self.targets_file)
+        except ValueError:
+            return True
+        n_rows = int(self.e_matrix.shape[0])
+        if n_rows != n_placements:
+            self.library_warning = (
+                f"E-field library: {n_rows} placements, coil placement file: "
+                f"{n_placements} -- pulses would get the wrong field.")
+            self._log_step(f"[WARN] {self.library_warning}")
+            return False
+        if self._library_mats is not None:
+            try:
+                with h5py.File(self.targets_file, "r") as f:
+                    placements = f['matsimnibs'][:]
+            except (OSError, KeyError):
+                return True
+            if (placements.shape == self._library_mats.shape
+                    and not np.allclose(placements, self._library_mats, atol=0.5)):
+                self.library_warning = (
+                    "The E-field library was computed for different coil "
+                    "placements than the loaded placement file.")
+                self._log_step(f"[WARN] {self.library_warning}")
+                return False
+        return True
+
+    def _check_row_width(self, row):
+        """Drop an E-field row whose element count differs from the run's."""
+        if row is None:
+            return None
+        if self._pulse_width is None:
+            self._pulse_width = int(len(row))
+            return row
+        if len(row) != self._pulse_width:
+            self._log_step(
+                f"[WARN] E-field row has {len(row)} elements but the run uses "
+                f"{self._pulse_width} -- this pulse is left out of the map.")
+            return None
+        return row
+
+    def _deliver_scores(self, scores):
+        """Hand finished R² maps to the GUI, from any thread.
+
+        ``run_analysis`` executes in the default executor; writing QTableWidget
+        or VTK objects from there is undefined behaviour.  The window exposes a
+        queued ``scores_ready`` signal; non-Qt panels (tests, headless tools)
+        are called directly.
+        """
+        panel = self.control_panel
+        if panel is None:
+            return
+        signal = getattr(panel, "scores_ready", None)
+        if signal is not None and hasattr(signal, "emit"):
+            signal.emit(dict(scores))
+        else:
+            panel.update_mesh_coloring(scores)
+
+    def request_analysis(self):
+        """Queue a map update; older in-flight runs become stale."""
+        self._analysis_generation += 1
+        generation = self._analysis_generation
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No loop (unit tests / GUI-only): run synchronously.
+            self.run_analysis(generation)
+            return
+        import functools
+        task = loop.run_in_executor(
+            None, functools.partial(self.run_analysis, generation))
+        # Keep only the live tasks so a long session does not accumulate them.
+        self.running_analyses_tasks = [t for t in self.running_analyses_tasks
+                                       if not t.done()]
+        self.running_analyses_tasks.append(task)
+        return task
 
     def _geodesic_dist_between_cells(self, mesh, cell_a, cell_b):
         """Geodesic distance between two mesh cells (triangles) using gdist."""
