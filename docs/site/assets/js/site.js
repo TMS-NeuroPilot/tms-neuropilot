@@ -94,20 +94,46 @@
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   }[c]));
 
-  const score = (page, terms) => {
+  // Readers search for the word they know, not the one the page uses.
+  const SYNONYMS = {
+    efield: ["e-field", "electric field", "e_mag", "library", "fem"],
+    "e-field": ["efield", "electric field", "e_mag"],
+    mep: ["emg", "evoked", "amplitude", "response"],
+    emg: ["mep", "muscle", "channel"],
+    placement: ["coil", "target", "position", "pose"],
+    target: ["placement", "coil", "marker"],
+    config: ["setting", "settings", "env", "configuration", "lab profile"],
+    env: ["environment", "dotenv", "configuration"],
+    robot: ["omron", "arm", "cobot", "twin"],
+    run: ["session", "experiment", "start", "mapping"],
+    error: ["troubleshooting", "problem", "fail", "broken"],
+    install: ["setup", "environment", "conda"],
+    sim: ["simulation", "simulator", "virtual"],
+  };
+
+  // One group per query word: the page may match any synonym in the group,
+  // but must match every group (AND across words, OR within a word).
+  const groupsOf = (terms) => terms.map(
+    (term) => [term].concat(SYNONYMS[term] || []));
+
+  const score = (page, groups) => {
     const title = page.title.toLowerCase();
     const headings = page.headings.join(" ").toLowerCase();
     const blurb = (page.blurb || "").toLowerCase();
     const body = (page.text || "").toLowerCase();
     let total = 0;
-    for (const term of terms) {
-      let value = 0;
-      if (title.includes(term)) value += 10;
-      if (headings.includes(term)) value += 5;
-      if (blurb.includes(term)) value += 2;
-      if (body.includes(term)) value += 1;
-      if (!value) return 0;
-      total += value;
+    for (const group of groups) {
+      let best = 0;
+      for (const term of group) {
+        let value = 0;
+        if (title.includes(term)) value += 10;
+        if (headings.includes(term)) value += 5;
+        if (blurb.includes(term)) value += 2;
+        if (body.includes(term)) value += 1;
+        best = Math.max(best, value);
+      }
+      if (!best) return 0;
+      total += best;
     }
     return total;
   };
@@ -147,10 +173,12 @@
       container.innerHTML = "";
       return;
     }
-    const terms = query.split(/\s+/).filter(Boolean);
+    const words = query.split(/\s+/).filter(Boolean);
+    const groups = groupsOf(words);
+    const terms = groups.flat();
     const pages = await loadIndex();
     const hits = pages
-      .map((page) => ({ page, value: score(page, terms) }))
+      .map((page) => ({ page, value: score(page, groups) }))
       .filter((hit) => hit.value > 0)
       .sort((a, b) => b.value - a.value)
       .map((hit) => hit.page);
