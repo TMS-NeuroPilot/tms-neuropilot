@@ -48,6 +48,13 @@ These are tuning constants, not operator settings; they stay in code.
 The EMG channel **sources** (element id / xyz per channel) live in a
 separate small YAML referenced by `emg_config_fn`.
 
+The fit function is one of the shapes pynibs provides
+(`controller/fit_functions.py`): Linear, Linear (log), Sigmoid
+(4-parameter — pynibs' default), Sigmoid (3-parameter), Sigmoid (log),
+Exponential, Exponential (no offset), Exponential (log) and Step.  The
+"(log)" variants model the logarithm of the MEP response; the plain ones
+the raw peak-to-peak amplitude.
+
 ### GUI controls (live, in-memory)
 
 Control page: amplitude (slider + spin), repetitions, min. interval, pulse
