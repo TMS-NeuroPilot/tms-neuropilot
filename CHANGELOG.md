@@ -5,6 +5,45 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- A hostile-review pass over the three run modes (simulated, real, manual)
+  found and fixed a set of state-machine and hardware-path bugs:
+  - **Finish now works when a system is down.** The SKIP dispatch was
+  inside the health gate, so a dead EMG or robot froze the inner loop and
+  Finish did nothing; stop/skip are dispatched outside the gate and the
+  hold reason is logged once.
+  - **A failing step no longer loses the run.** Steps run in try/except,
+    the failure is reported, the run ends and the results CSV is still
+    written; analysis futures are awaited with `return_exceptions=True`.
+  - **Real hardware failures become statuses, not exceptions.** A missing
+    parallel port, an unplugged stimulator or a vanished SMB share now end
+    in ERROR (and recovery is detected) instead of raising out of the
+    health loop and killing the pipeline.
+  - **The EMG sweep is correlated with its pulse**: the folder is
+    snapshotted before firing and only a new file is accepted (polled for
+    `EMG_TIMEOUT_S`); no new file records NaN MEPs instead of the previous
+    pulse's sweep.
+  - **Late/duplicate InVesalius messages are rejected** (a realized target
+    that predates the pulse is ignored; collect gives up after
+    `COLLECT_TIMEOUT_S` instead of spinning forever).
+  - **Pause works inside a target**, Finish releases the robot, "Previous"
+    is ignored while a pulse is in flight, and a pulse aborted during the
+    EMG read is discarded instead of recorded.
+  - **The ISI safety limit uses a monotonic clock**, so an NTP jump can
+    neither shorten the interval between pulses nor stall the session.
+  - **Mapping results stay trustworthy**: scores reach the GUI through a
+    Qt signal (no widget writes from the analysis thread), superseded
+    analyses are discarded, non-finite MEPs are dropped per channel with a
+    message, pulses without a field are counted, mixed E-field widths no
+    longer crash the assembly, and the library is cross-checked against the
+    placement file (count and stored `/matsimnibs`).
+  - **Live sessions are protected**: loading a project, applying a study
+    profile or editing the config is refused while a session runs, closing
+    the window finishes the session, and manual mode no longer rewrites the
+    simulation flag.
+## [Unreleased]
+
 ### Added
 
 - CI: `.gitlab-ci.yml` runs the headless suite (`pytest -m "not gui"`)
