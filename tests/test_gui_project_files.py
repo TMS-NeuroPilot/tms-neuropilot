@@ -15,7 +15,7 @@ PROJECT_KEYS = {
     "stimulator_amplitude", "target_order_fn", "stimulator_waveform",
     "minium_isi", "n_repetitions", "targets_file", "default_speed",
     "tuning_speed", "mesh_head_path", "mesh_RIO_path", "e_field_path",
-    "coil_path", "emg_config_fn",
+    "coil_path", "emg_config_fn", "efield_mode",
 }
 
 

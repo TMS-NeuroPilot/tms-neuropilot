@@ -274,6 +274,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         #3rd. Tab (control)
         self.efield_mode_selected = False
+        self._pending_efield_mode = None
         self.online_efield_btn.setEnabled(False)
         self.offline_efield_btn.setEnabled(False)
 
@@ -347,6 +348,10 @@ class MainWindow(QtWidgets.QMainWindow):
         if default_coil:
             self.coilspathlineedit.setText(default_coil)
             self.paste_coil_path()
+
+        # One-line status under the E-field radios ("choose a mode", "warming
+        # up", "ready"), refreshed by update_button_states.
+        self._update_efield_hint()
 
 
         self.led_labels = {}  # map LED labels to systems
@@ -1388,6 +1393,9 @@ QSpinBox::down-button { subcontrol-origin: border; subcontrol-position: bottom r
 QSpinBox::up-button:hover, QSpinBox::down-button:hover { background: #FEF3E2; }
 QSpinBox::up-arrow { image: url(%(up)s); width: 8px; height: 5px; }
 QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
+QLabel#efield_hint[tone="busy"] { color: #B45309; }
+QLabel#efield_hint[tone="ok"] { color: #1B7F3B; }
+QLabel#efield_hint[tone="error"] { color: #B50E0E; }
 """ % icons
         self.setStyleSheet(self.styleSheet() + extra)
 
@@ -1788,6 +1796,36 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
         self._size_choice_popups()
         self._resize_results_panel(s)
 
+    def efield_mode_name(self):
+        """``"Online"`` / ``"Precomputed"`` / None (nothing selected yet)."""
+        if self.online_efield_btn.isChecked():
+            return "Online"
+        if self.offline_efield_btn.isChecked():
+            return "Precomputed"
+        return None
+
+    def _apply_efield_mode(self, mode):
+        """Select a mode by name; returns True when it was applied now.
+
+        A project can be loaded before its E-field paths are usable (the
+        radios stay disabled then).  The name is remembered in
+        ``_pending_efield_mode`` and retried as soon as the paths are ready.
+        """
+        text = str(mode or "").strip().lower()
+        if text.startswith("online"):
+            button, wanted = self.online_efield_btn, "efield_online"
+        elif text.startswith("pre"):
+            button, wanted = self.offline_efield_btn, "efield_precomputed"
+        else:
+            return False
+        if not button.isEnabled():
+            self._pending_efield_mode = text
+            return False
+        self._pending_efield_mode = None
+        if not button.isChecked():
+            button.setChecked(True)      # triggers on_efield_mode_changed
+        return True
+
     def on_efield_mode_changed(self):
         """Switch between precomputed and online E-fields, also mid-run.
 
@@ -1800,6 +1838,7 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
         if not (self.online_efield_btn.isChecked() or self.offline_efield_btn.isChecked()):
             return
         online = self.online_efield_btn.isChecked()
+        self._mark_project_dirty()       # the mode is saved with the project
         if self.controller:
             self.controller.online_fem_mgr.online_fem = online
             if online:
@@ -1846,6 +1885,9 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
         self.offline_efield_btn.setEnabled(all_set)
         # Paths may arrive *after* the operator picked online (project load,
         # path edit); make sure the solver then starts after all.
+        pending = getattr(self, "_pending_efield_mode", None)
+        if all_set and pending:
+            self._apply_efield_mode(pending)
         if all_set and self.online_efield_btn.isChecked() and self.controller:
             self.controller.online_fem_mgr.ensure_initialized(
                 callback=self.online_fem_ready.emit)
@@ -1887,6 +1929,37 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
                        self.move_coil_up):
             button.setEnabled(ready)
         self.finish_btn.setEnabled(ready or running)
+        self._update_efield_hint()
+
+    def _update_efield_hint(self):
+        """One line under the E-field radios: what the mode is doing now."""
+        label = getattr(self, "efield_hint", None)
+        if label is None:
+            return
+        mgr = getattr(self.controller, "online_fem_mgr", None) if self.controller else None
+        online = bool(mgr is not None and mgr.is_online)
+        if mgr is not None and online:
+            if mgr.is_ready:
+                text, role = "Online solver ready.", "ok"
+            elif getattr(mgr, "initializing", False):
+                text = ("Warming up the online solver (about a minute) — "
+                        "pulses wait until it is ready.")
+                role = "busy"
+            else:
+                text = "Online solver unavailable — switch to Precomputed."
+                role = "error"
+        elif self.offline_efield_btn.isChecked():
+            text, role = "Precomputed library — ready immediately.", "ok"
+        elif self.efield_mode_selected:
+            text, role = "", "ok"
+        else:
+            text, role = "Choose a mode to enable Start.", ""
+        if label.text() != text:
+            label.setText(text)
+        if label.property("tone") != role:
+            label.setProperty("tone", role)
+            label.style().unpolish(label)
+            label.style().polish(label)
 
     def update_mesh_coloring(self, scores_dict):
         """R² maps from the regression (per channel, one value per ROI element).
@@ -2933,7 +3006,8 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
             "e_field_path": self.load_e_matrix_label.text() or None,
             "coil_path": self.coilspathlineedit.text() or None,
             "emg_config_fn": self.emg_config_label.text() or None,
-
+            # Travels with the subject so a session resumes in the same mode.
+            "efield_mode": self.efield_mode_name(),
         }
 
     def apply_config_dict(self, d):
@@ -2982,7 +3056,7 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
 
         # Iterate through the config and apply the values using the matched setter function
         for key, setter in setters.items():
-            if key not in d:
+            if key not in d or key == "efield_mode":
                 continue
             val = d[key]
             if key in spin_keys:
@@ -3002,6 +3076,11 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
                 val = ""
             setter(val)
 
+        # The mode needs the E-field paths to be in place first (the radios are
+        # disabled without them), so it is applied after the loop.  A mode that
+        # cannot be selected yet is remembered and retried by _check_paths_ready.
+        if "efield_mode" in d:
+            self._apply_efield_mode(d["efield_mode"])
         self._refresh_subject_summary()
         return True
 

@@ -5,6 +5,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- The chosen E-field mode is saved in the project file (`efield_mode`), so
+  a session resumes in the mode it was run with; loading a project whose
+  paths are not usable yet remembers the mode and selects it as soon as
+  the paths arrive.  Changing the mode marks the project as unsaved.
+- The E-field card shows a one-line status under the radios: "choose a
+  mode", "precomputed library — ready immediately", "warming up the online
+  solver (about a minute) — pulses wait until it is ready" (amber), "online
+  solver ready" (green) or "unavailable — switch to Precomputed" (red).
+## [Unreleased]
+
 ### Changed
 
 - The hardware settings moved out of `.env` into a **lab profile**

@@ -89,6 +89,9 @@ def make_panel(controller=None, online=False, offline=False):
     # The window forwards the solver callback through a Qt signal so it runs
     # on the GUI thread; the stand-in calls the slot directly.
     panel.online_fem_ready = SimpleNamespace(emit=lambda: update_button_states(panel))
+    # Bound helpers the real window has; the stand-in keeps them inert.
+    panel._update_efield_hint = lambda: None
+    panel._mark_project_dirty = lambda *a, **k: None
     return panel
 
 
