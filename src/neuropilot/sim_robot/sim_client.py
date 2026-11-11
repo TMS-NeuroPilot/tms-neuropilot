@@ -13,6 +13,7 @@ class SimRobotClient:
     def __init__(self, url: str, state: RobotState, world=None):
         self.url      = url
         self.state    = state
+        self.world    = world      # qpos source for the pipeline's 3D view
         self.handlers = MessageHandlers(state, world=world)
         self.loop = None  # running event loop, captured in connect()
 
