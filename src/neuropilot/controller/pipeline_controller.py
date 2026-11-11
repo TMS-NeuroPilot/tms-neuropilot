@@ -221,7 +221,8 @@ class PipelineController:
         self.stim_armed = False
 
         # Mapping settings
-        self.fit_fun = pynibs.expio.fit_funs.linear
+        from .fit_functions import DEFAULT_FIT_NAME, resolve as resolve_fit
+        self.fit_fun = resolve_fit(DEFAULT_FIT_NAME)
         self.map_elms = 1
         self.elm_idx_list = None
         self.n_elms = -1
@@ -390,14 +391,14 @@ class PipelineController:
             print(f"The waveform is set to {waveform}")
 
     def set_fit_function(self, fit_func: str):
-        if fit_func == "Linear":
-            self.fit_fun = pynibs.expio.fit_funs.linear
-            print(f"Controller: Fit Function set to {fit_func}")
-        elif fit_func == "Sigmoid":
-            self.fit_fun = pynibs.expio.fit_funs.sigmoid4
-            print(f"Controller: Fit Function set to {fit_func}")
-        else:
+        """Select the regression model (any pynibs fit function)."""
+        from .fit_functions import resolve as resolve_fit
+        function = resolve_fit(fit_func)
+        if function is None:
             print(f"{fit_func} is not a valid fit function.")
+            return
+        self.fit_fun = function
+        print(f"Controller: Fit Function set to {fit_func}")
 
     def set_minium_isi(self, value):
         self.minium_isi = value

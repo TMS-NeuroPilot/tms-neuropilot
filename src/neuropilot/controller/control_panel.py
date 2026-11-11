@@ -306,6 +306,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self._corner_pairs[attr] = (led, cap)
         self.tabWidget.setCornerWidget(corner, QtCore.Qt.TopRightCorner)
 
+        self._populate_fit_functions()
         self._setup_robot_scene_view(self.simulation)
         self._setup_config_tab()
 
@@ -520,6 +521,26 @@ class MainWindow(QtWidgets.QMainWindow):
             10, max(10, row_h),
             QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         grid.invalidate()
+
+    def _populate_fit_functions(self):
+        """Fill the mapping-function menus from pynibs (one source of truth)."""
+        try:
+            from .fit_functions import fit_names
+            names = fit_names()
+        except Exception as e:
+            print(f"[WARN] fit functions unavailable: {e}")
+            return
+        for attr in ("fitFunctionComboBox", "cfg_fit_function"):
+            combo = getattr(self, attr, None)
+            if combo is None:
+                continue
+            current = combo.currentText()
+            combo.blockSignals(True)
+            combo.clear()
+            combo.addItems(names)
+            if current in names:
+                combo.setCurrentText(current)
+            combo.blockSignals(False)
 
     # ── Config tab ─────────────────────────────────────────────────────
     def _setup_config_tab(self):
