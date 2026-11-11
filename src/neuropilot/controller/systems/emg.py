@@ -46,7 +46,20 @@ class EMGComputer(System):
         self.EMG_COMPUTER_PASSWORD = os.getenv("EMG_COMPUTER_PASSWORD", "")
         self.EMG_OUTPUT_FOLDER_PATH = f"\\{self.EMG_COMPUTER_IP}\\users\\neuro\\signal"
     
+    def _publish_details(self):
+        channels = [c.strip() for c in
+                    os.getenv("EMG_CHANNELS", "ADC 0,ADC 1,ADC 2").split(",")
+                    if c.strip()]
+        self.set_details({
+            "Transport": "SMB2 (Signal share)",
+            "Host": self.EMG_COMPUTER_IP,
+            "Share": "\\users\\neuro\\signal",
+            "User": self.EMG_COMPUTER_USERNAME,
+            "Channels": f"{', '.join(channels)} ({len(channels)})",
+        })
+
     def try_connect(self):
+        self._publish_details()
         try:
             smbclient.register_session(self.EMG_COMPUTER_IP, username=self.EMG_COMPUTER_USERNAME, password=self.EMG_COMPUTER_PASSWORD) # smbclient is a singleton, so no need for "self."
             super().set_system_status(SystemStatus.OK)

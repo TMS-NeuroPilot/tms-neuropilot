@@ -38,6 +38,16 @@ class VirtualEMG(System):
             print("WARNING: More EMG channels configured than default sources -- "
                   "set the sources in the project window.")
 
+    def _publish_details(self):
+        sources = ", ".join(str(e) for e in self.channel_elements if e is not None)
+        self.set_details({
+            "Backend": "Simulated (E-field driven)",
+            "Channels": f"{', '.join(self.display_names)} ({self.channel_count})",
+            "Sources": sources or "not set",
+            "Sample rate": "4 kHz",
+            "Segment": "0.7 s",
+        })
+
     def set_channel_elements(self, elements):
         """Assign one cortical source element per channel (positional, in the
         order of the data channels). Raises on a count mismatch."""
@@ -47,6 +57,7 @@ class VirtualEMG(System):
                 f"channel count ({self.channel_count})"
             )
         self.channel_elements = list(elements)
+        self._publish_details()
         for key, elem in zip(self.data_channel_names, self.channel_elements):
             print(f"EMG channel '{key}' -> element {elem}")
 
@@ -60,6 +71,7 @@ class VirtualEMG(System):
         print(f"E-field matrix set. Shape: {e_matrix.shape}")
 
     def try_connect(self):
+        self._publish_details()
         super().set_system_status(SystemStatus.OK)
 
     def recover(self, recovery):

@@ -27,34 +27,50 @@ class Stimulator(System):
                 print(f"Stimulator error in {getattr(fn, '__name__', fn)}: {e}")
         self._serial_executor.submit(_worker)
 
+    # Serial + TTL ports of the lab stimulator (Aachen used /dev/ttyS0).
+    PORT = '/dev/ttyS1'
+    TTL_PORT = '/dev/parport0'
+
     def try_connect(self):
         try:
-            self.stimulator = mp.MagVenture('/dev/ttyS1', ttl_port="/dev/parport0") ## pavian
-            # self.stimulator = mp.MagVenture('/dev/ttyS0')  ## aachen
+            self.stimulator = mp.MagVenture(self.PORT, ttl_port=self.TTL_PORT)  ## pavian
             self.stimulator.connect()
             self.avail = True
         except FileNotFoundError:
             print(f"Cannot connect to parallel port. ")
-            self.stimulator = mp.MagVenture('/dev/ttyS1')  ## pavian
+            self.stimulator = mp.MagVenture(self.PORT)  ## pavian
         except serial.serialutil.SerialException:
             print(f"Cannot connect to serial port.")
+        self.set_details({"Port": self.PORT, "TTL port": self.TTL_PORT})
         asyncio.create_task(self.check_system())
     
     async def check_system(self):
         loop = asyncio.get_running_loop()
         # run blocking call in a thread
         try:
-            status = await loop.run_in_executor(self._serial_executor, self.stimulator.get_status)
+            info, error = await loop.run_in_executor(
+                self._serial_executor, self.stimulator.get_status)
         except ValueError as e:
             print("Cannot get status from stimulator.")
             print(e)
             super().set_system_status(SystemStatus.ERROR, 'No Connection')
             return
 
-        if status[1] == 1:
+        if error == 1:
             super().set_system_status(SystemStatus.ERROR, 'No Connection')
-        else:
-            super().set_system_status(SystemStatus.OK)
+            return
+
+        # get_status() reports the device's own identity: model, serial
+        # number, coil type, waveform and the coil temperature.
+        temperature = info.get('Temperature')
+        self.set_details({
+            "Model": info.get('Model'),
+            "Serial no.": info.get('SerialNo'),
+            "Coil": info.get('coilTypeNo'),
+            "Waveform": info.get('Waveform'),
+            "Temperature": None if temperature is None else f"{temperature} °C",
+        })
+        super().set_system_status(SystemStatus.OK)
     
     def recover(self, recovery):
         # No software recoveries implemented yet

@@ -27,6 +27,22 @@ class System(ABC):
         self.status = SystemStatus.NAN
         self.update_control_panel_func = update_control_panel_func
         self.recovery_queue = deque()
+        # Ordered label/value pairs describing the concrete connection
+        # (device model, serial, host, channels ...), shown on the
+        # Connections page next to the status card.
+        self.details = {}
+
+    def set_details(self, details):
+        """Publish connection details; empty values are dropped and an
+        unchanged dict is ignored so the 1 Hz health loop does not repaint."""
+        details = {str(k): str(v) for k, v in (details or {}).items()
+                   if v is not None and str(v).strip()}
+        if details == self.details:
+            return
+        self.details = details
+        if self.update_control_panel_func:
+            # status=None tells the panel this is a details-only update.
+            self.update_control_panel_func(self, None, None, details=details)
     
     def __init_subclass__(cls):
         super().__init_subclass__()

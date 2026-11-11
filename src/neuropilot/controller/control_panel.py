@@ -1132,6 +1132,8 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
                 _set_group_title("groupBox_4", "EMG")
 
         # Initialize display
+        for sys_obj in self.status_labels:
+            self._update_details_view(sys_obj, getattr(sys_obj, "details", {}))
         for sys_obj, lbl in self.status_labels.items():
             if lbl is not None:
                 lbl.setText("Not Initialized")
@@ -1178,9 +1180,43 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
                                Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
         label.setPixmap(scaled)
 
-    def update_system_status(self, system=None, status=None, message=None):
+    # Maps a system name fragment to its details card widget prefix.
+    INFO_PREFIXES = (("stim", "stim_info"), ("emg", "emg_info"),
+                     ("robot", "robot_info"))
+
+    def _update_details_view(self, system, details):
+        """Fill one system's details card: label/value rows in order, unused
+        rows hidden so shorter lists do not leave empty lines."""
+        name = getattr(system, "NAME", "").lower()
+        prefix = next((p for key, p in self.INFO_PREFIXES if key in name), None)
+        if prefix is None:
+            return
+        rows = list((details or {}).items())
+        for i in range(1, 6):
+            cap = getattr(self, f"{prefix}_cap_{i}", None)
+            val = getattr(self, f"{prefix}_val_{i}", None)
+            if cap is None or val is None:
+                continue
+            if i <= len(rows):
+                key, value = rows[i - 1]
+                cap.setText(str(key))
+                val.setText(str(value))
+                cap.show()
+                val.show()
+            else:
+                cap.setText("")
+                val.setText("")
+                cap.hide()
+                val.hide()
+
+    def update_system_status(self, system=None, status=None, message=None,
+                             details=None):
         if system is None:
             return
+        if details is not None:
+            self._update_details_view(system, details)
+            if status is None:
+                return
 
         status_label = self.status_labels.get(system)
         message_label = self.message_labels.get(system)

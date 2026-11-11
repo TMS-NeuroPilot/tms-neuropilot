@@ -102,6 +102,14 @@ class SimRobotClient:
             data={
                 "status":  pipeline_status,
                 "message": message,
+                # The pipeline shows these next to the robot's status card.
+                "robot_id": "virtual-twin",
+                "info": {
+                    "Robot": config.MODEL_NAME,
+                    "Mode": "Headless MuJoCo",
+                    "Camera": f"{config.CAMERA_STREAM_WIDTH}x{config.CAMERA_STREAM_HEIGHT}"
+                              f" @ {config.CAMERA_STREAM_FPS:g} fps",
+                },
             },
         )
 

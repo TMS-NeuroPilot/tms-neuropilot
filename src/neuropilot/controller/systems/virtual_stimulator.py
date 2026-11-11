@@ -24,7 +24,18 @@ class VirtualStimulator(System):
     def try_connect(self):
         print("[VirtualStimulator] Hardware mocked successfully. Connected.")
         self.avail = True
+        self._publish_details()
         super().set_system_status(SystemStatus.OK)
+
+    def _publish_details(self):
+        """Mirror the real stimulator's details rows with simulation values."""
+        self.set_details({
+            "Model": "Simulated MagVenture",
+            "Port": "none (virtual)",
+            "Waveform": self.waveform,
+            "Amplitude": f"{self.amplitude} % MSO",
+            "Fire latency": f"{self.fire_delay_s * 1000:.0f} ms",
+        })
 
     async def check_system(self):
         # Always healthy in simulation
@@ -46,11 +57,13 @@ class VirtualStimulator(System):
     def set_amplitude(self, amplitude: int):
         assert 0 <= amplitude <= 100, "Amplitude must be between 0 and 100"
         self.amplitude = int(amplitude)
+        self._publish_details()
         print(f"[VirtualStimulator] Amplitude set to {self.amplitude}%")
 
     def set_waveform(self, waveform: str):
         assert waveform in ["Biphasic", "Monophasic"]
         self.waveform = waveform
+        self._publish_details()
         print(f"[VirtualStimulator] Waveform set to {self.waveform}")
 
     def fire(self):
