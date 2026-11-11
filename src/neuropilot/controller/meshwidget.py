@@ -24,9 +24,13 @@ class MeshWidget(QWidget):
         self.controls_frame = QFrame()
         # Minimum height; the layout grows the bar with the (scaled) fonts.
         self.controls_frame.setMinimumHeight(40)
+        # Scope the rule to this frame only: a bare QFrame selector also
+        # matches every QLabel inside it and draws a line under their text.
+        # The bar carries no bottom rule at all — it read as an underline
+        # below the checkbox and the mesh radios.
+        self.controls_frame.setObjectName("mesh_controls")
         self.controls_frame.setStyleSheet(
-            "QFrame { background-color: #FFFFFF; border: none; "
-            "border-bottom: 1px solid #E2E5E9; }")
+            "QFrame#mesh_controls { background-color: #FFFFFF; border: none; }")
         self.controls_layout = QHBoxLayout(self.controls_frame)
         self.controls_layout.setContentsMargins(10, 5, 10, 5)
 
@@ -113,8 +117,8 @@ class MeshWidget(QWidget):
 
         # Radio Buttons for Mesh Type
         self.radio_group = QButtonGroup(self)
-        self.radio_head = QRadioButton("Mesh Head")
-        self.radio_roi = QRadioButton("Mesh ROI")
+        self.radio_head = QRadioButton("Show Head")
+        self.radio_roi = QRadioButton("Show ROI")
         self.radio_head.setChecked(True)
         # Pixel-based fonts (see edge_checkbox above)
         self.radio_head.setStyleSheet("margin-left: 15px; color: #1B1F24; font-size: 13px;")
