@@ -39,6 +39,28 @@ Components communicate over Socket.IO relay topics
 `to_*`); the protocol is byte-identical to the production components in
 `tms-robot-control` and InVesalius.
 
+## Appearance
+
+Five colour themes ship with the controller, selectable live in
+**Config › Lab › Theme** (no restart):
+
+| Theme | Character |
+|---|---|
+| Workstation Light | the default: cool neutral canvas, amber accent |
+| Lab Paper | warm ivory canvas, terracotta accent — lower glare in a bright room |
+| Instrument Blue | cool slate, deep instrumentation blue — keeps amber free for "warming up" |
+| **Graphite** | dark, neutral two-level charcoal — long sessions in a dim room |
+| **Midnight** | dark, blue-black with a cyan accent — sinks below the neuronavigation screen |
+
+Every palette defines the same tokens (`src/neuropilot/controller/theme.py`):
+text/border/surface colours, accent and its disabled/soft variants, status
+colours, the instrument beds, chart grid and a six-colour series palette.  The
+Qt style sheet is generated from those tokens, and the charts, 3D viewport,
+status LEDs, mode badge and log bed are recoloured with the same table.  Text
+contrast is enforced by tests (body text ≥ 7:1, captions and status colours
+≥ 4.5:1).  The choice is stored in the lab profile (`UI_THEME`) and can be
+pinned from `.env` like any other lab key.
+
 ## Configuration
 
 Copy `.env.example` to `.env`. Cross-component settings (relay endpoint,

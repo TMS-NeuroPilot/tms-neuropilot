@@ -67,6 +67,7 @@ class MplGraphWidget(QWidget):
         line.setStyleSheet("background-color: #dcdcdc; margin-bottom: 10px;")
         line.setFixedHeight(1)
         self.sidebar_layout.addWidget(line)
+        self._title_line = line
         # --- end of the title widget ---
 
         # Label Header
@@ -135,6 +136,7 @@ class MplGraphWidget(QWidget):
             self.ax.set_title(label_map[title]["graph_title"], fontsize=18, weight='bold')
             self.ax.set_xlabel(label_map[title]["x"], fontsize=15)
             self.ax.set_ylabel(label_map[title]["y"], fontsize=15)
+            self._style_figure()
 
             # --- NEW LOGIC FOR THE MEP PLOT ON LOAD ---
             if title == "MEPs":
@@ -160,9 +162,64 @@ class MplGraphWidget(QWidget):
                 line.set_visible(is_checked)
         self.canvas.draw()
 
-    # Colors assigned to channels beyond the defaults (matplotlib tab10).
+    # Colors assigned to channels beyond the defaults; apply_theme() replaces
+    # them with the active theme's series colours.
     CHANNEL_PALETTE = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
                        "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
+
+    # ── theme ───────────────────────────────────────────────────────────
+    def apply_theme(self, theme):
+        """Recolour the sidebar, the checkboxes and the figure."""
+        self._theme = dict(theme)
+        self.control_panel.setStyleSheet(f"""
+            QFrame {{
+                background-color: {theme['canvas']};
+                border-right: 1px solid {theme['line']};
+            }}
+            QLabel {{
+                font-weight: bold;
+                font-size: 11px;
+                color: {theme['muted']};
+                margin-bottom: 8px;
+            }}
+            QCheckBox {{
+                font-size: 12px;
+                padding: 4px;
+                spacing: 8px;
+            }}
+        """)
+        self.title_label.setStyleSheet(
+            f"color: {theme['ink']}; font-size: 14px; font-weight: bold;"
+            " margin-bottom: 5px;")
+        self._title_line.setStyleSheet(
+            f"background-color: {theme['line']}; margin-bottom: 10px;")
+        self.CHANNEL_PALETTE = list(theme["series"]) * 2
+        self.channel_colors = {
+            key: self.CHANNEL_PALETTE[i % len(self.CHANNEL_PALETTE)]
+            for i, key in enumerate(self.channel_keys)}
+        for key, cb in self.checkboxes.items():
+            cb.setStyleSheet(
+                f"color: {self.channel_colors.get(key, theme['ink'])};"
+                " font-weight: 600;")
+        self._style_figure()
+
+    def _style_figure(self):
+        """Figure/axes colours for the active theme (after every cla())."""
+        theme = getattr(self, "_theme", None)
+        if not theme:
+            return
+        self.figure.set_facecolor(theme["card"])
+        self.canvas.setStyleSheet(f"background: {theme['card']};")
+        for ax in self.figure.axes:
+            ax.set_facecolor(theme["card"])
+            ax.tick_params(colors=theme["muted"], labelcolor=theme["ink"])
+            for spine in ax.spines.values():
+                spine.set_color(theme["line"])
+            ax.xaxis.label.set_color(theme["ink"])
+            ax.yaxis.label.set_color(theme["ink"])
+            ax.title.set_color(theme["ink"])
+            ax.grid(True, color=theme["grid"], linestyle=":", alpha=0.6)
+        self.canvas.draw_idle()
 
     def set_channels(self, names):
         """Configure the channels for display: `names` are the display names
@@ -203,11 +260,13 @@ class MplGraphWidget(QWidget):
             self.sidebar_layout.insertWidget(base_index + i, cb)
             self.checkboxes[key] = cb
         self.ax.cla()
+        self._style_figure()
         self.canvas.draw()
 
     def update_as_signal(self, time_array, data_dict):
         """Plot EMG timeseries"""
         self.ax.cla()
+        self._style_figure()
         self.lines = {}
 
         for name, data in data_dict.items():
@@ -229,6 +288,7 @@ class MplGraphWidget(QWidget):
     def update_as_trend(self, target_indices, history_dict, exclusion=None):
         """Plot MEP amplitudes"""
         self.ax.cla()
+        self._style_figure()
         self.lines = {}
         print(f"in update_as_trend: {history_dict}")
         for name, values in history_dict.items():
@@ -260,6 +320,7 @@ class MplGraphWidget(QWidget):
         current_left, current_right = self.ax.get_xlim()
         self.ax.set_xlim(left=0, right=max(6, int(current_right)))
 
+        self._style_figure()
         self.update_visibility()
 
 
@@ -267,6 +328,33 @@ class EmgNavGraphWidget(MplGraphWidget):
     prev_clicked = pyqtSignal()
     next_clicked = pyqtSignal()
     inclusion_toggled = pyqtSignal(bool)
+
+    def apply_theme(self, theme):
+        super().apply_theme(theme)
+        self.bottom_bar.setStyleSheet(f"""
+            QFrame {{
+                background-color: {theme['card']};
+                border-top: 1px solid {theme['line']};
+            }}
+            QPushButton {{
+                background-color: {theme['card']};
+                color: {theme['ink']};
+                border: 1px solid {theme['edge']};
+                border-radius: 4px;
+                padding: 4px 16px;
+                font-size: 13px;
+                text-align: center;
+                outline: none;
+            }}
+            QPushButton:hover {{
+                border-color: {theme['accent']};
+                color: {theme['accent_dark']};
+            }}
+            QPushButton:pressed {{
+                background-color: {theme['accent_soft']};
+                border-color: {theme['accent']};
+            }}
+        """)
 
     def __init__(self, parent=None):
         super().__init__(parent)

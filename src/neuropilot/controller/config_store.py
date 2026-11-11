@@ -21,6 +21,8 @@ MANAGED_KEYS = (
     "START_MEP", "END_MEP",
     "ONLINE_FEM_SOLVER", "ONLINE_FEM_ANISOTROPY",
     "TMS_ROBOT_CONTROL_PATH",
+    # Lab profile keys that may also be pinned from .env (see lab_profile.py).
+    "UI_THEME",
 )
 
 _LINE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$")
@@ -92,8 +94,12 @@ class ConfigStore:
 
     def __init__(self, path=None):
         if path is None:
-            repo_root = Path(__file__).resolve().parents[3]
-            path = repo_root / ".env"
+            override = os.getenv("NEUROPILOT_ENV_FILE")
+            if override:
+                path = Path(override).expanduser()
+            else:
+                repo_root = Path(__file__).resolve().parents[3]
+                path = repo_root / ".env"
         self.path = Path(path)
 
     # ── reading ─────────────────────────────────────────────────────

@@ -5,6 +5,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Five colour themes, switchable live in **Config › Lab › Theme** and
+  stored in the lab profile (`UI_THEME`, pinnable from `.env`):
+  *Workstation Light* (the default), *Lab Paper* (warm, lower glare),
+  *Instrument Blue* (cool, amber reserved for status), and the two dark
+  ones *Graphite* and *Midnight* (the latter tuned to sit below the
+  neuronavigation screen).  One token table generates the Qt style sheet
+  and the programmatic colours (status labels/LEDs, mode badge, charts,
+  3D viewport, instrument beds), with contrast enforced by tests (body
+  text ≥ 7:1, captions/status ≥ 4.5:1, dark themes with cards lighter
+  than the canvas and borders lighter than the cards).
+## [Unreleased]
+
 ### Fixed
 
 - A hostile-review pass over the three run modes (simulated, real, manual)

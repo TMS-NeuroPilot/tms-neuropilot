@@ -76,6 +76,10 @@ def gui_env(monkeypatch, tmp_path):
     # which is what the supervisor sets for the real components.
     monkeypatch.chdir(CONTROLLER_DIR)
     monkeypatch.setenv("ROOT_FOLDER", str(tmp_path / "data"))
+    # Both config files resolve to tmp_path *before* the window is built, so a
+    # developer's saved theme or .env cannot leak into a test.
+    monkeypatch.setenv("NEUROPILOT_LAB_FILE", str(tmp_path / "lab.yaml"))
+    monkeypatch.setenv("NEUROPILOT_ENV_FILE", str(tmp_path / ".env"))
     return tmp_path
 
 

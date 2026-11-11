@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QFrame, QCheckBox, QRadioButton, \
     QButtonGroup, QSizePolicy
+from PyQt5 import QtGui
 from PyQt5.QtCore import QPoint, Qt, pyqtSignal
 import pyvista as pv
 from pyvistaqt import QtInteractor
@@ -42,6 +43,7 @@ class MeshWidget(QWidget):
 
         lbl = QLabel("Mesh colour:")
         lbl.setStyleSheet("font-weight: 600; color: #6B7280; font-size: 12px;")
+        self._colour_caption = lbl
         self.controls_layout.addWidget(lbl)
 
         self.scalar_selector = QComboBox()
@@ -155,7 +157,7 @@ class MeshWidget(QWidget):
         # self.plotter.enable_lightkit()
         # <--- END --->
 
-        self.plotter.set_background("white")
+        self.plotter.set_background("#FFFFFF")     # apply_theme() overrides
         self.plotter.add_axes()
         self.plotter.view_isometric()
 
@@ -472,6 +474,86 @@ class MeshWidget(QWidget):
         except Exception:
             return None
 
+    # ── theme ───────────────────────────────────────────────────────────
+    def apply_theme(self, theme):
+        """Recolour the viewport, the picker and the corner labels."""
+        self._theme = dict(theme)
+        self.plotter.set_background(theme["canvas"])
+        # The GL surface is a native window; the widget behind it (and every
+        # grab/screenshot) shows the palette colour.
+        self.setAutoFillBackground(True)
+        palette = self.palette()
+        palette.setColor(QtGui.QPalette.Window, QtGui.QColor(theme["canvas"]))
+        self.setPalette(palette)
+        self.controls_frame.setStyleSheet(
+            f"QFrame#mesh_controls {{ background-color: {theme['canvas']};"
+            " border: none; }")
+        self._colour_caption.setStyleSheet(
+            f"font-weight: 600; color: {theme['muted']}; font-size: 12px;")
+        self._style_controls(theme)
+        for widget in (self.edge_checkbox, self.radio_head, self.radio_roi):
+            margin = "15px" if widget is not self.radio_roi else "10px"
+            widget.setStyleSheet(
+                f"margin-left: {margin}; color: {theme['ink']}; font-size: 13px;")
+        for label in (getattr(self, "_label_map", None),
+                      getattr(self, "_label_pulses", None)):
+            if label is not None:
+                label.setStyleSheet(
+                    f"QLabel {{ background: {theme['card']};"
+                    f" color: {theme['ink']}; border: 1px solid {theme['line']};"
+                    " border-radius: 6px; padding: 6px 10px; font-size: 12px; }")
+        self._style_scalar_bar()
+        self.plotter.render()
+
+    def _style_controls(self, theme):
+        self.scalar_selector.setStyleSheet(f"""
+            QComboBox {{
+                border: 1px solid {theme['edge']};
+                border-radius: 8px;
+                padding: 4px 10px;
+                background-color: {theme['card']};
+                color: {theme['ink']};
+                font-size: 14px;
+            }}
+            QComboBox:hover {{ border: 1px solid {theme['accent']}; }}
+            QComboBox::drop-down {{
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 28px;
+                border-left: 1px solid {theme['line']};
+                border-top-right-radius: 4px;
+                border-bottom-right-radius: 4px;
+                background-color: {theme['canvas']};
+            }}
+            QComboBox QAbstractItemView {{
+                border: 1px solid {theme['edge']};
+                border-radius: 4px;
+                background-color: {theme['card']};
+                color: {theme['ink']};
+                selection-background-color: {theme['accent']};
+                selection-color: {theme['on_accent']};
+                outline: none;
+                padding: 0px;
+                margin: 0px;
+            }}
+        """)
+
+    def _style_scalar_bar(self):
+        theme = getattr(self, "_theme", None)
+        if not theme:
+            return
+        rgb = [int(theme["ink"][i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        bars = getattr(self.plotter, "scalar_bars", None)
+        if not bars:
+            return
+        try:
+            items = bars.items()
+        except AttributeError:
+            return
+        for _, bar in items:
+            for prop in (bar.GetTitleTextProperty(), bar.GetLabelTextProperty()):
+                prop.SetColor(*rgb)
+
     def _add_scalar_bar(self, title):
         """Legend bar with its title.
 
@@ -483,6 +565,7 @@ class MeshWidget(QWidget):
         self.plotter.add_scalar_bar(title=title or "", n_labels=2,
                                     vertical=False, height=0.16, width=0.5,
                                     position_x=0.25, position_y=0.02)
+        self._style_scalar_bar()
 
     def _draw_best_element(self):
         import numpy as np

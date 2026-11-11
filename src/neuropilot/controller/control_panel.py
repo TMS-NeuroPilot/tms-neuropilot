@@ -6,6 +6,7 @@ import re
 import sys
 import os
 from .systems.system import SystemStatus
+from .theme import DEFAULT_THEME, THEMES, build_stylesheet, tokens as theme_tokens
 import pynibs
 import time
 import yaml
@@ -54,13 +55,24 @@ class _TabCornerFrame(QtWidgets.QFrame):
         return QtCore.QSize(hint.width(), max(hint.height(), height))
 
 
-def _control_ui_icons():
+_ICON_CACHE = {}
+
+
+def _control_ui_icons(check_colour="#FFFFFF"):
     """Write the small PNG assets the style sheet needs (a check tick and the
     spin-box chevrons) and return their paths. Qt style sheets cannot draw
     these glyphs, and shipping binary resources for two 14 px icons is
-    overkill — they are rendered once into the user's temp folder."""
+    overkill — they are rendered once per colour into the user's temp folder.
+
+    ``check_colour`` is the theme's ``on_accent``: a dark theme has a bright
+    accent, so a white tick would disappear on it.
+    """
     import tempfile
-    folder = os.path.join(tempfile.gettempdir(), "neuropilot_ui")
+    cached = _ICON_CACHE.get(check_colour)
+    if cached:
+        return cached
+    tag = check_colour.lstrip("#").lower()
+    folder = os.path.join(tempfile.gettempdir(), "neuropilot_ui", tag)
     os.makedirs(folder, exist_ok=True)
 
     def _stroke(path, size, points, color, width=2):
@@ -77,14 +89,16 @@ def _control_ui_icons():
         pm.save(path, "PNG")
         return path
 
-    return {
+    icons = {
         "check": _stroke(os.path.join(folder, "check.png"), (14, 14),
-                         [(3.5, 7.5), (6.0, 10.0), (10.5, 4.0)], "#FFFFFF", 2.2),
+                         [(3.5, 7.5), (6.0, 10.0), (10.5, 4.0)], check_colour, 2.2),
         "up": _stroke(os.path.join(folder, "up.png"), (8, 5),
                       [(1.0, 4.0), (4.0, 1.0), (7.0, 4.0)], "#B45309", 1.6),
         "down": _stroke(os.path.join(folder, "down.png"), (8, 5),
                         [(1.0, 1.0), (4.0, 4.0), (7.0, 1.0)], "#B45309", 1.6),
     }
+    _ICON_CACHE[check_colour] = icons
+    return icons
 
 
 def _fmt_number(value, spec):
@@ -133,6 +147,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.file_info_ready.connect(self._on_file_info_ready)
         self.online_fem_ready.connect(self.update_button_states)
         self.scores_ready.connect(self.update_mesh_coloring)
+
+        self._theme_name = DEFAULT_THEME
+        self._theme = theme_tokens(DEFAULT_THEME)
+        self._system_status = {}
 
         # Default window size: open at a comfortable fraction of the screen so
         # the pixel-based UI (fonts scale with the window in _rescale) is
@@ -371,6 +389,10 @@ class MainWindow(QtWidgets.QMainWindow):
         # up", "ready"), refreshed by update_button_states.
         self._update_efield_hint()
 
+        # Paint the window with the default theme; the Config tab re-applies
+        # the saved one when it loads the lab profile.
+        self.apply_theme(self._theme_name)
+
 
         self.led_labels = {}  # map LED labels to systems
 
@@ -494,6 +516,78 @@ class MainWindow(QtWidgets.QMainWindow):
         finally:
             self._project_loading = False
         self._pending_session = None
+
+    # ── Appearance ────────────────────────────────────────────────────────
+    def apply_theme(self, name, persist=False):
+        """Repaint the whole window with a colour theme.
+
+        The style sheet is regenerated from the token table and every colour
+        the code sets directly (status labels, LEDs, mode badge, chart and 3D
+        backgrounds, the instrument beds) is refreshed.  The choice can be
+        written to the lab profile so it survives a restart.
+        """
+        self._theme_name = name if name in THEMES else DEFAULT_THEME
+        self._theme = theme_tokens(self._theme_name)
+        # The tick must contrast with the accent fill of the active theme.
+        self._ui_icons = _control_ui_icons(self._theme["on_accent"])
+        sheet = build_stylesheet(self._theme_name, icons=self._ui_icons)
+        self.setStyleSheet(sheet)
+        self._restyle_parts()
+        base = getattr(self, "_base_rects", None)
+        if base is not None:
+            base["win_sheet"] = sheet          # the scaler re-applies this one
+        if persist:
+            try:
+                self._lab_profile.write({"UI_THEME": self._theme_name})
+            except OSError as e:
+                print(f"[WARN] could not save the theme: {e}")
+        return self._theme_name
+
+    def _restyle_parts(self):
+        """Re-apply the colours that live outside the style sheet."""
+        theme = self._theme
+
+        # Tab strip and its LED corner share the card colour.
+        bar = self.tabWidget.tabBar()
+        palette = bar.palette()
+        palette.setColor(QtGui.QPalette.Window, QtGui.QColor(theme["card"]))
+        bar.setPalette(palette)
+        bar.setAutoFillBackground(True)
+        corner = getattr(self, "_tab_corner", None)
+        if corner is not None:
+            corner.setStyleSheet(
+                f"QFrame#tab_corner {{ background: {theme['card']};"
+                " border: none; }")
+
+        # Instrument beds (log + robot view).
+        log = getattr(self, "finishedsteps", None)
+        if log is not None:
+            log.setStyleSheet(
+                f"QPlainTextEdit {{ background: {theme['bed']};"
+                f" color: {theme['bed_ink']}; border: none;"
+                " border-radius: 8px; padding: 10px; }")
+        bed = getattr(self, "robot_view_label", None)
+        if bed is not None:
+            bed.setStyleSheet(
+                f"QLabel {{ background: {theme['bed']}; border-radius: 8px;"
+                f" color: {theme['bed_muted']}; }}")
+
+        # Charts and the 3D view.
+        for attr in ("widget_mep_trend", "widget_emg_signal"):
+            widget = getattr(self, attr, None)
+            apply = getattr(widget, "apply_theme", None)
+            if callable(apply):
+                apply(theme)
+        view = getattr(self, "widget_3d_viewer", None)
+        apply = getattr(view, "apply_theme", None)
+        if callable(apply):
+            apply(theme)
+
+        # Re-render the colours the handlers write inline.
+        self._apply_config_mode()
+        for system, status in list(getattr(self, "_system_status", {}).items()):
+            self.update_system_status(system, status)
+        self._update_efield_hint()
 
     @QtCore.pyqtSlot(str, str)
     def _on_file_info_ready(self, name, text):
@@ -678,6 +772,10 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.cfg_robot_type.isEditable() is False:
             self.cfg_robot_type.setEditable(True)
 
+        self.cfg_theme.addItems(list(THEMES))
+        self._theme_loading = False
+        self.cfg_theme.currentTextChanged.connect(self.on_theme_changed)
+
         self.cfg_save_btn.clicked.connect(self.on_config_save)
         self.cfg_reload_btn.clicked.connect(self.on_config_reload)
         self.cfg_root_browse.clicked.connect(self.on_config_browse_root)
@@ -703,6 +801,7 @@ class MainWindow(QtWidgets.QMainWindow):
             ("RELAY_PORT", self.cfg_relay_port, "int"),
             ("ROOT_FOLDER", self.cfg_root_folder, "text"),
             ("NEUROPILOT_UI_SCALE", self.cfg_ui_scale, "text"),
+            ("UI_THEME", self.cfg_theme, "combo"),
             ("ROBOT", self.cfg_robot_type, "combo"),
             ("TMS_ROBOT_CONTROL_PATH", self.cfg_tms_path, "text"),
             ("STIMULATOR_PORT", self.cfg_stim_port, "text"),
@@ -776,11 +875,29 @@ class MainWindow(QtWidgets.QMainWindow):
         self._set_int(self.cfg_mep_end,
                       env.get("END_MEP", self._config_defaults["END_MEP"]), 100)
 
+        saved_theme = env.get("UI_THEME") or lab.get("UI_THEME")
+        if saved_theme:
+            self._theme_loading = True
+            try:
+                if saved_theme in THEMES:
+                    self.cfg_theme.setCurrentText(saved_theme)
+                self.apply_theme(saved_theme)
+            finally:
+                self._theme_loading = False
+
         overrides = [k for k, src in source.items() if src == "env"]
         detail = (f" · {len(overrides)} key(s) overridden by .env"
                   if overrides else "")
         self._set_config_status(
             f"Loaded {self._lab_profile.path.name} ({self._lab_profile.path}){detail}")
+
+    def on_theme_changed(self, name):
+        """Apply a theme immediately and remember it in the lab profile."""
+        if getattr(self, "_theme_loading", False) or not name:
+            return
+        self.apply_theme(name, persist=True)
+        if hasattr(self, "cfg_status_label"):
+            self._set_config_status(f"Theme: {name} (applied)")
 
     @staticmethod
     def _set_int(widget, text, fallback):
@@ -984,9 +1101,15 @@ class MainWindow(QtWidgets.QMainWindow):
         badge = getattr(self, "cfg_mode_badge", None)
         if badge is None:
             return
-        palette = {"Simulated": ("#FEF3E2", "#B45309"),
-                   "Real": ("#E8F5EC", "#1B7F3B"),
-                   "Manual": ("#EEF0F2", "#3C444D")}[mode]
+        theme = getattr(self, "_theme", {})
+        palette = {
+            "Simulated": (theme.get("accent_soft", "#FEF3E2"),
+                          theme.get("accent_dark", "#B45309")),
+            "Real": (theme.get("ok_soft", "#E8F5EC"),
+                     theme.get("ok", "#1B7F3B")),
+            "Manual": (theme.get("hover", "#EEF0F2"),
+                       theme.get("soft", "#3C444D")),
+        }[mode]
         badge.setText(mode)
         badge.setStyleSheet(
             f"background: {palette[0]}; color: {palette[1]}; border-radius: 9px;"
@@ -1419,26 +1542,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 writer.writerow(row)
 
     def _install_ui_assets(self):
-        icons = _control_ui_icons()
-        extra = """
-QCheckBox::indicator:checked { image: url(%(check)s); }
-QSpinBox { padding-right: 20px; }
-QSpinBox::up-button { subcontrol-origin: border; subcontrol-position: top right;
-    width: 16px; border-left: 1px solid #E7EAEE; border-bottom: 1px solid #E7EAEE;
-    border-top-right-radius: 4px; background: #FAFBFC; }
-QSpinBox::down-button { subcontrol-origin: border; subcontrol-position: bottom right;
-    width: 16px; border-left: 1px solid #E7EAEE;
-    border-bottom-right-radius: 4px; background: #FAFBFC; }
-QSpinBox::up-button:hover, QSpinBox::down-button:hover { background: #FEF3E2; }
-QSpinBox::up-arrow { image: url(%(up)s); width: 8px; height: 5px; }
-QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
-QLabel#efield_hint[tone="busy"] { color: #B45309; }
-QLabel#efield_hint[tone="ok"] { color: #1B7F3B; }
-QLabel#efield_hint[tone="error"] { color: #B50E0E; }
-""" % icons
-        self.setStyleSheet(self.styleSheet() + extra)
+        # The generated PNGs are referenced by the theme's style sheet, which
+        # apply_theme() installs once the window is complete.
+        self._ui_icons = _control_ui_icons()
 
-    # ── Project file summaries ─────────────────────────────────────────────
     def _update_file_infos(self):
         """Show a short summary next to each configured project file."""
         def set_info(name, text):
@@ -2370,20 +2477,24 @@ QLabel#efield_hint[tone="error"] { color: #B50E0E; }
             # No UI mapped for this system (shouldn't happen if everything wired)
             return
 
+        # Remember the status so a theme change can re-render it.
+        self._system_status[system] = status
+        theme = getattr(self, "_theme", {})
+
         # By default: disable Recover
         if recover_button is not None:
             recover_button.setEnabled(False)
             self.pending_recovery[system] = None
 
         if status == SystemStatus.OK:
-            status_label.setStyleSheet("color: #0D9E42")
+            status_label.setStyleSheet(f"color: {theme.get('ok', '#0D9E42')}")
             status_label.setText("OK")
             self.set_led_status(led_widget, "on", "green")
             if message_label:
                 message_label.setText("")
 
         elif status == SystemStatus.ERROR:
-            status_label.setStyleSheet("color: #B50E0E")
+            status_label.setStyleSheet(f"color: {theme.get('danger', '#B50E0E')}")
             status_label.setText("ERROR")
             self.set_led_status(led_widget, "on", "red")
 
@@ -2408,7 +2519,7 @@ QLabel#efield_hint[tone="error"] { color: #B50E0E; }
                 message_label.setText(msg_text)
 
         elif status == SystemStatus.NAN:
-            status_label.setStyleSheet("color: #595959")
+            status_label.setStyleSheet(f"color: {theme.get('muted', '#595959')}")
             status_label.setText("Status: Not Initialized")
             self.set_led_status(led_widget, "off", "")
             if message_label:

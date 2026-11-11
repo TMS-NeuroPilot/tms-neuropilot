@@ -22,7 +22,7 @@ import yaml
 # Order used in the GUI and in the written file.
 LAB_KEYS = (
     "RELAY_HOST", "RELAY_PORT",
-    "ROOT_FOLDER", "NEUROPILOT_UI_SCALE",
+    "ROOT_FOLDER", "NEUROPILOT_UI_SCALE", "UI_THEME",
     "ROBOT", "TMS_ROBOT_CONTROL_PATH",
     "STIMULATOR_PORT", "STIMULATOR_TTL_PORT",
     "EMG_COMPUTER_IP", "EMG_COMPUTER_USERNAME", "EMG_COMPUTER_PASSWORD",
@@ -36,6 +36,7 @@ DEFAULTS = {
     "RELAY_PORT": "5000",
     "ROOT_FOLDER": str(Path.home() / ".neuropilot"),
     "NEUROPILOT_UI_SCALE": "",
+    "UI_THEME": "Workstation Light",
     "ROBOT": "omron",
     "TMS_ROBOT_CONTROL_PATH": "",
     "STIMULATOR_PORT": "/dev/ttyS1",

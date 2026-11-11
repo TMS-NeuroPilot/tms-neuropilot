@@ -89,9 +89,11 @@ shell environment  >  .env (suite root)  >  ~/.neuropilot/lab.yaml  >  built-in 
    installations behave exactly as before.
 2. **Lab profile** — hardware settings in `~/.neuropilot/lab.yaml`
    (`NEUROPILOT_LAB_FILE` moves it), edited in Config › Lab:
-   relay host/port, data folder, UI scale, robot model, stimulator
-   serial/TTL ports, EMG computer address + SMB credentials, online
-   solver and anisotropy, `tms-robot-control` checkout.
+   relay host/port, data folder, UI scale, colour theme, robot model,
+   stimulator serial/TTL ports, EMG computer address + SMB credentials,
+   online solver and anisotropy, `tms-robot-control` checkout.
+   The colour theme (`UI_THEME`) is applied live from Config › Lab and is
+   written to the same file, so the next session opens with it.
    `neuropilot.config` exports it as the layer *under* `.env`
    (`os.environ.setdefault` semantics), so every component and child
    process sees one merged value.  Fields that `.env` pins are marked in
