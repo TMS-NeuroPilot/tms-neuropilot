@@ -5,6 +5,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- The Config tab is split into three scopes: **Lab (hardware)** — relay,
+  data folder, UI scale, robot model, stimulator ports, EMG computer,
+  E-field solver, saved to `.env`; **Study (mapping)** — mapping and
+  stimulation defaults, MEP windows and EMG channel names, saved as a
+  study YAML and applied to the session with one button; **Subject
+  (files)** — a summary of the project's files with save/load shortcuts.
+  `docs/CONFIG.md` documents where every setting lives and the model.
+
+## [Unreleased]
+
 ### Added
 
 - A Config tab for the settings that previously only lived in `.env`:

@@ -563,8 +563,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cfg_save_btn.clicked.connect(self.on_config_save)
         self.cfg_reload_btn.clicked.connect(self.on_config_reload)
         self.cfg_root_browse.clicked.connect(self.on_config_browse_root)
+
+        # Study profile: protocol values that travel between sessions.
+        self.cfg_study_save_btn.clicked.connect(self.on_study_save)
+        self.cfg_study_load_btn.clicked.connect(self.on_study_load)
+        self.cfg_study_apply_btn.clicked.connect(self.on_study_apply)
+        self.cfg_subject_save_btn.clicked.connect(self.on_save_yaml)
+        self.cfg_subject_load_btn.clicked.connect(self.on_load_yaml)
+        self.cfg_subject_goto_btn.clicked.connect(
+            lambda: self.tabWidget.setCurrentIndex(0))
+        self.cfg_tabs.currentChanged.connect(self._on_config_page_changed)
+
         self.on_config_reload()
         self._apply_config_mode()
+        self._refresh_subject_summary()
 
     def on_config_reload(self):
         """Fill the widgets from .env (falling back to the effective values)."""
@@ -645,6 +657,141 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self._set_config_status(
             f"Saved to {self._config_store.path.name} — restart NeuroPilot to apply.")
+
+    # ── Config › Study ─────────────────────────────────────────────────
+    def _study_dict(self):
+        """Protocol values carried by a study profile."""
+        return {
+            "fit_fun": self.cfg_fit_function.currentText(),
+            "map_elms": self.cfg_subsampling.value(),
+            "efield_mode": self.cfg_efield_mode.currentText(),
+            "pulse_shape": self.cfg_pulse_shape.currentText(),
+            "n_repetitions": self.cfg_reps.value(),
+            "min_isi": self.cfg_isi.value(),
+            "amplitude": self.cfg_amplitude.value(),
+            "sampling_rate": self.cfg_sampling_rate.value(),
+            "cutoff_freq": self.cfg_cutoff.value(),
+            "tms_pulse_time": self.cfg_pulse_time.value(),
+            "start_mep": self.cfg_mep_start.value(),
+            "end_mep": self.cfg_mep_end.value(),
+            "emg_channels": self.cfg_emg_channels.text().strip(),
+        }
+
+    def _fill_study_widgets(self, values):
+        def text(combo, key):
+            if key in values:
+                combo.setCurrentText(str(values[key]))
+
+        def number(spin, key):
+            try:
+                spin.setValue(int(values[key]))
+            except (KeyError, TypeError, ValueError):
+                pass
+
+        text(self.cfg_fit_function, "fit_fun")
+        number(self.cfg_subsampling, "map_elms")
+        text(self.cfg_efield_mode, "efield_mode")
+        text(self.cfg_pulse_shape, "pulse_shape")
+        number(self.cfg_reps, "n_repetitions")
+        number(self.cfg_isi, "min_isi")
+        number(self.cfg_amplitude, "amplitude")
+        number(self.cfg_sampling_rate, "sampling_rate")
+        number(self.cfg_cutoff, "cutoff_freq")
+        number(self.cfg_pulse_time, "tms_pulse_time")
+        number(self.cfg_mep_start, "start_mep")
+        number(self.cfg_mep_end, "end_mep")
+        if "emg_channels" in values:
+            self.cfg_emg_channels.setText(str(values["emg_channels"]))
+
+    def _default_study_path(self):
+        root = self.cfg_root_folder.text().strip() or os.path.expanduser("~")
+        return os.path.join(root, "study.yaml")
+
+    def on_study_save(self):
+        path = self._file_dialog("Save study profile",
+                                 self._default_study_path(),
+                                 "YAML files (*.yaml *.yml)", save=True)
+        if not path:
+            return
+        if not path.lower().endswith((".yaml", ".yml")):
+            path += ".yaml"
+        try:
+            with open(path, "w") as f:
+                yaml.safe_dump(self._study_dict(), f, sort_keys=False,
+                               default_flow_style=False)
+        except OSError as e:
+            self.cfg_study_status.setText(f"Could not write {path}: {e}")
+            return
+        self.cfg_study_status.setText(f"Saved {os.path.basename(path)}")
+
+    def on_study_load(self):
+        path = self._file_dialog("Load study profile",
+                                 self._default_study_path(),
+                                 "YAML files (*.yaml *.yml)", save=False)
+        if not path:
+            return
+        try:
+            with open(path) as f:
+                values = yaml.safe_load(f) or {}
+        except (OSError, yaml.YAMLError) as e:
+            self.cfg_study_status.setText(f"Could not read {path}: {e}")
+            return
+        if not isinstance(values, dict):
+            self.cfg_study_status.setText("Not a study profile (expected a mapping).")
+            return
+        self._fill_study_widgets(values)
+        self.cfg_study_status.setText(
+            f"Loaded {os.path.basename(path)} — 'Apply to session' uses it now.")
+
+    def on_study_apply(self):
+        """Push the study values into the live controls."""
+        values = self._study_dict()
+        applied, deferred = [], []
+        try:
+            self.fitFunctionComboBox.setCurrentText(values["fit_fun"])
+            self.sampling_spinBox.setValue(int(values["map_elms"]))
+            self.pulseShapeComboBox.setCurrentText(values["pulse_shape"])
+            self.n_repetitions_spinBox.setValue(int(values["n_repetitions"]))
+            self.min_interval_spinBox.setValue(int(values["min_isi"]))
+            self.slider1_spinbox1(int(values["amplitude"]))
+            applied.append("mapping/stimulation")
+        except (AttributeError, ValueError) as e:
+            print(f"[WARN] study apply: {e}")
+
+        mode = values["efield_mode"].lower()
+        if mode.startswith("online") and self.online_efield_btn.isEnabled():
+            self.online_efield_btn.setChecked(True)
+            applied.append("online E-field")
+        elif mode.startswith("pre") and self.offline_efield_btn.isEnabled():
+            self.offline_efield_btn.setChecked(True)
+            applied.append("precomputed E-field")
+
+        deferred.append("MEP windows and EMG channels (restart)")
+        self.cfg_study_status.setText(
+            "Applied: " + ", ".join(applied or ["nothing"]) +
+            " · needs restart: " + ", ".join(deferred))
+
+    # ── Config › Subject ───────────────────────────────────────────────
+    def _on_config_page_changed(self, index):
+        if self.cfg_tabs.widget(index) is getattr(self, "cfg_tab_subject", None):
+            self._refresh_subject_summary()
+
+    def _refresh_subject_summary(self):
+        box = getattr(self, "cfg_subject_summary", None)
+        if box is None:
+            return
+        rows = [
+            ("Project", self.project_name_edit.text().strip() or "(untitled)"),
+            ("Head mesh", self.loadmeshlabel.text().strip() or "—"),
+            ("ROI surface", self.loadroilabel.text().strip() or "—"),
+            ("Coil model", os.path.basename(self.coilspathlineedit.text().strip()) or "—"),
+            ("Placements", self.loadplacementlabel.text().strip() or "—"),
+            ("Target order", self.target_order_LineEdit.text().strip() or "—"),
+            ("E-field library", self.load_e_matrix_label.text().strip() or "—"),
+            ("Results file", self.savePathLineEdit.text().strip() or "—"),
+            ("EMG sources", self.emg_config_label.text().strip() or "—"),
+        ]
+        box.setPlainText("\n".join(f"{name:<16}{value}" for name, value in rows))
 
     def _apply_config_mode(self):
         """Show the active mode and grey out the settings it does not use."""
@@ -2553,6 +2700,10 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
 
                     # Execute the matched function
                 setter(val)
+
+        self._refresh_subject_summary()
+
+    # ── Config › Study ─────────────────────────────────────────────────
 
 
 if __name__ == "__main__":
