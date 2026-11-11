@@ -1003,8 +1003,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 best_key = max(keys, key=lambda k: float(np.max(self._mapping_scores[k]))
                                if len(self._mapping_scores[k]) else 0.0)
                 scores = self._mapping_scores[best_key]
-                prefix = (f"{len(self._mapping_placements)} pulses · "
-                          if self._mapping_placements else "")
+                prefix = self._results_prefix(self._mapping_placements)
                 summary.setText(
                     f"{prefix}best {self._display_name(best_key)} "
                     f"R² {float(np.max(scores)):.3f} "
@@ -1016,6 +1015,18 @@ class MainWindow(QtWidgets.QMainWindow):
         rows_h = sum(table.rowHeight(r) for r in range(len(keys))) if keys else 0
         table.setFixedHeight(min(340, header_h + rows_h
                                  + 2 * table.frameWidth() + 8))
+
+    @staticmethod
+    def _results_prefix(placements):
+        """Pulse count for the results summary, noting a mixed-mode session."""
+        count = len(placements or [])
+        if not count:
+            return ""
+        online = sum(1 for rec in placements if rec.get("e_field_mode") == "online")
+        text = f"{count} pulses"
+        if 0 < online < count:
+            text += f" ({online} online)"
+        return text + " · "
 
     def _set_selection_info(self, text):
         box = getattr(self, "selection_info", None)

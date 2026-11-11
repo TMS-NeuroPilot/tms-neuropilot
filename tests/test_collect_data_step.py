@@ -55,7 +55,7 @@ def make_controller(online=False, e_matrix=None, computed=None, amplitude=70):
         "rota_realized": [], "rotb_realized": [], "rotc_realized": [],
         "x_target": [], "y_target": [], "z_target": [],
         "rota_target": [], "rotb_target": [], "rotc_target": [],
-        "pressure": [], "intensity": [],
+        "pressure": [], "intensity": [], "e_field_mode": [],
     }
     mgr = FakeOnlineManager(computed=computed)
     mgr.online_fem = online
@@ -188,4 +188,5 @@ def test_realized_geometry_and_mep_are_recorded():
          ctrl.realized_targets["y_realized"][0],
          ctrl.realized_targets["z_realized"][0]], [1.0, 2.0, 3.0])
     assert ctrl.realized_targets["intensity"] == [70]
+    assert ctrl.realized_targets["e_field_mode"] == ["precomputed"]
     assert ctrl.mep_history == {"ADC 0": [0.5]}

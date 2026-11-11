@@ -15,12 +15,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   load once, picking precomputed never waits for it, and a pulse is held
   -- coil on target -- while a freshly started online solver is still
   loading, so no pulse is ever stimulated without the field it belongs to.
-  The placements CSV gained an `e_field_mode` column.
-- A unit-test suite (`tests/`, 130 tests, `pytest`): fit-function registry,
-  `.env` editor, online solver lifecycle (single background load, retry
-  after failure), per-pulse E-field rows, `run_analysis` across mode
-  switches, virtual EMG channels, robot health parsing, GUI mode/button
-  gating and the placements export.
+  The placements CSV and the per-run results table gained an
+  `e_field_mode` column, and the results summary notes how many pulses
+  came from the online solver.
+- A unit-test suite (`tests/`, ~170 tests, `pytest`): fit-function
+  registry, `.env` editor, online solver lifecycle (single background
+  load, retry after failure), per-pulse E-field rows, `collect_data_step`
+  recording, `run_analysis` across mode switches, the pulse hold, virtual
+  EMG channels, robot health parsing, the coil-target axis convention,
+  the relay-topic contract, GUI mode/button gating and the placements
+  export.
 
 ### Fixed
 

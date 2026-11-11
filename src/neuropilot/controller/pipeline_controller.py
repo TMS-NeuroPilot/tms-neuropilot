@@ -222,7 +222,8 @@ class PipelineController:
                                  'rotc_target': [],
 
                                  'pressure':[],
-                                 'intensity':[]
+                                 'intensity':[],
+                                 'e_field_mode':[],
                                  }
 
         self.e_matrix = None  # Will hold the big E-field matrix
@@ -1098,6 +1099,8 @@ class PipelineController:
 
             self.realized_targets['pressure'].append(self.pressure_at_stim)
             self.realized_targets['intensity'].append(self.stimulator_amplitude_at_stim)
+            self.realized_targets['e_field_mode'].append(
+                "online" if self.online_fem_mgr.is_online else "precomputed")
 
             if self.online_fem_mgr.is_online:
                 self.online_fem_mgr.compute_e_field(marker, self.stimulator_amplitude_at_stim)

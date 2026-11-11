@@ -135,6 +135,29 @@ def test_csv_handles_records_without_geometry(tmp_path):
     assert rows[1][3:12] == [""] * 9           # x/y/z realized + rotation + target
 
 
+class TestResultsSummaryPrefix:
+    def test_empty_session(self):
+        assert MainWindow._results_prefix([]) == ""
+        assert MainWindow._results_prefix(None) == ""
+
+    def test_single_mode_session(self):
+        records = [{"e_field_mode": "precomputed"}] * 4
+        assert MainWindow._results_prefix(records) == "4 pulses · "
+
+    def test_mixed_session_names_the_online_share(self):
+        records = ([{"e_field_mode": "precomputed"}] * 3
+                   + [{"e_field_mode": "online"}] * 2)
+        assert MainWindow._results_prefix(records) == "5 pulses (2 online) · "
+
+    def test_online_only_session(self):
+        records = [{"e_field_mode": "online"}] * 3
+        assert MainWindow._results_prefix(records) == "3 pulses · "
+
+    def test_records_without_a_mode_are_still_counted(self):
+        records = [{"e_field_mode": None}, {"e_field_mode": "online"}]
+        assert MainWindow._results_prefix(records) == "2 pulses (1 online) · "
+
+
 def test_channel_keys_are_sorted_numerically():
     panel = make_panel([], keys=("ADC 10", "ADC 2", "ADC 1"))
     assert panel._channel_keys() == ["ADC 1", "ADC 2", "ADC 10"]

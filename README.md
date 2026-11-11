@@ -54,9 +54,11 @@ pytest tests/test_efield_modes.py -v
 
 The suite covers the parts that do not need hardware: the fit-function
 registry, the `.env` editor, the online solver lifecycle, the per-pulse
-E-field rows that let the E-field mode switch mid-run, the analysis
-assembly, the virtual EMG channels, robot health parsing, the GUI's mode
-and button gating, and the placements CSV export.  `tests/conftest.py` adds
+E-field rows that let the E-field mode switch mid-run, the recording in
+`collect_data_step`, the analysis assembly, the virtual EMG channels,
+robot health parsing, the coil-target axis convention, the relay-topic
+contract, the GUI's mode and button gating, and the placements CSV
+export.  `tests/conftest.py` adds
 `src/` to the path, so no install step is needed beyond the environment.
 
 ## License
