@@ -69,6 +69,23 @@ def test_health_update_keeps_previous_info_when_omitted(robot):
     assert robot.robot_id == "omron-1"
 
 
+def test_health_update_with_a_non_mapping_is_ignored(robot):
+    asyncio.run(robot.on_robot_health_update(None))
+    asyncio.run(robot.on_robot_health_update("ok"))
+    assert robot.status is SystemStatus.NAN
+
+
+def test_unknown_status_text_becomes_nan(robot):
+    asyncio.run(robot.on_robot_health_update({"status": "banana"}))
+    assert robot.status is SystemStatus.NAN
+    assert robot.is_error_state() is True        # not a green light
+
+
+def test_health_update_without_status_keeps_nan(robot):
+    asyncio.run(robot.on_robot_health_update({"robot_id": "x"}))
+    assert robot.status is SystemStatus.NAN
+
+
 def test_error_health_carries_the_message(robot):
     asyncio.run(robot.on_robot_health_update({
         "robot_id": "omron-1", "status": "error", "message": "Socket Broken",

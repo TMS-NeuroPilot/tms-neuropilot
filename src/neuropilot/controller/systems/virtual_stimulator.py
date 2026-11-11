@@ -55,13 +55,15 @@ class VirtualStimulator(System):
         print("[VirtualStimulator] Disarmed.")
 
     def set_amplitude(self, amplitude: int):
-        assert 0 <= amplitude <= 100, "Amplitude must be between 0 and 100"
+        if not 0 <= amplitude <= 100:
+            raise ValueError(f"Amplitude must be between 0 and 100, got {amplitude}")
         self.amplitude = int(amplitude)
         self._publish_details()
         print(f"[VirtualStimulator] Amplitude set to {self.amplitude}%")
 
     def set_waveform(self, waveform: str):
-        assert waveform in ["Biphasic", "Monophasic"]
+        if waveform not in ("Biphasic", "Monophasic"):
+            raise ValueError(f"Unsupported pulse shape: {waveform}")
         self.waveform = waveform
         self._publish_details()
         print(f"[VirtualStimulator] Waveform set to {self.waveform}")

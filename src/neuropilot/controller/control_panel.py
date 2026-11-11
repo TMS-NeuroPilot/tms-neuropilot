@@ -1,6 +1,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
+import math
 import re
 import sys
 import os
@@ -97,13 +98,23 @@ def _session_cache_path():
 
 
 class MainWindow(QtWidgets.QMainWindow):
+    # Background readers (mesh / coil summaries) must not touch widgets from
+    # their thread; they emit this and Qt delivers it on the GUI thread.
+    file_info_ready = QtCore.pyqtSignal(str, str)
+    # Same for the online solver finishing its (background) initialisation.
+    online_fem_ready = QtCore.pyqtSignal()
+
     def __init__(self, simulation):
         super().__init__()
         self.simulation = simulation
+        self._closing = False
 
         # ui is inside the "gui" folder
         ui_path = resource_path(os.path.join("gui", "pipeline_control.ui"))
         uic.loadUi(ui_path, self)
+
+        self.file_info_ready.connect(self._on_file_info_ready)
+        self.online_fem_ready.connect(self.update_button_states)
 
         # Default window size: open at a comfortable fraction of the screen so
         # the pixel-based UI (fonts scale with the window in _rescale) is
@@ -116,9 +127,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setMinimumSize(QtCore.QSize(self._design_size[0],
                                          max(self._design_size[1], 960)))
         scale_env = os.getenv("NEUROPILOT_UI_SCALE")
+        scale = None
         if scale_env:
-            scale = float(scale_env)
-        else:
+            try:
+                scale = float(scale_env)
+            except ValueError:
+                # The Config tab invites free text here; a typo must not
+                # prevent the application from starting.
+                print(f"[WARN] NEUROPILOT_UI_SCALE={scale_env!r} is not a number, using auto")
+        if scale is None:
             screen = QtWidgets.QApplication.primaryScreen()
             avail = screen.availableGeometry() if screen else None
             if avail is not None and avail.width() and avail.height():
@@ -425,7 +442,10 @@ class MainWindow(QtWidgets.QMainWindow):
         if os.path.isfile(cache_fn):
             try:
                 with open(cache_fn, "r") as f:
-                    self._pending_session = yaml.safe_load(f) or {}
+                    data = yaml.safe_load(f) or {}
+                # A truncated or hand-edited cache can hold anything; only a
+                # mapping is a usable session.
+                self._pending_session = data if isinstance(data, dict) else {}
             except (OSError, yaml.YAMLError) as e:
                 print(f"Session cache unreadable, ignoring: {e}")
 
@@ -451,6 +471,40 @@ class MainWindow(QtWidgets.QMainWindow):
         finally:
             self._project_loading = False
         self._pending_session = None
+
+    @QtCore.pyqtSlot(str, str)
+    def _on_file_info_ready(self, name, text):
+        """Deliver a worker-produced file summary to its caption label."""
+        label = getattr(self, name, None)
+        if label is not None:
+            label.setText(text)
+
+    def _emit_file_info(self, name, text):
+        """Thread-safe: called from the mesh/coil reader threads."""
+        if getattr(self, "_closing", False):
+            return
+        try:
+            self.file_info_ready.emit(name, text)
+        except RuntimeError:                 # window already destroyed
+            pass
+
+    def closeEvent(self, event):
+        """Stop timers/threads that would otherwise outlive the window."""
+        self._closing = True
+        for attr in ("_info_timer", "_styles_timer"):
+            timer = getattr(self, attr, None)
+            if timer is not None:
+                try:
+                    timer.stop()
+                except RuntimeError:
+                    pass
+        view = getattr(self, "_robot_scene_view", None)
+        if view is not None:
+            try:
+                view.stop()
+            except Exception as e:           # pragma: no cover - GL teardown
+                print(f"[WARN] robot view stop: {e}")
+        super().closeEvent(event)
 
     def _place_tab_corner(self):
         """Size the LED corner to its (scaled) contents.  QTabWidget only
@@ -999,6 +1053,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if summary is not None:
             if not keys:
                 summary.setText("No R² map yet — needs at least three pulses.")
+            elif not any(len(np.asarray(self._mapping_scores[k])) for k in keys):
+                summary.setText("No R² map yet — needs at least three pulses.")
             else:
                 best_key = max(keys, key=lambda k: float(np.max(self._mapping_scores[k]))
                                if len(self._mapping_scores[k]) else 0.0)
@@ -1143,10 +1199,16 @@ class MainWindow(QtWidgets.QMainWindow):
         if not path.lower().endswith(".png"):
             path += ".png"
         try:
-            view.screenshot(path)
-            self._set_selection_info(f"Screenshot saved\n  {path}")
+            written = view.screenshot(path)
         except Exception as e:
             self._set_selection_info(f"Screenshot failed: {e}")
+            return
+        if written is False:
+            # QImage.save() only returns False on a bad path; without this the
+            # GUI happily reports a screenshot that does not exist.
+            self._set_selection_info(f"Screenshot failed: could not write\n  {path}")
+        else:
+            self._set_selection_info(f"Screenshot saved\n  {path}")
 
     def on_export_results(self, *_):
         """Write the R² table (element coordinates + scores) and the placement
@@ -1170,7 +1232,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._write_placements_csv(path)
                 written.append(path)
             readme = base + "_README.txt"
-            self._write_export_readme(readme)
+            self._write_export_readme(readme, base)
             written.append(readme)
             self._set_selection_info("Exported\n" + "\n".join(f"  {p}" for p in written))
         except Exception as e:
@@ -1196,8 +1258,9 @@ class MainWindow(QtWidgets.QMainWindow):
                         for k in keys]
                 writer.writerow(row)
 
-    def _write_export_readme(self, path):
+    def _write_export_readme(self, path, base=None):
         """Column dictionary next to the exported tables (units + frames)."""
+        base_name = os.path.basename(base if base is not None else path)
         names = ", ".join(self._display_name(k) for k in self._channel_keys()) or "—"
         with open(path, "w") as f:
             f.write(
@@ -1205,11 +1268,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 "========================\n\n"
                 f"Channels: {names}\n"
                 "Coordinates are in mm, SimNIBS head space.\n\n"
-                f"{os.path.basename(path).replace('_README.txt', '_roi_r2.csv')}\n"
+                f"{base_name}_roi_r2.csv\n"
                 "  element        ROI triangle index (0-based, same order as the E-field columns)\n"
                 "  x_mm/y_mm/z_mm triangle centroid\n"
                 "  r2_<channel>   regression R^2 per triangle (NaN/empty if not fitted)\n\n"
-                f"{os.path.basename(path).replace('_README.txt', '_placements.csv')}\n"
+                f"{base_name}_placements.csv\n"
                 "  trial, pulse_index, target_index  acquisition order / pulse / planned target\n"
                 "  x/y/z_realized  coil centre actually used (mm)\n"
                 "  rota/rotb/rotc_realized  coil orientation, Euler xyz degrees\n"
@@ -1271,15 +1334,25 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
             if lbl is not None:
                 lbl.setText(text or "")
 
+        def signature(path):
+            """Cheap change detector: a rewritten file must not keep its old
+            summary after the user re-runs a preprocessing script."""
+            try:
+                stat = os.stat(path)
+                return (stat.st_mtime_ns, stat.st_size)
+            except OSError:
+                return None
+
         def cached(path, key, computer):
-            entry = self._info_cache.get((path, key))
+            cache_key = (path, key, signature(path))
+            entry = self._info_cache.get(cache_key)
             if entry is not None:
                 return entry
             try:
                 entry = computer(path)
             except Exception as e:
                 entry = f"unreadable ({type(e).__name__})"
-            self._info_cache[(path, key)] = entry
+            self._info_cache[cache_key] = entry
             return entry
 
         def h5_shape(fn, dataset, fmt):
@@ -1291,12 +1364,13 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
         # head mesh: a SimNIBS .msh read is slow -> worker thread
         mesh_fn = self.loadmeshlabel.text().strip()
         if mesh_fn.lower().endswith(".msh") and os.path.isfile(mesh_fn):
-            pending = self._info_cache.get((mesh_fn, "mesh_pending"))
-            done = self._info_cache.get((mesh_fn, "mesh"))
+            sig = signature(mesh_fn)
+            pending = self._info_cache.get((mesh_fn, "mesh_pending", sig))
+            done = self._info_cache.get((mesh_fn, "mesh", sig))
             if done is not None:
                 set_info("info_mesh", done)
             elif pending is None:
-                self._info_cache[(mesh_fn, "mesh_pending")] = True
+                self._info_cache[(mesh_fn, "mesh_pending", sig)] = True
                 def _mesh_worker():
                     try:
                         from simnibs import mesh_io
@@ -1306,8 +1380,8 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
                         text = f"{n_tet:,} tets · {n_tri:,} tris"
                     except Exception as e:
                         text = f"unreadable ({type(e).__name__})"
-                    self._info_cache[(mesh_fn, "mesh")] = text
-                    QtCore.QTimer.singleShot(0, lambda: set_info("info_mesh", text))
+                    self._info_cache[(mesh_fn, "mesh", sig)] = text
+                    self._emit_file_info("info_mesh", text)
                 import threading
                 threading.Thread(target=_mesh_worker, daemon=True).start()
         else:
@@ -1350,12 +1424,13 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
 
         coil_fn = self.coilspathlineedit.text().strip()
         if coil_fn and os.path.isfile(coil_fn):
-            done = self._info_cache.get((coil_fn, "coil"))
-            pending = self._info_cache.get((coil_fn, "coil_pending"))
+            sig = signature(coil_fn)
+            done = self._info_cache.get((coil_fn, "coil", sig))
+            pending = self._info_cache.get((coil_fn, "coil_pending", sig))
             if done is not None:
                 set_info("info_coil", done)
             elif pending is None:
-                self._info_cache[(coil_fn, "coil_pending")] = True
+                self._info_cache[(coil_fn, "coil_pending", sig)] = True
                 def _coil_worker():
                     # SimNIBS knows the model's own brand/name (a .ccd header
                     # carries them); the import is slow, hence the thread.
@@ -1366,8 +1441,8 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
                         text = text or os.path.basename(coil_fn)
                     except Exception:
                         text = os.path.basename(coil_fn)
-                    self._info_cache[(coil_fn, "coil")] = text
-                    QtCore.QTimer.singleShot(0, lambda: set_info("info_coil", text))
+                    self._info_cache[(coil_fn, "coil", sig)] = text
+                    self._emit_file_info("info_coil", text)
                 import threading
                 threading.Thread(target=_coil_worker, daemon=True).start()
         else:
@@ -1589,6 +1664,9 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
 
     def _apply_styles_if_needed(self):
         self._styles_timer_pending = False
+        if getattr(self, "_closing", False):
+            # A resize one-shot can still fire while the window is closing.
+            return
         s = self._current_scale()
         last = getattr(self, "_last_style_scale", None)
         if last is not None and abs(s - last) < 0.04:
@@ -1660,16 +1738,42 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
         if self.controller:
             self.controller.online_fem_mgr.online_fem = online
             if online:
-                self.controller.online_fem_mgr.ensure_initialized(callback=self.update_button_states)
+                # The manager finishes on its worker thread; the signal hops
+                # the callback back to the GUI thread.
+                self.controller.online_fem_mgr.ensure_initialized(
+                    callback=self.online_fem_ready.emit)
         self.efield_mode_selected = True
         self.update_button_states()
 
+    def _reject_path(self, field, error):
+        """Clear a path field that points at an unusable file and say why.
+
+        The message goes to the log and to the field's tooltip; nothing
+        modal, because this can fire while a project is being restored.
+        """
+        print(f"[WARN] {error}")
+        field.setText("")
+        field.setToolTip(str(error))
+        self._set_selection_info(f"Ignored file:\n  {error}")
+
+    def _reject_path(self, field, error):
+        """Clear a path field that points at an unusable file and say why.
+
+        The message goes to the log and to the field's tooltip; nothing
+        modal, because this can fire while a project is being restored.
+        """
+        print(f"[WARN] {error}")
+        field.setText("")
+        field.setToolTip(str(error))
+        self._set_selection_info(f"Ignored file:\n  {error}")
+
     def _check_paths_ready(self):
+        mgr = self.controller.online_fem_mgr if self.controller else None
         all_set = bool(
-                self.controller
-                and self.controller.online_fem_mgr.mesh_fn_msh
-                and self.controller.online_fem_mgr.roi_fn_hdf5
-                and self.controller.online_fem_mgr.coil_fn
+                mgr
+                and mgr.mesh_fn_msh and os.path.isfile(mgr.mesh_fn_msh)
+                and mgr.roi_fn_hdf5
+                and mgr.coil_fn
         )
         # Both modes stay selectable for the whole session; an in-flight
         # switch is allowed and only affects the following pulses.
@@ -1679,7 +1783,7 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
         # path edit); make sure the solver then starts after all.
         if all_set and self.online_efield_btn.isChecked() and self.controller:
             self.controller.online_fem_mgr.ensure_initialized(
-                callback=self.update_button_states)
+                callback=self.online_fem_ready.emit)
         self.update_button_states()
 
     def update_button_states(self):
@@ -1858,7 +1962,7 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
             self.widget_mep_trend.update_as_trend(
                     target_indices=self.history_targets,
                     history_dict=self.history_meps,
-                    exclusion=self.controller.excluded_pulse_indices
+                    exclusion=getattr(self.controller, "excluded_pulse_indices", set())
             )
 
 
@@ -2106,7 +2210,7 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
             status_label.setText("ERROR")
             self.set_led_status(led_widget, "on", "red")
 
-            msg_text = message
+            msg_text = message or ""
 
             # Use ERROR_RECOVERIES to see if there is a defined recovery
             err_map = self.all_error_recoveries.get(system, {})
@@ -2171,6 +2275,10 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
 
     def set_controller(self, controller):
         self.controller = controller
+        if controller is not None:
+            # Keep the back-reference in sync: the entry point passes the
+            # panel at construction, alternate launchers attach it here.
+            controller.control_panel = self
         self._apply_config_mode()
         if self.controller:
             self.slider1_spinbox1(20)
@@ -2274,7 +2382,15 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
 
     def paste_emg_config(self):
         file_path = self.emg_config_label.text().strip()
-        if file_path and os.path.isfile(file_path) and self.controller:
+        if not file_path:
+            return
+        if not os.path.isfile(file_path):
+            # Same behaviour as the mesh/ROI/coil fields: do not keep a path
+            # that cannot be used.
+            self._reject_path(self.emg_config_label,
+                              f"EMG config not found: {file_path}")
+            return
+        if self.controller:
             self.controller.set_emg_config(file_path)
 
     def set_emg_channels(self, names):
@@ -2389,6 +2505,15 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
         # Check if the file actually exists on the drive
         elif os.path.isfile(file_path):
             if self.controller:
+                # Reject a corrupt order now rather than at Start.
+                from .pipeline_controller import parse_target_order_file
+                try:
+                    order = parse_target_order_file(file_path)
+                except ValueError as e:
+                    self._reject_path(self.target_order_LineEdit, e)
+                    self.controller.set_target_order_fn(None)
+                    return
+                self.target_order_LineEdit.setToolTip(f"{len(order):,} placements")
                 self.controller.set_target_order_fn(file_path)
         else:
             # The file is missing or the user typed a directory instead of a file
@@ -2420,6 +2545,16 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
 
         # Check if the file actually exists on the drive
         elif os.path.isfile(file_path):
+            # Vet the HDF5 layout before the run depends on it.
+            from .pipeline_controller import validate_simnibs_targets_file
+            try:
+                n = validate_simnibs_targets_file(file_path)
+            except ValueError as e:
+                self._reject_path(self.loadplacementlabel, e)
+                if self.controller:
+                    self.controller.set_targets_file(None)
+                return
+            self.loadplacementlabel.setToolTip(f"{n:,} coil placements")
             if self.controller:
                 self.controller.set_targets_file(file_path)
         else:
@@ -2533,27 +2668,43 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
                 "YAML Files (*.yaml *.yml)"
         )
         if file_path:
-            try:
-                with open(file_path, "r") as f:
-                    data = yaml.safe_load(f)
-            except (OSError, yaml.YAMLError) as e:
+            error = self.load_project_file(file_path)
+            if error:
                 QtWidgets.QMessageBox.warning(
                     self, "Invalid YAML",
-                    f"Could not load config file:\n{e}"
+                    f"Could not load config file:\n{error}"
                 )
-                return
-            self._project_loading = True
-            try:
-                self.apply_config_dict(data)
-            finally:
-                self._project_loading = False
-            self._project_file = file_path
-            self._project_dirty = False
-            # The stored name wins; fall back to the file name.
-            if not self.project_name_edit.text().strip():
-                self.project_name_edit.setText(os.path.basename(file_path))
-            self._update_project_label()
-            self._save_session_cache()
+
+    def load_project_file(self, file_path):
+        """Load a project YAML without a dialog.
+
+        Returns ``None`` on success and a short error message otherwise; the
+        caller decides whether to show a dialog.  Nothing is applied when the
+        file cannot be read or does not hold a mapping, so a wrong file can
+        never leave the GUI half-configured.
+        """
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+        except (OSError, yaml.YAMLError, UnicodeDecodeError) as e:
+            return str(e)
+        if not isinstance(data, dict):
+            return (f"expected a mapping of settings, found "
+                    f"{type(data).__name__}")
+        self._project_loading = True
+        try:
+            self.apply_config_dict(data)
+        finally:
+            self._project_loading = False
+        self._project_file = file_path
+        # The stored name wins; fall back to the file name.  Do this *before*
+        # clearing the dirty flag: setText fires textChanged -> _mark_project_dirty.
+        if not self.project_name_edit.text().strip():
+            self.project_name_edit.setText(os.path.basename(file_path))
+        self._project_dirty = False
+        self._update_project_label()
+        self._save_session_cache()
+        return None
 
     def on_save_yaml(self):
         # Default the save dialog to the current project folder and, if the
@@ -2569,27 +2720,39 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
                 save=True
         )
         if file_path:
-            # 1. Ensure the file has the correct extension
-            if not file_path.lower().endswith(('.yaml', '.yml')):
-                file_path += '.yaml'
+            error = self.save_project_file(file_path)
+            if error:
+                QtWidgets.QMessageBox.warning(
+                    self, "Could not save", f"Could not save config file:\n{error}"
+                )
 
-            # 2. An empty name field adopts the file name (stored in the
-            #    project file via get_config_dict below).
-            if not self.project_name_edit.text().strip():
-                self.project_name_edit.setText(os.path.basename(file_path))
+    def save_project_file(self, file_path):
+        """Write the project YAML without a dialog.
 
-            # 3. Get the state and save
-            data = self.get_config_dict()
+        Returns ``None`` on success and a short error message otherwise (the
+        folder may have been removed while the dialog was open).  The project
+        stays marked unsaved on failure so the user can pick another place.
+        """
+        if not file_path.lower().endswith(('.yaml', '.yml')):
+            file_path += '.yaml'
+        # An empty name field adopts the file name (stored in the project file
+        # via get_config_dict below).
+        if not self.project_name_edit.text().strip():
+            self.project_name_edit.setText(os.path.basename(file_path))
+        data = self.get_config_dict()
+        try:
             with open(file_path, "w") as f:
                 yaml.dump(data, f, default_flow_style=False)
-
-            # 4. The saved file becomes the project file, changes are saved
-            self._project_file = file_path
-            self._project_dirty = False
-            self._update_project_label()
-            self._save_session_cache()
-
-            print(f"Configuration successfully saved to: {file_path}")
+        except OSError as e:
+            print(f"Could not save the project to {file_path}: {e}")
+            self.project_name_edit.setToolTip(f"Could not save:\n{e}")
+            return str(e)
+        self._project_file = file_path
+        self._project_dirty = False
+        self._update_project_label()
+        self._save_session_cache()
+        print(f"Configuration successfully saved to: {file_path}")
+        return None
 
 
     def on_skip_step_clicked(self):
@@ -2709,7 +2872,21 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
         }
 
     def apply_config_dict(self, d):
-        """Apply only the keys present in d to controller state and UI."""
+        """Apply only the keys present in d to controller state and UI.
+
+        Anything that is not a mapping (an empty file, a list, a stray
+        string in a hand-edited YAML) is ignored: loading a wrong file must
+        never take the GUI down.
+        """
+        if not isinstance(d, dict):
+            print(f"[WARN] project config ignored: expected a mapping, got {type(d).__name__}")
+            return False
+        # YAML gives whatever the user typed: 3.7, "many", .nan.  Each widget
+        # kind is coerced here, and a value that cannot be coerced is skipped
+        # with a warning, so one bad key never blocks the rest of the file.
+        spin_keys = {"map_elms", "stimulator_amplitude", "minium_isi",
+                     "n_repetitions", "default_speed", "tuning_speed"}
+        combo_keys = {"fit_fun", "stimulator_waveform"}
         setters = {
             # The project name is plain GUI state (no backend call behind it).
             "project_name": lambda v: self.project_name_edit.setText(v or ""),
@@ -2740,18 +2917,28 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
 
         # Iterate through the config and apply the values using the matched setter function
         for key, setter in setters.items():
-            if key in d:
-                val = d[key]
-                # For SpinBoxes, we must ensure we don't pass a None value
-                if val is None and key not in ["project_name", "results_fn", "target_order_fn", "targets_file",
-                                               "mesh_head_path", "mesh_RIO_path", "e_field_path", "coil_path",
-                                               "emg_config_fn"]:
+            if key not in d:
+                continue
+            val = d[key]
+            if key in spin_keys:
+                try:
+                    number = float(val)
+                    if not math.isfinite(number):
+                        raise ValueError("not finite")
+                    val = int(round(number))
+                except (TypeError, ValueError):
+                    print(f"[WARN] project config: ignoring {key}={val!r}")
                     continue
-
-                    # Execute the matched function
-                setter(val)
+            elif key in combo_keys:
+                if val is None:
+                    continue
+                val = str(val)
+            elif val is None:
+                val = ""
+            setter(val)
 
         self._refresh_subject_summary()
+        return True
 
     # ── Config › Study ─────────────────────────────────────────────────
 

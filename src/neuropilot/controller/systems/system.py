@@ -8,14 +8,20 @@ class SystemStatus(Enum):
     ERROR = auto()
     
     def str_to_enum(string):
-        if string.lower() == "nan":
+        """Status from a relay payload; unknown/missing text becomes NAN.
+
+        Returning NAN (instead of None) keeps ``status`` a valid enum member,
+        so a garbled health packet can never make ``is_error_state`` blow up.
+        """
+        text = str(string).strip().lower() if string is not None else ""
+        if text == "nan":
             return SystemStatus.NAN
-        elif string.lower() == "ok":
+        elif text == "ok":
             return SystemStatus.OK
-        elif string.lower() == "error":
+        elif text == "error":
             return SystemStatus.ERROR
-        else:
-            print(f"Error: Could not match '{string}' to SystemStatus enum!")
+        print(f"Error: Could not match '{string}' to SystemStatus enum!")
+        return SystemStatus.NAN
         
 class System(ABC):
     # Human-readable description of the concrete hardware/backend shown in

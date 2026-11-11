@@ -33,6 +33,9 @@ Homepage = "https://gitlab.gwdg.de/tms-localization/papers/neuropilot"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "gui: builds a real Qt window (needs a display, skipped without one)",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

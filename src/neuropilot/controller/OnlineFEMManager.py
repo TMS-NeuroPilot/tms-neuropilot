@@ -35,8 +35,17 @@ class OnlineFEMManager:
     # ── Path setters ──────────────────────────────────────────────
 
     def set_mesh_fn_msh(self, hdf5_path: str):
+        """The GUI selects a mesh (the project .hdf5 or the SimNIBS .msh).
+
+        The solver needs the SimNIBS ``.msh`` next to it, so the extension is
+        swapped (``a.hdf5``/``a.h5`` -> ``a.msh``) rather than edited with a
+        blanket string replace, which mangled names such as ``a.hdf5.hdf5``.
+        """
         if hdf5_path:
-            self.mesh_fn_msh = hdf5_path.replace('.hdf5', '.msh')
+            base, ext = os.path.splitext(str(hdf5_path))
+            self.mesh_fn_msh = hdf5_path if ext.lower() == ".msh" else base + ".msh"
+            if not os.path.isfile(self.mesh_fn_msh):
+                print(f"OnlineFEM: expected mesh not found: {self.mesh_fn_msh}")
             print(f"OnlineFEM: Mesh .msh path set to {self.mesh_fn_msh}")
         else:
             self.mesh_fn_msh = None

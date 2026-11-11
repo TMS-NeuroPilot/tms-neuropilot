@@ -1,3 +1,4 @@
+import sys
 import time
 import numpy as np
 import h5py
@@ -33,6 +34,109 @@ def precomputed_e_field_row(e_matrix, target_index, amplitude):
     return row * (float(amplitude) * 1.4)
 
 
+def validate_simnibs_targets_file(path):
+    """Cheap check of a SimNIBS placements file; returns the target count.
+
+    Only the dataset shape and dtype are inspected, so the GUI can vet a path
+    the moment it is entered without reading megabytes of matrices.  Raises
+    ``ValueError`` with an operator-readable message.
+    """
+    if not path:
+        raise ValueError("No coil placement file selected.")
+    if not os.path.isfile(path):
+        raise ValueError(f"Coil placement file not found: {path}")
+    try:
+        with h5py.File(path, 'r') as f:
+            if 'matsimnibs' not in f:
+                raise ValueError(f"{os.path.basename(path)} has no 'matsimnibs' "
+                                 f"dataset (keys: {list(f.keys())}).")
+            shape = f['matsimnibs'].shape
+            dtype = f['matsimnibs'].dtype
+    except OSError as e:
+        raise ValueError(f"Cannot read {os.path.basename(path)}: {e}") from e
+    if len(shape) != 3 or shape[:2] != (4, 4) or shape[2] < 1:
+        raise ValueError(f"'matsimnibs' must be (4, 4, n), got {shape}.")
+    if not np.issubdtype(dtype, np.number):
+        raise ValueError(f"'matsimnibs' has non-numeric dtype {dtype}.")
+    return int(shape[2])
+
+
+def stamped_results_filename(path, stamp):
+    """``results.csv`` + stamp -> ``results<stamp>.csv``.
+
+    Only the extension is replaced: a folder or file name that happens to
+    contain ".csv" earlier in the path must survive (``str.replace`` would
+    hit every occurrence).
+    """
+    base, ext = os.path.splitext(str(path))
+    return f"{base}{stamp}{ext or '.csv'}"
+
+
+def read_simnibs_targets(path):
+    """Coil targets from a SimNIBS placements file, in InVesalius convention.
+
+    Returns a list of ``(position_mm, euler_xyz_deg)`` tuples.  Raises
+    ``ValueError`` with an operator-readable message when the file is
+    missing, is not HDF5, or does not hold a (4, 4, n) ``matsimnibs``
+    dataset -- the callers show that message instead of dying mid-run.
+    """
+    validate_simnibs_targets_file(path)
+    try:
+        with h5py.File(path, 'r') as f:
+            mats = f['matsimnibs'][:]
+    except OSError as e:
+        raise ValueError(f"Cannot read {os.path.basename(path)}: {e}") from e
+
+    try:
+        mats = np.asarray(mats, dtype=float)
+    except (TypeError, ValueError) as e:
+        raise ValueError(f"'matsimnibs' in {os.path.basename(path)} is not numeric.") from e
+    if not np.isfinite(mats).all():
+        raise ValueError(f"'matsimnibs' in {os.path.basename(path)} contains NaN/inf.")
+
+    target_queue = []
+    for i in range(mats.shape[2]):
+        m = mats[:, :, i].copy()
+        # Transform to InVesalius coil convention (see the wiki, Coil Axis
+        # Conventions): flip z, then exchange x and y.  Positions are the same
+        # in both frames, so the translation is left untouched.
+        m[:3, 2] *= -1
+        m[:3, 0], m[:3, 1] = m[:3, 1].copy(), m[:3, 0].copy()
+        euler_angles = np.degrees(tr.euler_from_matrix(m, "sxyz"))
+        target_queue.append((m[:3, 3], euler_angles))
+    return target_queue
+
+
+def parse_target_order_file(path):
+    """Ordered target indices from a text file (no range check)."""
+    if not path:
+        raise ValueError("No target order file selected.")
+    if not os.path.isfile(path):
+        raise ValueError(f"Target order file not found: {path}")
+    try:
+        order = np.genfromtxt(path)
+    except (OSError, ValueError) as e:
+        raise ValueError(f"Cannot read target order {os.path.basename(path)}: {e}") from e
+    order = np.atleast_1d(order)
+    if order.size == 0 or not np.isfinite(order).all():
+        raise ValueError(f"Target order {os.path.basename(path)} is empty or not numeric.")
+    if not np.allclose(order, np.round(order)):
+        raise ValueError(f"Target order {os.path.basename(path)} contains non-integer entries.")
+    order = order.astype(int)
+    if order.min() < 0:
+        raise ValueError(f"Target order {os.path.basename(path)} contains negative entries.")
+    return order
+
+
+def read_target_order(path, n_targets):
+    """Ordered target indices from a text file, validated against the queue."""
+    order = parse_target_order_file(path)
+    if order.max() >= n_targets:
+        raise ValueError(f"Target order {os.path.basename(path)} references target "
+                         f"{order.max()}, but only {n_targets} placements exist.")
+    return order
+
+
 def assemble_analysis_matrix(pulse_e_fields, valid_indices):
     """Regression matrix built from the per-pulse E-field rows.
 
@@ -48,7 +152,13 @@ def assemble_analysis_matrix(pulse_e_fields, valid_indices):
         return np.empty(0, dtype=int), None
     return np.asarray(keep, dtype=int), np.vstack([pulse_e_fields[i] for i in keep])
 
-matplotlib.use("Qt5Agg")
+# Qt5Agg needs a display; on a headless machine (tests, batch tools) forcing
+# it makes the import itself fail, so fall back to the non-interactive backend.
+if (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")
+        or sys.platform.startswith("win")):
+    matplotlib.use("Qt5Agg")
+else:
+    matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from enum import Enum, auto
 from dotenv import load_dotenv
@@ -328,23 +438,39 @@ class PipelineController:
             with h5py.File(path, 'r') as f:
                 # CHECK YOUR FILE KEY HERE: Is it 'e_matrix', 'E', 'magnE', or '/mesh/elm/data'?
                 # specific to your data structure
-                if 'E_mag' in f:
-                    self.e_matrix = f['E_mag'][:]
-                    print(f" -> E-Matrix loaded. Shape: {self.e_matrix.shape}")
-                    self.n_elms = self.e_matrix.shape[1]
-                    self.n_positions = self.e_matrix.shape[0]
-                    self.set_map_elms(self.map_elms)
-                    # pass e-matrix to the virtual emg computer
-                    if isinstance(self.emg_computer, VirtualEMG):
-                        self.emg_computer.set_e_matrix(self.e_matrix)
-                else:
+                if 'E_mag' not in f:
                     print(f"Error: Keys found in file: {list(f.keys())}")
                     return
+                data = f['E_mag'][:]
+            # A wrong file must not leave a half-loaded matrix behind: the
+            # analysis would then fail far away from the cause.
+            data = np.asarray(data)
+            if data.ndim != 2 or data.shape[0] < 1 or data.shape[1] < 1:
+                print(f"Error: E_mag must be (placements, elements), got {data.shape}")
+                return
+            if not np.issubdtype(data.dtype, np.number):
+                print(f"Error: E_mag has non-numeric dtype {data.dtype}")
+                return
+            self.e_matrix = data
+            print(f" -> E-Matrix loaded. Shape: {self.e_matrix.shape}")
+            self.n_elms = self.e_matrix.shape[1]
+            self.n_positions = self.e_matrix.shape[0]
+            self.set_map_elms(self.map_elms)
+            # pass e-matrix to the virtual emg computer
+            if isinstance(self.emg_computer, VirtualEMG):
+                self.emg_computer.set_e_matrix(self.e_matrix)
         except Exception as e:
+            self.e_matrix = None
+            self.n_elms = None
+            self.n_positions = None
             print(f"Critical Error loading E-Matrix: {e}")
 
     def set_map_elms(self, map_elms):
         self.map_elms = map_elms
+        if self.n_elms in (None, -1):
+            # No E-matrix yet: the index list is rebuilt by set_e_matrix_file
+            # once n_elms is known.  (np.arange(0, None, k) would raise.)
+            return
         if self.map_elms > 1:
             self.elm_idx_list = np.arange(0, self.n_elms, self.map_elms) # TODO this doesn't work as expected
         elif self.map_elms == 1:
@@ -460,8 +586,8 @@ class PipelineController:
 
         try:
             n_coil_placements = len(self.get_initial_targets()[0])
-        except TypeError:
-            print(f"Could not set targets_file to {path}")
+        except (ValueError, OSError) as e:
+            print(f"Could not set targets_file to {path}: {e}")
             self.targets_file = None
             return
 
@@ -530,10 +656,14 @@ class PipelineController:
         roi_fn = self.control_panel.loadroilabel.text().strip() if self.control_panel else None
         centers = None
         if roi_fn and os.path.isfile(roi_fn):
-            with h5py.File(roi_fn, "r") as f:
-                nodes = f["mesh/nodes/node_coord"][:]
-                tris = f["mesh/elm/triangle_number_list"][:]
-            centers = nodes[tris].mean(axis=1)
+            try:
+                with h5py.File(roi_fn, "r") as f:
+                    nodes = f["mesh/nodes/node_coord"][:]
+                    tris = f["mesh/elm/triangle_number_list"][:]
+                centers = nodes[tris].mean(axis=1)
+            except (OSError, KeyError, IndexError) as e:
+                print(f"EMG config: ROI unreadable ({e}) -- cannot project xyz sources.")
+                return
 
         elements = []
         for i, entry in enumerate(entries):
@@ -562,7 +692,9 @@ class PipelineController:
             print(f"EMG config rejected: {e}")
             return
         if self.control_panel:
-            self.control_panel.set_emg_channels(self.emg_computer.display_names)
+            publish = getattr(self.control_panel, "set_emg_channels", None)
+            if publish is not None:
+                publish(self.emg_computer.display_names)
 
     async def run(self):
         """
@@ -601,7 +733,17 @@ class PipelineController:
             # Give GUI + other tasks time to run
             await asyncio.sleep(0.1)
 
-        target_queue, target_order = self.get_initial_targets()
+        try:
+            target_queue, target_order = self.get_initial_targets()
+        except ValueError as e:
+            # Wrong/removed placement files are caught when the path is set;
+            # this is the safety net so a run never dies silently.
+            message = f"Cannot start: {e}"
+            print(message)
+            if self.control_panel is not None:
+                self.control_panel.finishedsteps.appendPlainText(message)
+            self.is_finished = True
+            return
         print("Coil targets are read")
 
         # The robot must run with the speeds shown in the GUI, not with its
@@ -899,39 +1041,15 @@ class PipelineController:
         list of tuple of (np.ndarray, np.ndarray)
             A list of targets, where each target is a tuple (position, euler_angles). Euler angles in degrees.
         """
-        hdf5_file_path = self.targets_file
-        print(f"hdf5_file_path: {hdf5_file_path}")
-        target_queue = []
-        # Read about HDF5 files here: https://simnibs.github.io/simnibs/build/html/documentation/sim_struct/position.html
-        with h5py.File(hdf5_file_path, 'r') as f:
-            mats = f['matsimnibs'][:]
-            for i in range(mats.shape[2]):
-                # The matrices are the first two dimensions, and which matrix it is, is specified by the third dimension.
-                # m is a 4x4 matrix.
-                m = mats[:, :, i]
-                #print("HERE IS THE TARGET MATRIX", m)
-
-                # Transform to InVesalius coordinate convention. See Coil Axis Conventions in the Wiki
-                # flip z axis
-                m[:3,2] *= -1
-                # exchange x and y axis
-                x = m[:3,0].copy()
-                m[:3,0] = m[:3,1]
-                m[:3,1] = x
-
-                # Extract pos and and angles 
-                euler_angles = np.degrees(tr.euler_from_matrix(m, "sxyz"))
-
-                pos = m[:3,3] #* 1.3    # This multiplication can be uncommented to push the target slightly outside scalp.
-                target_queue.append((pos, euler_angles))
+        print(f"hdf5_file_path: {self.targets_file}")
+        target_queue = read_simnibs_targets(self.targets_file)
 
         print(f"target_order_fn: {self.target_order_fn}")
         if self.target_order_fn is not None:
-            self.target_order = np.genfromtxt(self.target_order_fn).astype(int)
-            # print(self.target_order)
+            self.target_order = read_target_order(self.target_order_fn, len(target_queue))
         else:
             print(f"No target order file given. Running all coil placements.")
-            self.target_order = np.array(list(range(len(target_queue)))).astype(int)
+            self.target_order = np.arange(len(target_queue), dtype=int)
 
         print(f"len(self.target_order): {len(self.target_order)}")
         return target_queue, self.target_order
@@ -1202,7 +1320,13 @@ class PipelineController:
                                  results_mep_var], axis=1)
             # print(results)
             if self.results_fn is not None:
-                results.to_csv(self.results_fn.replace('.csv', f"{self.datetime_str}.csv"), index=False)
+                out_fn = stamped_results_filename(self.results_fn, self.datetime_str)
+                try:
+                    results.to_csv(out_fn, index=False)
+                except OSError as e:
+                    # The folder may have been deleted while the mapping ran;
+                    # the pulse is already recorded, so do not lose the run.
+                    print(f"[WARN] could not write {out_fn}: {e}")
 
     def set_pulse_inclusion(self, pulse_idx, included):
         """Adds or removes a specific sequential pulse from the mapping calculation."""

@@ -525,7 +525,7 @@ class MeshWidget(QWidget):
         from PyQt5 import QtGui
         frame = self.plotter.screenshot(return_img=True)
         if frame is None:
-            return
+            return False
         height, width = frame.shape[:2]
         image = QtGui.QImage(frame.data, width, height, 3 * width,
                              QtGui.QImage.Format_RGB888).copy()
@@ -541,7 +541,7 @@ class MeshWidget(QWidget):
                                int(pixmap.width() * scale_x),
                                int(pixmap.height() * scale_y), pixmap)
         painter.end()
-        image.save(path)
+        return bool(image.save(path))
 
     def set_channel_display_names(self, names):
         """Map the ADC data keys to the configured EMG channel names so the

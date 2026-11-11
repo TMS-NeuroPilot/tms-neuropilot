@@ -7,6 +7,48 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- GUI and robustness test suite: `tests/` now has ~460 tests, including
+  real-window tests for all six pages, resizing, the results table and
+  readout, exports/screenshots, manual mode, the status LEDs and the
+  "click every button on every page" sweep (with an exception hook so a
+  crashing slot fails one test instead of aborting the run), plus the
+  mesh/coil summary threads, their Qt-signal delivery and teardown.
+  `pytest -m "not gui"` runs only what works without a display.
+
+### Fixed
+
+- A project file or session cache holding anything but a mapping (empty,
+  list, scalar, binary) is rejected with a message instead of taking the
+  GUI down; spin-box values from YAML are coerced (3.7 -> 4, "4" -> 4) and
+  NaN/inf or text are skipped per key.
+- Loading a placements file, E-field library, ROI, mesh or EMG config that
+  is missing, a directory, corrupt, of the wrong shape or dtype, or without
+  the expected dataset now leaves the previous state in place, clears the
+  offending field and says why; the E-field matrix is validated before it
+  is assigned (no half-loaded 1-D matrices) and `matsimnibs`/target orders
+  are range-checked before a run starts.
+- Saving a project, study profile, result CSV or screenshot into a folder
+  that was deleted reports the failure instead of raising; a failed
+  screenshot is no longer reported as saved.
+- `NEUROPILOT_UI_SCALE` with a non-numeric value falls back to the
+  automatic scale instead of preventing startup; matplotlib only uses the
+  Qt backend when a display exists, so headless imports work.
+- Mesh/coil summaries and the online-solver callback are delivered to the
+  GUI thread through Qt signals (they were emitted from worker threads),
+  the file summaries refresh when the underlying file changes, and
+  `closeEvent` stops the timers and the embedded MuJoCo view.
+- The robot health handler tolerates a frame without `"message"` and an
+  unknown status string (it becomes "not initialised" instead of `None`);
+  relay frames that are not objects are dropped; the stimulator raises
+  `ValueError` (not an assert) for an out-of-range amplitude or pulse
+  shape; the MEP trend ignores excluded pulse indices beyond a channel's
+  shorter history.
+- The example project's EMG channel-source file is back
+  (`data/example_emg_channels.yaml`), so the shipped example loads without
+  a missing-file warning.
+
+### Added
+
 - The E-field mode can now be switched in flight: precomputed and online
   fields are recorded per pulse (`pulse_e_fields`), so a switch only
   changes which source the following pulses use and never mixes up the

@@ -98,6 +98,12 @@ class Remote:
         return True
 
     async def on_message_received(self, data):
+        # The relay forwards whatever a client published; a malformed frame
+        # must not raise inside the socket handler.
+        if not isinstance(data, dict):
+            if self.verbose:
+                print(f"[SIM REMOTE] ignoring non-object message: {type(data).__name__}")
+            return
         topic = data.get("topic")
         payload = data.get("data")
 

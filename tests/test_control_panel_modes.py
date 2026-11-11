@@ -40,7 +40,8 @@ class FakeManager:
     def __init__(self, ready=False):
         self.online_fem = None
         self.ready = ready
-        self.mesh_fn_msh = "mesh.msh"
+        # The panel checks that the derived .msh really exists; any file will do.
+        self.mesh_fn_msh = __file__
         self.roi_fn_hdf5 = "roi.hdf5"
         self.coil_fn = "coil.hdf5"
         self.ensure_calls = []
@@ -85,6 +86,9 @@ def make_panel(controller=None, online=False, offline=False):
         move_coil_up=FakeButton(), finish_btn=FakeButton(),
     )
     panel.update_button_states = lambda: update_button_states(panel)
+    # The window forwards the solver callback through a Qt signal so it runs
+    # on the GUI thread; the stand-in calls the slot directly.
+    panel.online_fem_ready = SimpleNamespace(emit=lambda: update_button_states(panel))
     return panel
 
 
@@ -190,7 +194,7 @@ def test_completing_the_paths_later_starts_the_online_solver():
     check_paths_ready(panel)
     assert ctrl.online_fem_mgr.ensure_calls == []
 
-    ctrl.online_fem_mgr.mesh_fn_msh = "mesh.msh"
+    ctrl.online_fem_mgr.mesh_fn_msh = __file__
     check_paths_ready(panel)
     assert len(ctrl.online_fem_mgr.ensure_calls) == 1
 

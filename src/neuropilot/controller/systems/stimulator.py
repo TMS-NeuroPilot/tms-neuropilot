@@ -93,9 +93,11 @@ class Stimulator(System):
         self._run_off_thread(self.stimulator.disarm)
 
     def set_amplitude(self, amplitude):
-        assert 0 <= amplitude <= 100, f"Amplitude must be between 0 and 100"
+        if not 0 <= amplitude <= 100:
+            raise ValueError(f"Amplitude must be between 0 and 100, got {amplitude}")
         self._run_off_thread(self.stimulator.set_amplitude, amplitude)
 
     def set_waveform(self, waveform):
-        assert waveform in ['Biphasic','Monophasic']
+        if waveform not in ("Biphasic", "Monophasic"):
+            raise ValueError(f"Unsupported pulse shape: {waveform}")
         self._run_off_thread(self.stimulator.set_waveform, waveform)

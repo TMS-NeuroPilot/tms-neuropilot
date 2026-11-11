@@ -49,7 +49,8 @@ component-internal constants live in each component's `config.py`.
 
 ```bash
 pytest                      # runs tests/ (pytest is in the `pipeline` env)
-pytest tests/test_efield_modes.py -v
+pytest tests/test_gui_window.py -v
+pytest -m "not gui"         # nothing that needs a display
 ```
 
 The suite covers the parts that do not need hardware: the fit-function
@@ -57,9 +58,22 @@ registry, the `.env` editor, the online solver lifecycle, the per-pulse
 E-field rows that let the E-field mode switch mid-run, the recording in
 `collect_data_step`, the analysis assembly, the virtual EMG channels,
 robot health parsing, the coil-target axis convention, the relay-topic
-contract, the GUI's mode and button gating, and the placements CSV
-export.  `tests/conftest.py` adds
-`src/` to the path, so no install step is needed beyond the environment.
+contract and the placements CSV export.
+
+The GUI tests build a real `MainWindow` and drive it: all six pages,
+resizing, the results table and readout, project load/save with corrupt,
+empty, missing and binary files, project files whose folder was deleted,
+the Config tab against a temporary `.env`, the study profile, exports and
+screenshots into deleted folders, manual mode, the status LEDs and
+recovery buttons, every button on every page (with an exception hook that
+turns a crashing slot into a failed test instead of an aborted run), the
+mesh/coil summary threads and their Qt signals, and close/teardown.  They
+need a display and are skipped automatically when `DISPLAY` and
+`WAYLAND_DISPLAY` are both unset.
+
+Everything the tests write goes to `tmp_path`: the session cache and the
+Config tab's `.env` are redirected in `tests/conftest.py`, so a test run
+never touches `~/.neuropilot` or the repository's `.env`.
 
 ## License
 

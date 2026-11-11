@@ -38,6 +38,8 @@ class Robot(System):
         pass
     
     async def on_robot_health_update(self, data):
+        if not isinstance(data, dict):
+            return
         if data.get("robot_id") is not None:
             self.robot_id = data.get("robot_id")
         info = data.get("info")

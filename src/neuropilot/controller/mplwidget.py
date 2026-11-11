@@ -234,10 +234,14 @@ class MplGraphWidget(QWidget):
         for name, values in history_dict.items():
             if name in self.channel_keys:
                 current_x = np.array(target_indices[:len(values)])
-                if exclusion is not None and len(exclusion) > 0:
-                    print(f"exclusion: {exclusion}")
-                    current_x = np.delete(current_x, np.array(list(exclusion)))
-                    values = np.delete(values, np.array(list(exclusion)))
+                if exclusion:
+                    # A pulse can be excluded while this channel has fewer
+                    # samples (channel switch, late pulse); only drop the
+                    # indices that exist in *this* series.
+                    keep = [i for i in exclusion if 0 <= i < len(current_x)]
+                    if keep:
+                        current_x = np.delete(current_x, np.array(keep))
+                        values = np.delete(values, np.array(keep))
                 c = self.channel_colors.get(name, 'black')
 
                 line, = self.ax.plot(current_x+1, values, 'o-', label=name, color=c, markersize=7, linewidth=1.8)

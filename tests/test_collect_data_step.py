@@ -190,3 +190,22 @@ def test_realized_geometry_and_mep_are_recorded():
     assert ctrl.realized_targets["intensity"] == [70]
     assert ctrl.realized_targets["e_field_mode"] == ["precomputed"]
     assert ctrl.mep_history == {"ADC 0": [0.5]}
+
+
+def test_results_file_in_a_deleted_folder_does_not_lose_the_pulse(tmp_path):
+    # The folder may be removed while the mapping runs; the pulse is already
+    # recorded, so a failed CSV write must not abort the step.
+    ctrl = make_controller(online=False, e_matrix=np.ones((2, 2)))
+    ctrl.results_fn = str(tmp_path / "gone" / "results.csv")
+    run_step(ctrl)
+    assert ctrl.pulse_e_fields != []
+    assert ctrl.mep_history == {"ADC 0": [0.5]}
+
+
+def test_results_file_is_written_next_to_the_configured_name(tmp_path):
+    ctrl = make_controller(online=False, e_matrix=np.ones((2, 2)))
+    ctrl.results_fn = str(tmp_path / "results.csv")
+    run_step(ctrl)
+    written = list(tmp_path.glob("results20260101_000000.csv"))
+    assert len(written) == 1
+    assert "intensity" in written[0].read_text().splitlines()[0]
