@@ -279,8 +279,6 @@ class PipelineController:
         self.e_matrix = None
         self.n_elms = None
         self.n_positions = None
-        if self.control_panel is not None:
-            self.control_panel.totaltargets1.setText("")
 
         if not path:
             print("Controller: Path cleared. E-Matrix removed from memory.")
@@ -296,8 +294,6 @@ class PipelineController:
                     self.n_elms = self.e_matrix.shape[1]
                     self.n_positions = self.e_matrix.shape[0]
                     self.set_map_elms(self.map_elms)
-                    if self.control_panel is not None:
-                        self.control_panel.totaltargets1.setText(f"{self.n_positions}")
                     # pass e-matrix to the virtual emg computer
                     if isinstance(self.emg_computer, VirtualEMG):
                         self.emg_computer.set_e_matrix(self.e_matrix)
@@ -402,7 +398,6 @@ class PipelineController:
         # Empty counters when nothing is loaded or the file cannot be read —
         # never show a bare 0.
         if self.control_panel is not None:
-            self.control_panel.totaltargets2.setText("")
             self.control_panel.totaltargets3.setText("")
         if not path:
             return
@@ -415,7 +410,6 @@ class PipelineController:
             return
 
         if self.control_panel is not None:
-            self.control_panel.totaltargets2.setText(f"{n_coil_placements}")
             self.control_panel.totaltargets3.setText(f"{n_coil_placements}")
 
     def register_remote_handlers(self):
@@ -557,9 +551,7 @@ class PipelineController:
         target_queue, target_order = self.get_initial_targets()
         print("Coil targets are read")
 
-        #self.control_panel.totaltargets1.setText(f"{len(target_queue)}") TODO REMOVE THIS . IT SHOULD BE UPDATED IN THE FUNCTION set_e_matrix_file()
         if self.control_panel is not None:
-            self.control_panel.totaltargets2.setText(f"{len(target_queue)}")
             self.control_panel.totaltargets3.setText(f"{len(target_queue)}")
 
         self.start_of_experiment = datetime.now()
