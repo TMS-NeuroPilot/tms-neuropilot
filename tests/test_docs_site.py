@@ -19,6 +19,8 @@ from __future__ import annotations
 import importlib.util
 import json
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -140,6 +142,23 @@ def test_every_gui_tab_is_documented(builder):
     for tab in ("Project", "Connections", "Control", "MEP results",
                 "Cortical results", "Config"):
         assert any(tab.lower() in title.lower() for title in titles), tab
+
+
+def test_no_documentation_file_is_git_ignored():
+    """A broad .gitignore pattern must not silently drop pages from the repo.
+
+    ``results/`` used to match ``docs/site/pages/results/``; a clean clone then
+    failed to build. Git is the only reliable source for this check.
+    """
+    if shutil.which("git") is None:
+        pytest.skip("git is not installed")
+    files = [str(path) for path in SITE.rglob("*")
+             if path.is_file() and "__pycache__" not in path.parts]
+    result = subprocess.run(["git", "check-ignore", "--no-index", *files],
+                            cwd=REPO, capture_output=True, text=True)
+    assert result.returncode in (0, 1), result.stderr
+    ignored = result.stdout.strip()
+    assert not ignored, f"documentation files are git-ignored:\n{ignored}"
 
 
 def test_no_personal_paths_or_binaries_leak_into_the_site(built):
