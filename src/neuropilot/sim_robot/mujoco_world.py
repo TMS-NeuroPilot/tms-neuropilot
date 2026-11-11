@@ -61,6 +61,12 @@ class MuJoCoWorld:
         Uses self.head_mesh_stl as the head phantom when set."""
         scene_xml_path = self._compose_scene(self.head_mesh_stl)
         model = mujoco.MjModel.from_xml_path(scene_xml_path)
+        # MuJoCo's compiled model defaults to a 640x480 offscreen buffer;
+        # the camera stream renders at the configured (larger) size.
+        model.vis.global_.offwidth = max(model.vis.global_.offwidth,
+                                         config.CAMERA_STREAM_WIDTH)
+        model.vis.global_.offheight = max(model.vis.global_.offheight,
+                                          config.CAMERA_STREAM_HEIGHT)
         data = mujoco.MjData(model)
         with self._data_lock:
             self.model = model

@@ -112,7 +112,7 @@ async def from_robot(sid, msg):
     if isinstance(msg, dict):
         topic = msg.get("topic")
 
-    if topic and "Health status" in topic:
+    if topic and ("Health status" in topic or "Camera frame" in topic):
         return
 
     log(f"Forwarding robot -> neuronavigation and pipeline: {msg}")

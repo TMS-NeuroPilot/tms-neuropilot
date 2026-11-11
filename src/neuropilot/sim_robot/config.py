@@ -67,10 +67,10 @@ ACTUATOR_KV          = 10.0
 # GUI camera stream (fixed overview camera, JPEG over the relay)
 # ─────────────────────────────────────────────
 GUI_CAMERA_NAME      = "gui_cam"
-CAMERA_STREAM_WIDTH  = 480
-CAMERA_STREAM_HEIGHT = 360
+CAMERA_STREAM_WIDTH  = 1280
+CAMERA_STREAM_HEIGHT = 960
 CAMERA_STREAM_FPS    = 10.0
-CAMERA_STREAM_QUALITY = 70
+CAMERA_STREAM_QUALITY = 85
 CAMERA_STREAM_FOVY   = 55
 # Overview camera placement: look-at point (None = midpoint of robot base
 # and head, slightly above) and the camera position relative to it.
