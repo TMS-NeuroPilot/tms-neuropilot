@@ -441,9 +441,8 @@ class MainWindow(QtWidgets.QMainWindow):
             lay = QtWidgets.QWidget.layout(w)
             if lay is not None:
                 lay.activate()
-        # Pass 2: flatten the button row (needs the settled LED positions and
-        # button size hints) and only then read the design geometry.
-        self._flatten_button_row()
+        # Pass 2: read the design geometry (the new UI is layout-driven, so
+        # this covers only the few absolutely placed widgets).
         rects = {}
         for w in central.findChildren(QtWidgets.QWidget):
             if self._is_layout_managed(w):
@@ -465,45 +464,6 @@ class MainWindow(QtWidgets.QMainWindow):
         # Apply the current scale immediately so a window resized before the
         # capture is consistent from the first paint after it.
         self._rescale()
-
-    def _flatten_button_row(self):
-        """Detach the Start/Back/Next buttons (and Move Coil Up / Finish)
-        from their QHBoxLayout so they can be positioned exactly, then
-        center the first three under the status LEDs. The LEDs and their
-        labels live in a different container with the same x origin, so the
-        container-relative LED centers are the button centers too."""
-        container = self.start_btn.parentWidget()
-        lay = QtWidgets.QWidget.layout(container)
-        if lay is None:
-            return
-        row_widgets = []
-        for i in range(lay.count()):
-            it = lay.itemAt(i)
-            if it.widget() is not None:
-                row_widgets.append(it.widget())
-        for wd in row_widgets:
-            lay.removeWidget(wd)
-        for i in reversed(range(lay.count())):
-            it = lay.itemAt(i)
-            if it.widget() is None and it.spacerItem() is not None:
-                lay.removeItem(it)
-        led_x = led_center = None
-        led_container = self.led_stim.parentWidget()
-        x_offset = container.geometry().x() - led_container.geometry().x()
-        led_centers = [led.geometry().center().x() + x_offset
-                       for led in (self.led_stim, self.led_emg, self.led_robot)]
-        for button, center in zip((self.start_btn, self.back_btn, self.skiptarget),
-                                  led_centers):
-            hint = button.sizeHint()
-            y = button.geometry().y()
-            button.setGeometry(round(center - hint.width() / 2), y,
-                               hint.width(), hint.height())
-        # Move Coil Up / Finish keep their centers, fitted to their hints so
-        # the scaled text is never clipped.
-        for button in (self.move_coil_up, self.finish_btn):
-            hint = button.sizeHint()
-            g = button.geometry()
-            button.setGeometry(g.x(), g.y(), hint.width(), hint.height())
 
     def resizeEvent(self, event):
         if getattr(self, "_base_rects", None) is None:

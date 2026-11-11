@@ -40,7 +40,7 @@ class MeshWidget(QWidget):
         self.scalar_selector.setStyleSheet("""
                     /* 1. Main Box Styling */
                     QComboBox {
-                        border: 2px solid #5dade2;
+                        border: 1px solid #D9DDE3;
                         border-radius: 8px;
                         padding: 4px 10px;
                         background-color: #ffffff;
@@ -50,7 +50,7 @@ class MeshWidget(QWidget):
 
                     /* Hover state for the main box */
                     QComboBox:hover {
-                        border: 2px solid #4A90E2; 
+                        border: 1px solid #D97706; 
                     }
 
                     /* 2. The Drop-down Button area */
@@ -59,9 +59,9 @@ class MeshWidget(QWidget):
                         subcontrol-position: top right;
                         width: 28px;
                         border-left: 1px solid #e0e0e0; /* Subtle divider */
-                        border-top-right-radius: 8px;
-                        border-bottom-right-radius: 8px;
-                        background-color: #f4f7fa;
+                        border-top-right-radius: 4px;
+                        border-bottom-right-radius: 4px;
+                        background-color: #F4F5F7;
                     }
 
                     /* The Arrow itself */
@@ -78,11 +78,11 @@ class MeshWidget(QWidget):
 
                     /* 3. The Pop-up List (Menu) */
                     QComboBox QAbstractItemView {
-                        border: 2px solid #5dade2;
+                        border: 1px solid #D9DDE3;
                         border-radius: 4px;
                         background-color: #ffffff;
                         color: #333333;
-                        selection-background-color: #5dade2;
+                        selection-background-color: #D97706;
                         selection-color: #ffffff;
                         outline: none;     /* Completely removes the thin black focus line */
                         padding: 0px;      /* Removes the gap inside the box */

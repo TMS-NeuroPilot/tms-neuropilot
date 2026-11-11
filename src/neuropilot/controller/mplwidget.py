@@ -275,9 +275,9 @@ class EmgNavGraphWidget(MplGraphWidget):
             }
             /* Basic style for QPushButton */
             QPushButton {
-                background-color: #4A90E2; /* Light blue background */
+                background-color: #D97706; /* Workstation accent */
                 color: white; /* White text */
-                border: 2px solid #4A90E2; /* Light blue border */
+                border: 1px solid #D97706;
                 border-radius: 12px; /* Rounded corners */
                 padding: 5px 20px; /* Vertical and horizontal padding */
                 font-size: 14px; /* Font size */
@@ -291,15 +291,15 @@ class EmgNavGraphWidget(MplGraphWidget):
             
             /* Hover effect for QPushButton */
             QPushButton:hover {
-                background-color: #357ABD; /* Darker blue on hover */
-                border-color: #357ABD; /* Darker blue border on hover */
+                background-color: #B45309;
+                border-color: #B45309;
             
             }
             
             /* Pressed (active) effect for QPushButton */
             QPushButton:pressed {
-                background-color: #2C6BA3; /* Even darker blue when pressed */
-                border-color: #1F4A7A; /* Darker blue border when pressed */
+                background-color: #92400E;
+                border-color: #92400E;
             
             }
             
@@ -310,9 +310,9 @@ class EmgNavGraphWidget(MplGraphWidget):
             
             /* Disabled button style */
             QPushButton:disabled {
-                background-color: #A2C8E3; /* Lighter blue background when disabled */
+                background-color: #F1F3F5; /* Disabled surface */
                 color: #4A6B88; /* Medium blue-grey, consistent with the main stylesheets */
-                border: 2px solid #A2C8E3; /* Border same as background */
+                border: 1px solid #E7EAEE;
             
             }
             QCheckBox {
