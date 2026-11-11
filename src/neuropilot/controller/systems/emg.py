@@ -86,7 +86,13 @@ class EMGComputer(System):
                 print(f"Error: Recovery method '{recovery}' for system '{self.NAME}' not implemented!")
         
     
-    def get_latest_emg_df(self, idx=None):
+    def get_latest_emg_df(self, idx=None, e_field_for_mep=None):
+        """Newest signal file as a DataFrame.
+
+        ``e_field_for_mep`` is accepted for interface parity with the virtual
+        EMG (the controller always passes it); the real acquisition does not
+        need it — the field is only used to synthesise MEPs in simulation.
+        """
         if idx is None:
             idx = -1
         files = list(smbclient.listdir(self.EMG_OUTPUT_FOLDER_PATH))

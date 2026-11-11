@@ -136,6 +136,7 @@ TOPIC_STOP           = "STOP"
 TOPIC_SET_HEAD_MESH  = "Pipeline to Robot: Set head mesh"
 
 # Speed ratios broadcast by the GUI (must match pipeline_controller.py verbatim)
+TOPIC_SET_FREE_DRIVE = "Neuronavigation to Robot: Set free drive"
 TOPIC_SET_DEFAULT_SPEED = "GUI to Robot: set default speed robot"
 TOPIC_SET_TUNING_SPEED  = "GUI to Robot: set tuning speed robot"
 # The GUI's default-speed slider position that corresponds to the sim's

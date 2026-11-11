@@ -35,6 +35,13 @@ class MessageHandlers:
         elif topic == config.TOPIC_SET_HEAD_MESH:
             self._handle_set_head_mesh(data)
 
+        elif topic == config.TOPIC_SET_FREE_DRIVE:
+            payload = self._unwrap(data)
+            enabled = payload.get("set")
+            if enabled is not None:
+                self.state.set_free_drive(bool(enabled))
+                log.info(f"Free drive {'enabled' if enabled else 'disabled'}")
+
         elif topic == config.TOPIC_SET_DEFAULT_SPEED:
             payload = self._unwrap(data)
             ratio = payload.get("default_speed_ratio")
