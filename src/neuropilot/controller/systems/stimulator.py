@@ -1,3 +1,5 @@
+import os
+
 import magicpy as mp
 from ..systems.system import SystemStatus, System
 import asyncio
@@ -27,9 +29,10 @@ class Stimulator(System):
                 print(f"Stimulator error in {getattr(fn, '__name__', fn)}: {e}")
         self._serial_executor.submit(_worker)
 
-    # Serial + TTL ports of the lab stimulator (Aachen used /dev/ttyS0).
-    PORT = '/dev/ttyS1'
-    TTL_PORT = '/dev/parport0'
+    # Serial + TTL ports of the stimulator (Aachen used /dev/ttyS0).
+    # Overridable from .env (Config tab: Stimulator → serial / TTL port).
+    PORT = os.getenv("STIMULATOR_PORT", "/dev/ttyS1")
+    TTL_PORT = os.getenv("STIMULATOR_TTL_PORT", "/dev/parport0")
 
     def try_connect(self):
         try:

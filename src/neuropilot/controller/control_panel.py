@@ -307,6 +307,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tabWidget.setCornerWidget(corner, QtCore.Qt.TopRightCorner)
 
         self._setup_robot_scene_view(self.simulation)
+        self._setup_config_tab()
 
         # Mapping-results panel: state, table and wiring.
         self._mapping_scores = {}        # channel key -> R2 per ROI element
@@ -515,6 +516,172 @@ class MainWindow(QtWidgets.QMainWindow):
             10, max(10, row_h),
             QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         grid.invalidate()
+
+    # ── Config tab ─────────────────────────────────────────────────────
+    def _setup_config_tab(self):
+        if not hasattr(self, "cfg_save_btn"):
+            return
+        from .config_store import ConfigStore
+        from .. import config as suite_config
+        self._config_store = ConfigStore()
+        self._config_defaults = {
+            "RELAY_HOST": suite_config.RELAY_HOST,
+            "RELAY_PORT": str(suite_config.RELAY_PORT),
+            "ROOT_FOLDER": suite_config.ROOT_FOLDER,
+            "NEUROPILOT_UI_SCALE": os.getenv("NEUROPILOT_UI_SCALE", ""),
+            "ROBOT": os.getenv("ROBOT", "omron"),
+            "TMS_ROBOT_CONTROL_PATH": os.getenv("TMS_ROBOT_CONTROL_PATH", ""),
+            "STIMULATOR_PORT": os.getenv("STIMULATOR_PORT", "/dev/ttyS1"),
+            "STIMULATOR_TTL_PORT": os.getenv("STIMULATOR_TTL_PORT", "/dev/parport0"),
+            "EMG_CHANNELS": os.getenv("EMG_CHANNELS", "FDI,APB,ADM"),
+            "EMG_COMPUTER_IP": os.getenv("EMG_COMPUTER_IP", "192.168.1.2"),
+            "EMG_COMPUTER_USERNAME": os.getenv("EMG_COMPUTER_USERNAME", "neuro"),
+            "EMG_COMPUTER_PASSWORD": os.getenv("EMG_COMPUTER_PASSWORD", ""),
+            "SAMPLING_RATE": os.getenv("SAMPLING_RATE", "4000"),
+            "CUTOFF_FREQ": os.getenv("CUTOFF_FREQ", "500"),
+            "TMS_PULSE_TIME": os.getenv("TMS_PULSE_TIME", "5"),
+            "START_MEP": os.getenv("START_MEP", "10"),
+            "END_MEP": os.getenv("END_MEP", "100"),
+            "ONLINE_FEM_SOLVER": os.getenv("ONLINE_FEM_SOLVER", "pardiso"),
+            "ONLINE_FEM_ANISOTROPY": os.getenv("ONLINE_FEM_ANISOTROPY", "scalar"),
+        }
+
+        # Robot models the simulator knows about.
+        try:
+            from ..sim_robot import config as sim_config
+            for name in sim_config.ROBOT_MJCF:
+                self.cfg_robot_type.addItem(name)
+        except Exception:
+            self.cfg_robot_type.addItem("omron")
+        if self.cfg_robot_type.isEditable() is False:
+            self.cfg_robot_type.setEditable(True)
+
+        self.cfg_save_btn.clicked.connect(self.on_config_save)
+        self.cfg_reload_btn.clicked.connect(self.on_config_reload)
+        self.cfg_root_browse.clicked.connect(self.on_config_browse_root)
+        self.on_config_reload()
+        self._apply_config_mode()
+
+    def on_config_reload(self):
+        """Fill the widgets from .env (falling back to the effective values)."""
+        values = self._config_store.read()
+        get = lambda key: values.get(key, self._config_defaults.get(key, ""))
+
+        self.cfg_relay_host.setText(get("RELAY_HOST"))
+        self._set_int(self.cfg_relay_port, get("RELAY_PORT"), 5000)
+        self.cfg_root_folder.setText(get("ROOT_FOLDER"))
+        self.cfg_ui_scale.setText(get("NEUROPILOT_UI_SCALE"))
+        self.cfg_robot_type.setCurrentText(get("ROBOT") or "omron")
+        self.cfg_tms_path.setText(get("TMS_ROBOT_CONTROL_PATH"))
+        self.cfg_stim_port.setText(get("STIMULATOR_PORT"))
+        self.cfg_stim_ttl.setText(get("STIMULATOR_TTL_PORT"))
+        self.cfg_emg_channels.setText(get("EMG_CHANNELS"))
+        self.cfg_emg_ip.setText(get("EMG_COMPUTER_IP"))
+        self.cfg_emg_user.setText(get("EMG_COMPUTER_USERNAME"))
+        self.cfg_emg_password.setText(get("EMG_COMPUTER_PASSWORD"))
+        self._set_int(self.cfg_sampling_rate, get("SAMPLING_RATE"), 4000)
+        self._set_int(self.cfg_cutoff, get("CUTOFF_FREQ"), 500)
+        self._set_int(self.cfg_pulse_time, get("TMS_PULSE_TIME"), 5)
+        self._set_int(self.cfg_mep_start, get("START_MEP"), 10)
+        self._set_int(self.cfg_mep_end, get("END_MEP"), 100)
+        self.cfg_fem_solver.setCurrentText(get("ONLINE_FEM_SOLVER") or "pardiso")
+        self.cfg_fem_anisotropy.setCurrentText(get("ONLINE_FEM_ANISOTROPY") or "scalar")
+        self._set_config_status(f"Loaded from {self._config_store.path}")
+
+    @staticmethod
+    def _set_int(widget, text, fallback):
+        try:
+            value = int(float(str(text).strip()))
+        except (TypeError, ValueError):
+            value = fallback
+        widget.setValue(value)
+
+    def _set_config_status(self, text):
+        label = getattr(self, "cfg_status_label", None)
+        if label is not None:
+            label.setText(text)
+
+    def on_config_browse_root(self):
+        folder = self._file_dialog("Select data folder",
+                                   self.cfg_root_folder.text() or os.path.expanduser("~"),
+                                   "", save=False)
+        if folder:
+            self.cfg_root_folder.setText(folder)
+
+    def on_config_save(self):
+        values = {
+            "RELAY_HOST": self.cfg_relay_host.text().strip(),
+            "RELAY_PORT": str(self.cfg_relay_port.value()),
+            "ROOT_FOLDER": self.cfg_root_folder.text().strip(),
+            "NEUROPILOT_UI_SCALE": self.cfg_ui_scale.text().strip(),
+            "ROBOT": self.cfg_robot_type.currentText().strip(),
+            "TMS_ROBOT_CONTROL_PATH": self.cfg_tms_path.text().strip(),
+            "STIMULATOR_PORT": self.cfg_stim_port.text().strip(),
+            "STIMULATOR_TTL_PORT": self.cfg_stim_ttl.text().strip(),
+            "EMG_CHANNELS": self.cfg_emg_channels.text().strip(),
+            "EMG_COMPUTER_IP": self.cfg_emg_ip.text().strip(),
+            "EMG_COMPUTER_USERNAME": self.cfg_emg_user.text().strip(),
+            "EMG_COMPUTER_PASSWORD": self.cfg_emg_password.text(),
+            "SAMPLING_RATE": str(self.cfg_sampling_rate.value()),
+            "CUTOFF_FREQ": str(self.cfg_cutoff.value()),
+            "TMS_PULSE_TIME": str(self.cfg_pulse_time.value()),
+            "START_MEP": str(self.cfg_mep_start.value()),
+            "END_MEP": str(self.cfg_mep_end.value()),
+            "ONLINE_FEM_SOLVER": self.cfg_fem_solver.currentText().strip(),
+            "ONLINE_FEM_ANISOTROPY": self.cfg_fem_anisotropy.currentText().strip(),
+        }
+        # Empty text fields fall back to the defaults, so drop them instead of
+        # writing "KEY=" (which would defeat the fallback).
+        values = {k: v for k, v in values.items()
+                  if v != "" or k in ("NEUROPILOT_UI_SCALE", "TMS_ROBOT_CONTROL_PATH")}
+        try:
+            self._config_store.write(values)
+        except OSError as e:
+            self._set_config_status(f"Could not write {self._config_store.path}: {e}")
+            return
+        self._set_config_status(
+            f"Saved to {self._config_store.path.name} — restart NeuroPilot to apply.")
+
+    def _apply_config_mode(self):
+        """Show the active mode and grey out the settings it does not use."""
+        manual = bool(self.controller is not None and getattr(self.controller, "manual", False))
+        simulated = bool(self.simulation) and not manual
+        mode = "Manual" if manual else ("Simulated" if simulated else "Real")
+        badge = getattr(self, "cfg_mode_badge", None)
+        if badge is None:
+            return
+        palette = {"Simulated": ("#FEF3E2", "#B45309"),
+                   "Real": ("#E8F5EC", "#1B7F3B"),
+                   "Manual": ("#EEF0F2", "#3C444D")}[mode]
+        badge.setText(mode)
+        badge.setStyleSheet(
+            f"background: {palette[0]}; color: {palette[1]}; border-radius: 9px;"
+            " padding: 2px 10px; font-size: 11px; font-weight: 600;")
+
+        # Robot: only the simulator uses the model selector.
+        self.cfg_robot_type.setEnabled(simulated)
+        self.cfg_tms_path.setEnabled(not simulated)
+        if simulated:
+            self.cfg_robot_hint.setText("Virtual twin model used by `neuropilot sim`.")
+        elif manual:
+            self.cfg_robot_hint.setText("Manual mode: no robot is used.")
+        else:
+            self.cfg_robot_hint.setText("Real robot: configured in tms-robot-control;"
+                                        " the pipeline reaches it through the relay above.")
+
+        # Stimulator serial ports: hardware only.
+        for widget in (self.cfg_stim_port, self.cfg_stim_ttl):
+            widget.setEnabled(not simulated)
+        self.cfg_stim_hint.setText("Simulation uses the virtual stimulator."
+                                   if simulated else "Serial + TTL ports of the MagVenture.")
+
+        # EMG computer credentials: hardware only.
+        for widget in (self.cfg_emg_ip, self.cfg_emg_user, self.cfg_emg_password):
+            widget.setEnabled(not simulated)
+        self.cfg_emg_hint.setText(
+            "Simulated EMG: the channel names label the plots and the results."
+            if simulated else
+            "SMB share on the EMG computer (Digitimer D360 -> CED 1401).")
 
     # ── Mapping results panel ───────────────────────────────────────────
     def _setup_mapping_panel(self):
@@ -1803,6 +1970,7 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
 
     def set_controller(self, controller):
         self.controller = controller
+        self._apply_config_mode()
         if self.controller:
             self.slider1_spinbox1(20)
             # Push the restored session values to the controller (the cache

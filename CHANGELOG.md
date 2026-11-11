@@ -5,6 +5,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- A Config tab for the settings that previously only lived in `.env`:
+  relay host/port, data folder, UI scale, simulated robot model, the
+  tms-robot-control checkout, stimulator serial/TTL ports, EMG channels
+  and SMB credentials, the MEP analysis windows and the online E-field
+  solver/anisotropy.  The active mode (Simulated / Real / Manual) is
+  shown as a badge and settings the mode does not use are disabled.  Save
+  rewrites only the managed keys in `.env`, keeping comments and unknown
+  entries; a restart applies the values.
+
+## [Unreleased]
+
 ### Changed
 
 - The E-field mode selector moved from the status strip into its own

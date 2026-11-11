@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import h5py
 import threading
@@ -19,9 +21,10 @@ class OnlineFEMManager:
         self.e_matrix = None            # accumulated online E-field matrix (n_pulses, n_elements)
 
         self.coil_fn = None
-        self.anisotropy = "scalar"
+        # Overridable from .env (Config tab: E-field → solver, anisotropy).
+        self.anisotropy = os.getenv("ONLINE_FEM_ANISOTROPY", "scalar")
         self.anisotropy_fn = ""
-        self.solver_options = "pardiso"
+        self.solver_options = os.getenv("ONLINE_FEM_SOLVER", "pardiso")
 
         self.computer = None            # the OnlineFEM solver instance
         self.mesh = None                # SimNIBS mesh object
