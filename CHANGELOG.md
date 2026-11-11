@@ -5,6 +5,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Adding a robot is data, not code.**  Every robot-specific value now
+  lives in one `RobotSpec` table (`sim_robot/robots.py`: MuJoCo model,
+  URDF, base body, tool site, IK chain, room pose, camera framing) and
+  `sim_robot/config.py` derives all its constants from the selected spec.
+  `python -m neuropilot.sim_robot.robots --check <key>` validates the assets
+  (files, site/body names, IK mask against the ikpy chain) before a run;
+  Config › Lab › Robot lists the registry with human labels and stores the
+  key; an unknown `ROBOT` is reported with the known keys instead of
+  silently building the wrong machine.  `docs/ROBOTS.md` documents the
+  simulated and real recipes, the relay contract and the conventions.
+- CI gained a dependency-free syntax gate and an optional, manual GUI job;
+  `scripts/ci-python.sh` locates the `pipeline` interpreter for both CI and
+  `scripts/run_tests.sh`, so neither needs a configured path.
+## [Unreleased]
+
 ### Added
 
 - Five colour themes, switchable live in **Config › Lab › Theme** and

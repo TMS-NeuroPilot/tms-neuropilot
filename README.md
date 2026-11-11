@@ -39,6 +39,22 @@ Components communicate over Socket.IO relay topics
 `to_*`); the protocol is byte-identical to the production components in
 `tms-robot-control` and InVesalius.
 
+## Robots
+
+The pipeline is robot-agnostic: it sends and receives poses over the relay.
+Everything robot-specific is one `RobotSpec` in
+`src/neuropilot/sim_robot/robots.py` (MuJoCo model, URDF, IK chain, frames) —
+adding a robot to the simulator is that entry plus the two assets.  Real
+robots are drivers in `tms-robot-control` and need no change here.
+
+```bash
+python -m neuropilot.sim_robot.robots --list        # known robots
+python -m neuropilot.sim_robot.robots --check omron # validate a spec
+```
+
+`docs/ROBOTS.md` has the full recipe (assets, conventions, relay contract,
+pitfalls, verification checklist).
+
 ## Appearance
 
 Five colour themes ship with the controller, selectable live in
@@ -76,9 +92,12 @@ pytest -m "not gui"         # nothing that needs a display
 scripts/run_tests.sh        # the same headless set the CI job runs
 ```
 
-CI runs `pytest -m "not gui"` on every push and merge request
-(`.gitlab-ci.yml`); it expects a runner with the `pipeline` environment (set
-`PYTHON` in the CI/CD variables, or uncomment the runner tag in the file).
+CI (`.gitlab-ci.yml`) runs a syntax gate and `pytest -m "not gui"` on every
+push and merge request.  `scripts/ci-python.sh` finds the `pipeline`
+interpreter automatically (`PYTHON`, then the usual conda locations, then
+`python3`), so the job needs no configuration when the runner has that
+environment.  The GUI tests are a separate, manually started job for a runner
+with a display.
 
 The six pages are snapshotted (`tests/test_gui_snapshots.py`): a coarse
 32×24 pixel fingerprint plus the geometry of every named widget, compared

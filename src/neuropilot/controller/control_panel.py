@@ -762,15 +762,17 @@ class MainWindow(QtWidgets.QMainWindow):
             "ONLINE_FEM_ANISOTROPY": os.getenv("ONLINE_FEM_ANISOTROPY", "scalar"),
         }
 
-        # Robot models the simulator knows about.
+        # Robot models the simulator knows about: the label is shown, the key
+        # (what ROBOT/lab.yaml stores) is the item data.
         try:
-            from ..sim_robot import config as sim_config
-            for name in sim_config.ROBOT_MJCF:
-                self.cfg_robot_type.addItem(name)
-        except Exception:
-            self.cfg_robot_type.addItem("omron")
-        if self.cfg_robot_type.isEditable() is False:
-            self.cfg_robot_type.setEditable(True)
+            from ..sim_robot.robots import labels as robot_labels
+            from ..sim_robot.robots import keys as robot_keys
+            for key, label in robot_labels():
+                self.cfg_robot_type.addItem(label, key)
+        except Exception as e:                       # pragma: no cover
+            print(f"[WARN] robot registry unavailable: {e}")
+            self.cfg_robot_type.addItem("Omron TM5X-700", "omron")
+        self.cfg_robot_type.setEditable(True)
 
         self._theme_loading = True
         self.cfg_theme.addItems(list(THEMES))     # populate without writing
@@ -803,7 +805,7 @@ class MainWindow(QtWidgets.QMainWindow):
             ("ROOT_FOLDER", self.cfg_root_folder, "text"),
             ("NEUROPILOT_UI_SCALE", self.cfg_ui_scale, "text"),
             ("UI_THEME", self.cfg_theme, "combo"),
-            ("ROBOT", self.cfg_robot_type, "combo"),
+            ("ROBOT", self.cfg_robot_type, "robot"),
             ("TMS_ROBOT_CONTROL_PATH", self.cfg_tms_path, "text"),
             ("STIMULATOR_PORT", self.cfg_stim_port, "text"),
             ("STIMULATOR_TTL_PORT", self.cfg_stim_ttl, "text"),
@@ -820,6 +822,8 @@ class MainWindow(QtWidgets.QMainWindow):
         for key, widget, kind in self._lab_fields():
             if kind == "int":
                 values[key] = str(widget.value())
+            elif kind == "robot":
+                values[key] = self._robot_key()
             elif kind == "combo":
                 values[key] = widget.currentText().strip()
             else:
@@ -829,6 +833,30 @@ class MainWindow(QtWidgets.QMainWindow):
         return {k: v for k, v in values.items()
                 if v != "" or k in ("NEUROPILOT_UI_SCALE",
                                     "TMS_ROBOT_CONTROL_PATH")}
+
+    def _robot_key(self):
+        """The ROBOT key currently selected (label shown, key stored)."""
+        combo = self.cfg_robot_type
+        data = combo.currentData()
+        if data:
+            return str(data)
+        text = combo.currentText().strip()
+        try:
+            from ..sim_robot.robots import ROBOTS
+            known = {spec.label: key for key, spec in ROBOTS.items()}
+        except Exception:                            # pragma: no cover
+            known = {}
+        return known.get(text, text).lower()
+
+    def _set_robot_key(self, key):
+        combo = self.cfg_robot_type
+        index = combo.findData(key)
+        if index >= 0:
+            combo.setCurrentIndex(index)
+        else:
+            # An unknown robot stays visible (and is reported on save) instead
+            # of silently switching the lab to a different machine.
+            combo.setEditText(str(key))
 
     def on_config_reload(self):
         """Fill the Lab page from lab.yaml, with .env overriding it.
@@ -854,6 +882,8 @@ class MainWindow(QtWidgets.QMainWindow):
             value = get(key)
             if kind == "int":
                 self._set_int(widget, value, int(self._config_defaults.get(key, 0) or 0))
+            elif kind == "robot":
+                self._set_robot_key(str(value))
             elif kind == "combo":
                 widget.setCurrentText(str(value) or self._config_defaults.get(key, ""))
             else:

@@ -89,7 +89,8 @@ shell environment  >  .env (suite root)  >  ~/.neuropilot/lab.yaml  >  built-in 
    installations behave exactly as before.
 2. **Lab profile** — hardware settings in `~/.neuropilot/lab.yaml`
    (`NEUROPILOT_LAB_FILE` moves it), edited in Config › Lab:
-   relay host/port, data folder, UI scale, colour theme, robot model,
+   relay host/port, data folder, UI scale, colour theme, robot model
+   (the list comes from `sim_robot/robots.py`, see `docs/ROBOTS.md`),
    stimulator serial/TTL ports, EMG computer address + SMB credentials,
    online solver and anisotropy, `tms-robot-control` checkout.
    The colour theme (`UI_THEME`) is applied live from Config › Lab and is

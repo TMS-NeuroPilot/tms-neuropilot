@@ -9,11 +9,12 @@ RELAY_PORT = 5000
 # ─────────────────────────────────────────────
 # Robot geometry (generic — mirrors tms-robot-control's ROBOT field)
 # ─────────────────────────────────────────────
-# tms-robot-control's .env defines which robot is used (ROBOT='omron', 'elfin',
-# 'dobot', 'ur', ...). The sim honors the same definition: ROBOT here falls back
-# to the value in ../tms-robot-control/.env, and maps to the robot's MuJoCo
-# geometry (MJCF: meshes + joints + actuators + self-collision excludes).
-# Adding a new geometry = adding its MJCF and a mapping entry here.
+# The per-robot description lives in robots.py (a RobotSpec per robot: MJCF,
+# URDF, IK chain, frames).  ROBOT selects one; every constant below is derived
+# from it, so adding a robot is one entry in that table plus its two assets
+# (see docs/ROBOTS.md).
+from .robots import DEFAULT_ROBOT, ROBOTS, check as check_robot, get as get_robot
+
 ROBOT = os.getenv("ROBOT", "")
 
 def _robot_from_tms_robot_control_env() -> str:
@@ -31,27 +32,29 @@ def _robot_from_tms_robot_control_env() -> str:
         pass
     return ""
 
-ROBOT = (ROBOT or _robot_from_tms_robot_control_env() or "omron").lower()
+ROBOT = (ROBOT or _robot_from_tms_robot_control_env() or DEFAULT_ROBOT).lower()
+ROBOT_KNOWN = ROBOT in ROBOTS
+if not ROBOT_KNOWN:
+    print(f"[WARN] ROBOT='{ROBOT}' is not a known robot ({sorted(ROBOTS)}); "
+          f"the simulator will refuse to build a scene.")
+ROBOT_SPEC = ROBOTS.get(ROBOT, ROBOTS[DEFAULT_ROBOT])
 
-ROBOT_MJCF = {
-    "omron": "assets/mjcf/robot_tm5x_700.xml",
-    # add other geometries here as their MJCFs are added, e.g.:
-    # "elfin": "assets/mjcf/elfin.xml",
-}
+# Kept for the GUI (it lists the selectable geometries) and for older code.
+ROBOT_MJCF = {key: spec.mjcf for key, spec in ROBOTS.items()}
 
 # ─────────────────────────────────────────────
 # Scene composition (generic — driven by the entries above)
 # ─────────────────────────────────────────────
-MODEL_NAME = f"Robo-TMS Virtual Twin ({ROBOT})"
+MODEL_NAME = f"Robo-TMS Virtual Twin ({ROBOT_SPEC.label})"
 HEAD_MJCF_PATH = "assets/mjcf/head.xml"   # set to None to simulate without the head phantom
 HEAD_BODY_NAME = "head_link"
-ROBOT_BASE_BODY_NAME = "link_0"
+ROBOT_BASE_BODY_NAME = ROBOT_SPEC.base_body
 
 # ─────────────────────────────────────────────
 # Asset paths
 # ─────────────────────────────────────────────
-# URDF paths (kept for ikpy IK solver — reads URDF independently)
-ROBOT_URDF_PATH = "assets/urdf/robot_tm5x_700_v2.urdf"
+# URDF path for the ikpy IK solver (it reads the URDF independently of MuJoCo)
+ROBOT_URDF_PATH = ROBOT_SPEC.urdf
 
 # ─────────────────────────────────────────────
 # MuJoCo world
@@ -59,7 +62,7 @@ ROBOT_URDF_PATH = "assets/urdf/robot_tm5x_700_v2.urdf"
 USE_GUI              = False   # the pipeline GUI shows the robot view via the camera stream; --gui re-enables the native MuJoCo viewer for debugging
 SIM_TIMESTEP         = 0.002
 GRAVITY              = (0.0, 0.0, -9.81)
-END_EFFECTOR_SITE_NAME = "coil_tcp_site"
+END_EFFECTOR_SITE_NAME = ROBOT_SPEC.ee_site
 ACTUATOR_KP          = 200.0
 ACTUATOR_KV          = 10.0
 
@@ -74,14 +77,15 @@ CAMERA_STREAM_QUALITY = 85
 CAMERA_STREAM_FOVY   = 55
 # Overview camera placement: look-at point (None = midpoint of robot base
 # and head, slightly above) and the camera position relative to it.
-CAMERA_STREAM_TARGET = [0.22, -0.22, 0.15]
-CAMERA_STREAM_OFFSET = [0.35, -1.05, 0.20]
+CAMERA_STREAM_TARGET = (list(ROBOT_SPEC.camera_target)
+                        if ROBOT_SPEC.camera_target is not None else None)
+CAMERA_STREAM_OFFSET = list(ROBOT_SPEC.camera_offset)
 
 # ─────────────────────────────────────────────
 # Room layout (edit these to match physical room)
 # ─────────────────────────────────────────────
-ROBOT_BASE_POSITION = [0.0, 0.0, 0.0]       # [x, y, z] in meters — robot base in world
-ROBOT_BASE_ORIENTATION = [0.0, 0.0, 0.0]    # [rx, ry, rz] in degrees — robot base rotation
+ROBOT_BASE_POSITION = list(ROBOT_SPEC.base_position)       # [x, y, z] m — robot base in world
+ROBOT_BASE_ORIENTATION = list(ROBOT_SPEC.base_orientation)  # [rx, ry, rz] deg — robot base rotation
 
 HEAD_POSITION = [0.4, -0.4, 0.0]           # [x, y, z] in meters — SimNIBS origin in world
 HEAD_ORIENTATION = [0.0, 0.0, -90.0]          # [rx, ry, rz] in degrees — head rotation
@@ -90,9 +94,9 @@ FLOOR_POSITION = [0.0, 0.0, -1.5]           # ground plane 1.5m below robot
 # ─────────────────────────────────────────────
 # IK solver (ikpy — reads URDF, independent of physics engine)
 # ─────────────────────────────────────────────
-IK_ACTIVE_LINKS_MASK = [False, True, True, True, True, True, True, False, False]     # for "assets/urdf/robot_tm5x_700_v2.urdf"
-IK_BASE_ELEMENTS     = ["link_0"]      # set to e.g. ["base_link"] if needed
-IK_ELBOW_UP          = True            # True = elbow up (joint_3 positive), False = elbow down
+IK_ACTIVE_LINKS_MASK = list(ROBOT_SPEC.ik_active_links)   # one entry per ikpy chain link
+IK_BASE_ELEMENTS     = list(ROBOT_SPEC.ik_base_elements)
+IK_ELBOW_UP          = ROBOT_SPEC.ik_elbow_up
 IK_MAX_RETRIES       = 10              # max retries to find desired configuration
 
 # ─────────────────────────────────────────────

@@ -110,13 +110,13 @@ class MuJoCoWorld:
         """Compose the scene MJCF from config: robot geometry (per ROBOT),
         optional head phantom, physics. Returns the path of the generated file.
         ``head_mesh_stl`` replaces the default phantom mesh in head.xml."""
-        robot_mjcf = config.ROBOT_MJCF.get(config.ROBOT)
-        if robot_mjcf is None:
+        if not config.ROBOT_KNOWN:
             raise ValueError(
-                f"No MuJoCo geometry for ROBOT='{config.ROBOT}'. "
-                f"Known geometries: {sorted(config.ROBOT_MJCF)}. "
-                "Add the MJCF and a config.ROBOT_MJCF entry."
-            )
+                f"ROBOT='{config.ROBOT}' is not a known robot. Known: "
+                f"{sorted(config.ROBOT_MJCF)}.  Add a RobotSpec (geometry, "
+                "URDF, IK chain) in neuropilot/sim_robot/robots.py -- see "
+                "docs/ROBOTS.md -- and select it again.")
+        robot_mjcf = config.ROBOT_MJCF[config.ROBOT]
 
         gravity = " ".join(f"{g:g}" for g in config.GRAVITY)
         composed_dir = os.path.join(PROJECT_ROOT, "assets", "mjcf")
