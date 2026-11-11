@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QFrame, QCheckBox, QRadioButton, \
-    QButtonGroup
-from PyQt5.QtCore import Qt, pyqtSignal
+    QButtonGroup, QSizePolicy
+from PyQt5.QtCore import QPoint, Qt, pyqtSignal
 import pyvista as pv
 from pyvistaqt import QtInteractor
 import h5py
@@ -163,6 +163,7 @@ class MeshWidget(QWidget):
         self.mesh_head = None
         self.mesh_roi = None
         self._cell_markers_info = []  # list of (cell_idx, color, label) tuples
+        self._camera_mesh = None      # mesh the home camera was set for
         # Data-layer channel key ('ADC 0') -> display name from EMG_CHANNELS.
         self.channel_display_names = {}
 
@@ -176,6 +177,9 @@ class MeshWidget(QWidget):
         self._show_path = False
         self._best_element = None
         self._best_channel = None
+        self._pulse_count = 0
+        self._label_map = self._make_corner_label()
+        self._label_pulses = self._make_corner_label(align_right=True)
         self._init_picking()
         self._install_shortcuts()
 
@@ -238,6 +242,69 @@ class MeshWidget(QWidget):
                 return name, self._picker
         return None, None
 
+    # ── corner overlays ──────────────────────────────────────────────────
+    def _make_corner_label(self, align_right=False):
+        label = QLabel(self)
+        label.setTextFormat(Qt.RichText)
+        label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        label.setStyleSheet(
+            "QLabel { background: rgba(255,255,255,0.88); color: #1B1F24;"
+            " border: 1px solid #E2E5E9; border-radius: 6px;"
+            " padding: 4px 10px; font-size: 14px; font-weight: 600; }")
+        label.setAlignment((Qt.AlignRight if align_right else Qt.AlignLeft) | Qt.AlignVCenter)
+        label.hide()
+        return label
+
+    def _position_corner_labels(self):
+        margin = 14
+        top = self.controls_frame.height() + margin
+        for label, right in ((self._label_map, False), (self._label_pulses, True)):
+            if label is None:
+                continue
+            label.adjustSize()
+            x = (self.width() - margin - label.width()) if right else margin
+            label.move(max(margin, x), top)
+            label.raise_()
+
+    def set_pulse_count(self, count):
+        self._pulse_count = int(count or 0)
+        self._update_overlay_labels()
+
+    def _update_overlay_labels(self):
+        """Top-left: what the colours mean (muscle + metric); top-right:
+        how many pulses are behind the picture."""
+        mesh_label = ""
+        if self.current_mesh is self.mesh_head:
+            if self.placements and self._show_placements:
+                kind, channel = self._placement_metric
+                if kind == "trial":
+                    mesh_label = "Trial id"
+                elif kind == "aim":
+                    mesh_label = "Aim error [mm]"
+                else:
+                    name = self.channel_display_names.get(channel, channel or "MEP")
+                    mesh_label = f"{name}<br><span style='font-size:11px; color:#6B7280'>MEP size [mV]</span>"
+        else:
+            text = self.scalar_selector.currentText() if self.scalar_selector.count() else ""
+            if text and text != "No color":
+                if " mapping result" in text:
+                    name, rest = text.split(" mapping result", 1)
+                    mesh_label = (f"{name}<br><span style='font-size:11px; color:#6B7280'>"
+                                  f"mapping result{rest}</span>")
+                else:
+                    mesh_label = text
+        self._label_map.setText(mesh_label)
+        self._label_map.setVisible(bool(mesh_label))
+        count = self._pulse_count
+        self._label_pulses.setText(
+            f"{count}<span style='font-size:11px; color:#6B7280'> pulses</span>")
+        self._label_pulses.setVisible(count > 0)
+        self._position_corner_labels()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._position_corner_labels()
+
     def _install_shortcuts(self):
         """B mark best R², H toggle head/ROI, F home view (view has focus)."""
         from PyQt5.QtGui import QKeySequence
@@ -272,6 +339,7 @@ class MeshWidget(QWidget):
     def set_mapping_results(self, placements, channel_keys):
         self.placements = list(placements or [])
         self.channel_keys = list(channel_keys or [])
+        self._pulse_count = len(self.placements)
         self._refresh_overlays()
 
     def set_placement_options(self, show=None, handles=None, path=None):
@@ -319,6 +387,7 @@ class MeshWidget(QWidget):
             self._draw_placements()
         if self.current_mesh is self.mesh_roi and self._best_element is not None:
             self._draw_best_element()
+        self._update_overlay_labels()
         self.plotter.render()
 
     def _draw_placements(self):
@@ -350,7 +419,9 @@ class MeshWidget(QWidget):
         self.plotter.add_points(points, scalars=values, cmap="turbo", clim=clim,
                                 render_points_as_spheres=True, point_size=22,
                                 name="placements", show_scalar_bar=False)
-        self.plotter.add_scalar_bar(title=title, n_labels=4)
+        self.plotter.add_scalar_bar(title="", n_labels=4, vertical=False,
+                                    height=0.12, width=0.5,
+                                    position_x=0.25, position_y=0.02)
 
         if self._show_coil_handles:
             segments = [self._coil_handle_segment(rec) for rec in self.placements
@@ -422,7 +493,28 @@ class MeshWidget(QWidget):
         self._refresh_overlays()
 
     def screenshot(self, path):
-        self.plotter.screenshot(path)
+        """Render the view to a PNG, including the corner overlays (the VTK
+        screenshot alone would drop the Qt labels)."""
+        from PyQt5 import QtGui
+        frame = self.plotter.screenshot(return_img=True)
+        if frame is None:
+            return
+        height, width = frame.shape[:2]
+        image = QtGui.QImage(frame.data, width, height, 3 * width,
+                             QtGui.QImage.Format_RGB888).copy()
+        painter = QtGui.QPainter(image)
+        scale_x = width / max(1, self.width())
+        scale_y = height / max(1, self.height())
+        for label in (self._label_map, self._label_pulses):
+            if not label.isVisible():
+                continue
+            pos = label.mapTo(self, QPoint(0, 0))
+            pixmap = label.grab()
+            painter.drawPixmap(int(pos.x() * scale_x), int(pos.y() * scale_y),
+                               int(pixmap.width() * scale_x),
+                               int(pixmap.height() * scale_y), pixmap)
+        painter.end()
+        image.save(path)
 
     def set_channel_display_names(self, names):
         """Map the ADC data keys to the configured EMG channel names so the
@@ -820,9 +912,17 @@ class MeshWidget(QWidget):
                                   show_edges=show_lines, edge_color="black",
                                   clim=[0.0, 1.0], show_scalar_bar=False,
                                   name="main_mesh")
-            self.plotter.add_scalar_bar(title=self.scalar_selector.currentText())
+            # No title on the bar: VTK draws it over the middle tick label,
+            # and the corner overlay already names the map.
+            self.plotter.add_scalar_bar(title="", n_labels=4, vertical=False,
+                                        height=0.12, width=0.5,
+                                        position_x=0.25, position_y=0.02)
 
-        self._set_home_camera()
+        # Only re-home the camera when the *mesh* changed: a colour switch or
+        # a fresh R² map must not rotate the view under the user.
+        if self._camera_mesh is not self.current_mesh:
+            self._set_home_camera()
+            self._camera_mesh = self.current_mesh
         self._render_cell_markers()
         # Re-add the mapping overlays (placements on the head, best-element
         # mark on the ROI) that plotter.clear() removed.

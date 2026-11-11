@@ -463,6 +463,18 @@ class MainWindow(QtWidgets.QMainWindow):
                            hint.width(), max(hint.height(), bar.height()))
         corner.raise_()
 
+    def _resize_results_panel(self, scale):
+        """The results panel's width comes from the style sheet's design
+        values, but layout widths do not scale with the window: compute
+        them from the current scale so the text always fits."""
+        width = max(320, round(330 * scale))
+        for attr in ("groupBox_results", "groupBox_display", "groupBox_selection"):
+            card = getattr(self, attr, None)
+            if card is None:
+                continue
+            card.setMinimumWidth(width)
+            card.setMaximumWidth(width + round(40 * scale))
+
     def _size_choice_popups(self):
         """Give the short choice menus (pulse shape, fit function) a popup
         tall enough for every item.
@@ -1145,6 +1157,14 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
             return
         # Cheap pass on every resize event: geometry only.
         self._rescale_geometry()
+        # Re-run the visible page's layout immediately: the deferred style
+        # pass otherwise lets its widgets float in stale positions while the
+        # drag is in progress.
+        page = self.tabWidget.currentWidget()
+        if page is not None:
+            lay = QtWidgets.QWidget.layout(page)
+            if lay is not None:
+                lay.activate()
         # The tab bar itself is resized by the layout after this event, so
         # place the LED corner once that has settled (otherwise it keeps the
         # old x position and the last LED is clipped).
@@ -1239,6 +1259,7 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
         self._place_tab_corner()
         self._sync_project_gap()
         self._size_choice_popups()
+        self._resize_results_panel(s)
 
     def on_efield_mode_changed(self):
         if not (self.online_efield_btn.isChecked() or self.offline_efield_btn.isChecked()):
