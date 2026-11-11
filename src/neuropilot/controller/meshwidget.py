@@ -102,7 +102,7 @@ class MeshWidget(QWidget):
                         border: none;
                     }
                 """)
-        self.scalar_selector.addItem("Solid Color (No Data)")
+        self.scalar_selector.addItem("No color")
         self.scalar_selector.currentIndexChanged.connect(self.update_scalars)
         self.controls_layout.addWidget(self.scalar_selector)
 
@@ -157,6 +157,24 @@ class MeshWidget(QWidget):
         self.mesh_head = None
         self.mesh_roi = None
         self._cell_markers_info = []  # list of (cell_idx, color, label) tuples
+        # Data-layer channel key ('ADC 0') -> display name from EMG_CHANNELS.
+        self.channel_display_names = {}
+
+    def set_channel_display_names(self, names):
+        """Map the ADC data keys to the configured EMG channel names so the
+        results dropdown reads 'FDI mapping result [R2]' instead of 'Score
+        ADC 0'."""
+        names = list(names or [])
+        self.channel_display_names = {f"ADC {i}": name
+                                      for i, name in enumerate(names)}
+        self.refresh_dropdown()
+
+    def _display_name(self, data_key):
+        """Human label for a mesh data array (results use the channel name)."""
+        if data_key.startswith("Score "):
+            channel = data_key[len("Score "):]
+            return f"{self.channel_display_names.get(channel, channel)} mapping result [R2]"
+        return data_key
 
     def mark_cells(self, cell_indices, colors, labels=None):
         """Add callout arrows pointing at cells + connecting line between first two."""
@@ -224,7 +242,7 @@ class MeshWidget(QWidget):
                 self.scalar_selector.setCurrentIndex(index_by_text)
             else:
                 # If the exact array isn't found, check if "Solid Color" exists as fallback
-                fallback_index = self.scalar_selector.findText("Solid Color (No Data)")
+                fallback_index = self.scalar_selector.findText("No color")
                 if fallback_index >= 0:
                     self.scalar_selector.setCurrentIndex(fallback_index)
 
@@ -432,29 +450,24 @@ class MeshWidget(QWidget):
             return None
 
     def refresh_dropdown(self):
-        """Populates the dropdown with available data arrays found in the mesh."""
+        """Populates the dropdown with the available mapping results.
+
+        Tissue tags are deliberately not offered: the viewer shows the
+        anatomy in plain colour and only overlays computed results (the
+        'Score <channel>' arrays) or nothing ('No color')."""
         self.scalar_selector.blockSignals(True)
         self.scalar_selector.clear()
-        self.scalar_selector.addItem("Solid Color (No Data)")
+        self.scalar_selector.addItem("No color")
 
         if self.current_mesh:
-            items_to_add = []
-            # 1. Check Point Data
-            for name in self.current_mesh.point_data.keys():
-                # self.scalar_selector.addItem(f"[Point] {name}", name)   #delete this if the they will get stored on thursday
-                items_to_add.append((name, f"[Point] {name}"))
-
-            # 2. Check Cell Data (This is where 'Tissue Type' will appear)
-            for name in self.current_mesh.cell_data.keys():
-                # self.scalar_selector.addItem(f"[Cell] {name}", name)     #delete this if the they will get stored on thursday
-                items_to_add.append((name, f"[Cell] {name}"))
-
-            # 3. Sort the combined list alphabetically
-            items_to_add.sort(key=lambda x: x[0].lower())
-
-            # 4. Populate the dropdown
-            for raw_name, display_text in items_to_add:
-                self.scalar_selector.addItem(display_text, raw_name)
+            keys = []
+            for data in (self.current_mesh.point_data, self.current_mesh.cell_data):
+                for name in data.keys():
+                    if name == "Tissue Type":
+                        continue
+                    keys.append(name)
+            for raw_name in sorted(set(keys), key=lambda n: self._display_name(n).lower()):
+                self.scalar_selector.addItem(self._display_name(raw_name), raw_name)
 
         self.scalar_selector.blockSignals(False)
 
@@ -475,6 +488,7 @@ class MeshWidget(QWidget):
     def update_scene_default(self):
         """Renders the mesh for the first time after loading."""
         self.plotter.clear()
+        self.plotter.scalar_bars.clear()
         self.plotter.add_axes()
 
         # Check if we have data to show automatically
@@ -484,21 +498,21 @@ class MeshWidget(QWidget):
 
         show_lines = self.edge_checkbox.isChecked()  # a variable to toggle the visibility of the edges
 
-        if self.current_mesh and self.current_mesh.cell_data:
-            # Select the first available data
-            first_key = list(self.current_mesh.cell_data.keys())[0]
-            self.scalar_selector.setCurrentIndex(1)  # Point to the data item
-            self.plotter.add_mesh(self.current_mesh, scalars=first_key, cmap="turbo", show_edges=show_lines,
-                                  edge_color="black", clim=[0.0, 1.0])  # ---> ADDED clim=[0.0, 1.0] <---
-            self.plotter.add_scalar_bar(title=first_key)
-        else:
-            self.plotter.add_mesh(self.current_mesh, color='#d9e6f2', show_edges=True)
+        score_index = self.scalar_selector.findData(
+            next((k for k in self.current_mesh.cell_data.keys()
+                  if k.startswith("Score ")), None))
+        if score_index > 0:
+            self.scalar_selector.setCurrentIndex(score_index)
+            self.update_scalars(score_index)
+            return
+        self.plotter.add_mesh(self.current_mesh, color='#d9e6f2', show_edges=True)
 
         self._set_home_camera()
 
     def update_scalars(self, index):
         """Called when user changes dropdown."""
         self.plotter.clear()
+        self.plotter.scalar_bars.clear()
         self.plotter.add_axes()
         if self.current_mesh is None:
             self._render_cell_markers()
@@ -521,9 +535,13 @@ class MeshWidget(QWidget):
             # Data mode: allow user to toggle edges freely
             self.edge_checkbox.setEnabled(True)
             show_lines = self.edge_checkbox.isChecked()  # a variable to toggle the visibility of the edges
-            self.plotter.add_mesh(self.current_mesh, scalars=array_name, cmap="turbo", show_edges=show_lines,
-                                  edge_color="black", clim=[0.0, 1.0])  # ---> ADDED clim=[0.0, 1.0] <---
-            self.plotter.add_scalar_bar(title=array_name)
+            # show_scalar_bar=False: the bar is added below with the human
+            # label; add_mesh would otherwise add a second one named after
+            # the internal array key.
+            self.plotter.add_mesh(self.current_mesh, scalars=array_name, cmap="turbo",
+                                  show_edges=show_lines, edge_color="black",
+                                  clim=[0.0, 1.0], show_scalar_bar=False)
+            self.plotter.add_scalar_bar(title=self.scalar_selector.currentText())
 
         self._set_home_camera()
         self._render_cell_markers()

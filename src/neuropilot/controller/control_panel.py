@@ -1414,11 +1414,14 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
 
     def set_emg_channels(self, names):
         """Propagate the configured EMG channel display names to the MEP
-        plots (the data layer keeps its ADC keys)."""
+        plots and the mapping viewer (the data layer keeps its ADC keys)."""
         for attr in ("widget_mep_trend", "widget_emg_signal"):
             widget = getattr(self, attr, None)
             if widget is not None:
                 widget.set_channels(names)
+        widget = getattr(self, "widget_3d_viewer", None)
+        if widget is not None:
+            widget.set_channel_display_names(names)
 
     def paste_coil_path(self):
         file_path = self.coilspathlineedit.text().strip()
