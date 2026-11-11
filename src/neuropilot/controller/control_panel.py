@@ -443,6 +443,20 @@ class MainWindow(QtWidgets.QMainWindow):
                            hint.width(), max(hint.height(), bar.height()))
         corner.raise_()
 
+    def _sync_project_gap(self):
+        """Keep the gap above the results row at about one input row."""
+        grid = self.groupBox_files.layout()
+        if grid is None:
+            return
+        item = grid.itemAtPosition(7, 0)
+        if item is None or item.spacerItem() is None:
+            return
+        row_h = self.loadmeshlabel.height() or self.loadmeshlabel.sizeHint().height()
+        item.spacerItem().changeSize(
+            10, max(10, row_h),
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        grid.invalidate()
+
     def _install_ui_assets(self):
         icons = _control_ui_icons()
         extra = """
@@ -826,6 +840,7 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
                 lay.activate()
         self.centralwidget.updateGeometry()
         self._place_tab_corner()
+        self._sync_project_gap()
 
     def on_efield_mode_changed(self):
         if not (self.online_efield_btn.isChecked() or self.offline_efield_btn.isChecked()):
