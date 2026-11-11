@@ -1082,6 +1082,9 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
         group = getattr(self, "groupBox_3", None)
         if group is not None:
             group.setTitle("Robot — not used (manual)")
+        info = getattr(self, "groupBox_robot_info", None)
+        if info is not None:
+            info.setTitle("No robot connection")
 
     def initialize(self, all_error_recoveries):
         self.all_error_recoveries = all_error_recoveries
