@@ -1,4 +1,5 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QLabel, QFrame,QPushButton
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
+                             QCheckBox, QLabel, QFrame, QPushButton)
 from PyQt5.QtCore import Qt, pyqtSignal
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -308,12 +309,14 @@ class EmgNavGraphWidget(MplGraphWidget):
             }
         """)
 
-        # Horizontal layout for the bottom bar
-        self.nav_layout = QHBoxLayout(self.bottom_bar)
+        # Grid overlay: the buttons are centred on the whole bar while the
+        # checkbox sits at the far left (a plain row would shift the pair
+        # right by half the checkbox width).
+        self.nav_layout = QGridLayout(self.bottom_bar)
         self.nav_layout.setContentsMargins(12, 8, 12, 8)
 
         # Add elements to the bottom bar
-        self.chk_include = QCheckBox("Include in Mapping")
+        self.chk_include = QCheckBox("Include MEP in Mapping")
         self.chk_include.setChecked(True)
 
         self.btn_prev = QPushButton("< Previous EMG")
@@ -322,12 +325,13 @@ class EmgNavGraphWidget(MplGraphWidget):
         # Elastic layout: stretches absorb the extra room so the buttons
         # always get their size hint (fixed spacings squeezed them below
         # the hint and clipped the text at scaled font sizes).
-        self.nav_layout.addWidget(self.chk_include)
-        self.nav_layout.addStretch()
-        self.nav_layout.addWidget(self.btn_prev)
-        self.nav_layout.addSpacing(40)
-        self.nav_layout.addWidget(self.btn_next)
-        self.nav_layout.addStretch()
+        self.nav_layout.addWidget(self.chk_include, 0, 0,
+                                  Qt.AlignLeft | Qt.AlignVCenter)
+        button_row = QHBoxLayout()
+        button_row.setSpacing(16)
+        button_row.addWidget(self.btn_prev)
+        button_row.addWidget(self.btn_next)
+        self.nav_layout.addLayout(button_row, 0, 0, Qt.AlignCenter)
 
         # 2. Re-arrange the main layout
         # Currently, self.layout is a QHBoxLayout [Sidebar | Canvas]
@@ -368,7 +372,7 @@ class EmgNavGraphWidget1(MplGraphWidget):
         self.nav_layout = QVBoxLayout(self.nav_frame)
         self.nav_layout.setContentsMargins(0, 5, 0, 5)
 
-        self.chk_include = QCheckBox("Include in Mapping")
+        self.chk_include = QCheckBox("Include MEP in Mapping")
         self.chk_include.setChecked(True)
         self.chk_include.setCursor(Qt.PointingHandCursor)
 

@@ -1,4 +1,4 @@
-from PyQt5 import QtCore, QtWidgets, uic
+from PyQt5 import QtCore, QtGui, QtWidgets, uic
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 import re
@@ -35,6 +35,39 @@ def _simnibs_coil_model(sub_dir: str, file_name: str):
     fn = os.path.join(os.path.dirname(spec.origin), "resources", "coil_models",
                       sub_dir, file_name)
     return fn if os.path.isfile(fn) else None
+
+
+def _control_ui_icons():
+    """Write the small PNG assets the style sheet needs (a check tick and the
+    spin-box chevrons) and return their paths. Qt style sheets cannot draw
+    these glyphs, and shipping binary resources for two 14 px icons is
+    overkill — they are rendered once into the user's temp folder."""
+    import tempfile
+    folder = os.path.join(tempfile.gettempdir(), "neuropilot_ui")
+    os.makedirs(folder, exist_ok=True)
+
+    def _stroke(path, size, points, color, width=2):
+        pm = QPixmap(*size)
+        pm.fill(QtCore.Qt.transparent)
+        painter = QtGui.QPainter(pm)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+        pen = QtGui.QPen(QtGui.QColor(color), width)
+        pen.setCapStyle(QtCore.Qt.RoundCap)
+        pen.setJoinStyle(QtCore.Qt.RoundJoin)
+        painter.setPen(pen)
+        painter.drawPolyline(QtGui.QPolygonF([QtCore.QPointF(x, y) for x, y in points]))
+        painter.end()
+        pm.save(path, "PNG")
+        return path
+
+    return {
+        "check": _stroke(os.path.join(folder, "check.png"), (14, 14),
+                         [(3.5, 7.5), (6.0, 10.0), (10.5, 4.0)], "#FFFFFF", 2.2),
+        "up": _stroke(os.path.join(folder, "up.png"), (8, 5),
+                      [(1.0, 4.0), (4.0, 1.0), (7.0, 4.0)], "#B45309", 1.6),
+        "down": _stroke(os.path.join(folder, "down.png"), (8, 5),
+                        [(1.0, 1.0), (4.0, 4.0), (7.0, 1.0)], "#B45309", 1.6),
+    }
 
 
 def _session_cache_path():
@@ -231,6 +264,10 @@ class MainWindow(QtWidgets.QMainWindow):
             corner_layout.addLayout(pair)
         self.tabWidget.setCornerWidget(corner, QtCore.Qt.TopRightCorner)
 
+        # Check tick + spin-box chevrons come from generated PNGs; the rules
+        # are appended here so they take part in the normal px scaling.
+        self._install_ui_assets()
+
         # Default coil model: the MCF-B65 CCD shipped with SimNIBS (the same
         # model the precomputed E-field library was computed with). Goes
         # through paste_coil_path so validation and the FEM manager update
@@ -361,6 +398,23 @@ class MainWindow(QtWidgets.QMainWindow):
         finally:
             self._project_loading = False
         self._pending_session = None
+
+    def _install_ui_assets(self):
+        icons = _control_ui_icons()
+        extra = """
+QCheckBox::indicator:checked { image: url(%(check)s); }
+QSpinBox { padding-right: 20px; }
+QSpinBox::up-button { subcontrol-origin: border; subcontrol-position: top right;
+    width: 16px; border-left: 1px solid #E7EAEE; border-bottom: 1px solid #E7EAEE;
+    border-top-right-radius: 4px; background: #FAFBFC; }
+QSpinBox::down-button { subcontrol-origin: border; subcontrol-position: bottom right;
+    width: 16px; border-left: 1px solid #E7EAEE;
+    border-bottom-right-radius: 4px; background: #FAFBFC; }
+QSpinBox::up-button:hover, QSpinBox::down-button:hover { background: #FEF3E2; }
+QSpinBox::up-arrow { image: url(%(up)s); width: 8px; height: 5px; }
+QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
+""" % icons
+        self.setStyleSheet(self.styleSheet() + extra)
 
     # ── Project file summaries ─────────────────────────────────────────────
     def _update_file_infos(self):
