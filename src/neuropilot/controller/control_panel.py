@@ -276,6 +276,7 @@ class MainWindow(QtWidgets.QMainWindow):
         corner_layout = QtWidgets.QHBoxLayout(corner)
         corner_layout.setContentsMargins(0, 0, 12, 0)
         corner_layout.setSpacing(14)
+        self._corner_pairs = {}
         for attr, caption in (("led_stim", "Stimulator"),
                               ("led_emg", "EMG"),
                               ("led_robot", "Robot")):
@@ -290,6 +291,7 @@ class MainWindow(QtWidgets.QMainWindow):
             pair.addWidget(led)
             pair.addWidget(cap)
             corner_layout.addLayout(pair)
+            self._corner_pairs[attr] = (led, cap)
         self.tabWidget.setCornerWidget(corner, QtCore.Qt.TopRightCorner)
 
         # Check tick + spin-box chevrons come from generated PNGs; the rules
@@ -1077,14 +1079,42 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
             self.controller.set_fit_function(fit_func)
 
     def set_robot_manual(self):
-        """Manual mode: no robot system exists — mark the Connections page
-        robot group accordingly."""
-        group = getattr(self, "groupBox_3", None)
-        if group is not None:
-            group.setTitle("Robot — not used (manual)")
-        info = getattr(self, "groupBox_robot_info", None)
-        if info is not None:
-            info.setTitle("No robot connection")
+        """Manual mode: the operator moves the coil.  Remove every robot
+        control (transport button, robot card, camera view, LED) and give
+        the freed space on the Control page to the log."""
+        self._robot_view_disabled = True
+        for attr in ("groupBox_3", "groupBox_robot_info",   # Connections
+                     "move_coil_up", "groupBox_6",          # Control
+                     "robot_view_label"):
+            widget = getattr(self, attr, None)
+            if widget is not None:
+                widget.hide()
+        for widget in self._corner_pairs.get("led_robot", ()):
+            widget.hide()
+
+        # Reflow: move the log card from the bottom row into the camera's
+        # place so the body row is two full columns.
+        try:
+            root = self.tab3.layout()
+            body = bottom = None
+            body_index = bottom_index = -1
+            for i in range(root.count()):
+                lay = root.itemAt(i).layout()
+                if lay is None:
+                    continue
+                if lay.indexOf(self.robot_view_label) != -1:
+                    body, body_index = lay, i
+                if lay.indexOf(self.groupBox_stats) != -1:
+                    bottom, bottom_index = lay, i
+            if body is not None and bottom is not None:
+                bottom.removeWidget(self.groupBox_stats)
+                root.removeItem(root.itemAt(bottom_index))
+                body.insertWidget(1, self.groupBox_stats)
+                body.setStretch(0, 1)
+                body.setStretch(1, 1)
+                body.setStretch(2, 0)
+        except (AttributeError, RuntimeError) as e:
+            print(f"[WARN] manual layout reflow skipped: {e}")
 
     def initialize(self, all_error_recoveries):
         self.all_error_recoveries = all_error_recoveries
@@ -1167,6 +1197,8 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
         """Show one frame of the simulated robot's overview camera in the
         panel below the logger. Real-hardware mode never receives frames,
         so the panel stays clean there."""
+        if getattr(self, "_robot_view_disabled", False):
+            return
         label = self.robot_view_label
         now = time.monotonic()
         # Throttle the GUI updates (the stream is 10 Hz; painting every
