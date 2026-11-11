@@ -50,6 +50,7 @@ class RobotSceneView(QtCore.QObject):
         self._scene_mtime = 0.0
         self._last_check = 0.0
         self._pending_qpos = None
+        self._dirty = True
 
         self._azimuth = self.DEFAULT_AZIMUTH
         self._elevation = self.DEFAULT_ELEVATION
@@ -105,6 +106,7 @@ class RobotSceneView(QtCore.QObject):
                     pass
                 self._renderer = None
                 self._render_size = (0, 0)
+            self._dirty = True
             self._model = model
             self._data = mujoco.MjData(model)
             # Without a forward pass the body/geom poses in MjData are not
@@ -138,6 +140,7 @@ class RobotSceneView(QtCore.QObject):
         if not qpos:
             return
         self._pending_qpos = list(qpos)
+        self._dirty = True
         if self._data is not None:
             self._apply_qpos(self._pending_qpos)
 
@@ -163,7 +166,11 @@ class RobotSceneView(QtCore.QObject):
 
         width = max(32, self.label.width())
         height = max(24, self.label.height())
-        if self._renderer is None or self._render_size != (width, height):
+        resized = self._render_size != (width, height)
+        if not self._dirty and not resized and self._renderer is not None:
+            return
+        self._dirty = False
+        if self._renderer is None or resized:
             if self._renderer is not None:
                 try:
                     self._renderer.close()
@@ -207,6 +214,7 @@ class RobotSceneView(QtCore.QObject):
         if etype == QtCore.QEvent.MouseMove and self._drag_button is not None:
             delta = event.pos() - self._last_mouse
             self._last_mouse = event.pos()
+            self._dirty = True
             if self._drag_button == QtCore.Qt.LeftButton:
                 self._azimuth -= delta.x() * 0.4
                 self._elevation = max(-89.0, min(89.0,
@@ -221,10 +229,12 @@ class RobotSceneView(QtCore.QObject):
             steps = event.angleDelta().y() / 120.0
             self._distance = max(0.4, min(6.0,
                                           self._distance * (0.9 ** steps)))
+            self._dirty = True
             return True
         return False
 
     def reset_view(self):
+        self._dirty = True
         self._azimuth = self.DEFAULT_AZIMUTH
         self._elevation = self.DEFAULT_ELEVATION
         self._distance = self.DEFAULT_DISTANCE

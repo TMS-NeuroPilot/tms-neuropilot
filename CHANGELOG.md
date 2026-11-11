@@ -5,6 +5,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- The simulated robot no longer streams JPEG frames to the pipeline.  The
+  controller renders the same MuJoCo scene in the robot-view panel, so the
+  operator can orbit (drag), pan (right drag), zoom (wheel) and reset
+  (double click); the simulated robot publishes its full `qpos` with the
+  tracking state and the view only redraws when the pose or camera
+  changes.  Simulation only — real mode leaves the panel empty.
+
+## [Unreleased]
+
 ### Added
 
 - Mapping results page split into the 3D view and a results panel.  The
