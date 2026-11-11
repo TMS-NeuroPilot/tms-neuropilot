@@ -27,6 +27,7 @@ os.environ.setdefault("ROOT_FOLDER", "/tmp/opencode/neuropilot_tests")
 
 REPO_ENV = Path(__file__).resolve().parents[1] / ".env"
 USER_CACHE = Path.home() / ".neuropilot" / "last_session.yaml"
+USER_LAB = Path.home() / ".neuropilot" / "lab.yaml"
 
 
 def _stamp(path):
@@ -39,12 +40,12 @@ def _stamp(path):
 
 @pytest.fixture(autouse=True)
 def protect_user_files():
-    """Fail the test that rewrites the repository .env or the user's cache."""
-    before = (_stamp(REPO_ENV), _stamp(USER_CACHE))
+    """Fail the test that rewrites the user's configuration files."""
+    before = (_stamp(REPO_ENV), _stamp(USER_CACHE), _stamp(USER_LAB))
     yield
-    after = (_stamp(REPO_ENV), _stamp(USER_CACHE))
-    assert after == before, ("a test wrote the repository .env or "
-                             "~/.neuropilot/last_session.yaml")
+    after = (_stamp(REPO_ENV), _stamp(USER_CACHE), _stamp(USER_LAB))
+    assert after == before, ("a test wrote the repository .env or a file "
+                             "under ~/.neuropilot")
 
 
 # ── Qt ─────────────────────────────────────────────────────────────────
@@ -86,12 +87,14 @@ def window(qapp, gui_env, monkeypatch):
     """
     from neuropilot.controller import control_panel as cp
     from neuropilot.controller.config_store import ConfigStore
+    from neuropilot.lab_profile import LabProfile
 
     cache = gui_env / "last_session.yaml"
     monkeypatch.setattr(cp, "_session_cache_path", lambda: str(cache))
 
     win = cp.MainWindow(simulation=True)
     win._config_store = ConfigStore(gui_env / ".env")
+    win._lab_profile = LabProfile(gui_env / "lab.yaml")
     win.resize(1244, 960)
     qapp.processEvents()
     try:

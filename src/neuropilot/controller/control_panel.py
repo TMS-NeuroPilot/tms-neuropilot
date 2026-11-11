@@ -602,7 +602,11 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         from .config_store import ConfigStore
         from .. import config as suite_config
+        from ..lab_profile import LabProfile
+        # Hardware settings live in ~/.neuropilot/lab.yaml; .env stays the
+        # bootstrap/override layer (see docs/CONFIG.md).
         self._config_store = ConfigStore()
+        self._lab_profile = LabProfile()
         self._config_defaults = {
             "RELAY_HOST": suite_config.RELAY_HOST,
             "RELAY_PORT": str(suite_config.RELAY_PORT),
@@ -653,31 +657,91 @@ class MainWindow(QtWidgets.QMainWindow):
         self._apply_config_mode()
         self._refresh_subject_summary()
 
-    def on_config_reload(self):
-        """Fill the widgets from .env (falling back to the effective values)."""
-        values = self._config_store.read()
-        get = lambda key: values.get(key, self._config_defaults.get(key, ""))
+    def _lab_fields(self):
+        """(key, widget, kind) for every hardware setting on the Lab page."""
+        return (
+            ("RELAY_HOST", self.cfg_relay_host, "text"),
+            ("RELAY_PORT", self.cfg_relay_port, "int"),
+            ("ROOT_FOLDER", self.cfg_root_folder, "text"),
+            ("NEUROPILOT_UI_SCALE", self.cfg_ui_scale, "text"),
+            ("ROBOT", self.cfg_robot_type, "combo"),
+            ("TMS_ROBOT_CONTROL_PATH", self.cfg_tms_path, "text"),
+            ("STIMULATOR_PORT", self.cfg_stim_port, "text"),
+            ("STIMULATOR_TTL_PORT", self.cfg_stim_ttl, "text"),
+            ("EMG_COMPUTER_IP", self.cfg_emg_ip, "text"),
+            ("EMG_COMPUTER_USERNAME", self.cfg_emg_user, "text"),
+            ("EMG_COMPUTER_PASSWORD", self.cfg_emg_password, "text"),
+            ("ONLINE_FEM_SOLVER", self.cfg_fem_solver, "combo"),
+            ("ONLINE_FEM_ANISOTROPY", self.cfg_fem_anisotropy, "combo"),
+        )
 
-        self.cfg_relay_host.setText(get("RELAY_HOST"))
-        self._set_int(self.cfg_relay_port, get("RELAY_PORT"), 5000)
-        self.cfg_root_folder.setText(get("ROOT_FOLDER"))
-        self.cfg_ui_scale.setText(get("NEUROPILOT_UI_SCALE"))
-        self.cfg_robot_type.setCurrentText(get("ROBOT") or "omron")
-        self.cfg_tms_path.setText(get("TMS_ROBOT_CONTROL_PATH"))
-        self.cfg_stim_port.setText(get("STIMULATOR_PORT"))
-        self.cfg_stim_ttl.setText(get("STIMULATOR_TTL_PORT"))
-        self.cfg_emg_channels.setText(get("EMG_CHANNELS"))
-        self.cfg_emg_ip.setText(get("EMG_COMPUTER_IP"))
-        self.cfg_emg_user.setText(get("EMG_COMPUTER_USERNAME"))
-        self.cfg_emg_password.setText(get("EMG_COMPUTER_PASSWORD"))
-        self._set_int(self.cfg_sampling_rate, get("SAMPLING_RATE"), 4000)
-        self._set_int(self.cfg_cutoff, get("CUTOFF_FREQ"), 500)
-        self._set_int(self.cfg_pulse_time, get("TMS_PULSE_TIME"), 5)
-        self._set_int(self.cfg_mep_start, get("START_MEP"), 10)
-        self._set_int(self.cfg_mep_end, get("END_MEP"), 100)
-        self.cfg_fem_solver.setCurrentText(get("ONLINE_FEM_SOLVER") or "pardiso")
-        self.cfg_fem_anisotropy.setCurrentText(get("ONLINE_FEM_ANISOTROPY") or "scalar")
-        self._set_config_status(f"Loaded from {self._config_store.path}")
+    def lab_values(self):
+        """Current Lab-page values, as they would be written to lab.yaml."""
+        values = {}
+        for key, widget, kind in self._lab_fields():
+            if kind == "int":
+                values[key] = str(widget.value())
+            elif kind == "combo":
+                values[key] = widget.currentText().strip()
+            else:
+                values[key] = widget.text().strip()
+        # Empty text fields fall back to the defaults, so drop them instead of
+        # writing "KEY=" (which would defeat the fallback).
+        return {k: v for k, v in values.items()
+                if v != "" or k in ("NEUROPILOT_UI_SCALE",
+                                    "TMS_ROBOT_CONTROL_PATH")}
+
+    def on_config_reload(self):
+        """Fill the Lab page from lab.yaml, with .env overriding it.
+
+        The study/analysis values (MEP windows, rates, channel names) still
+        come from .env; they are the ones that need a restart.
+        """
+        lab = self._lab_profile.read()
+        env = self._config_store.read()
+        source = {}
+
+        def get(key):
+            if env.get(key) not in (None, ""):
+                source[key] = "env"
+                return env[key]
+            if lab.get(key) not in (None, ""):
+                source[key] = "lab"
+                return lab[key]
+            source[key] = "default"
+            return self._config_defaults.get(key, "")
+
+        for key, widget, kind in self._lab_fields():
+            value = get(key)
+            if kind == "int":
+                self._set_int(widget, value, int(self._config_defaults.get(key, 0) or 0))
+            elif kind == "combo":
+                widget.setCurrentText(str(value) or self._config_defaults.get(key, ""))
+            else:
+                widget.setText(str(value))
+            if source[key] == "env":
+                widget.setToolTip(".env overrides the lab profile for this key")
+            else:
+                widget.setToolTip("")
+
+        self.cfg_emg_channels.setText(
+            env.get("EMG_CHANNELS", self._config_defaults.get("EMG_CHANNELS", "")))
+        self._set_int(self.cfg_sampling_rate,
+                      env.get("SAMPLING_RATE", self._config_defaults["SAMPLING_RATE"]), 4000)
+        self._set_int(self.cfg_cutoff,
+                      env.get("CUTOFF_FREQ", self._config_defaults["CUTOFF_FREQ"]), 500)
+        self._set_int(self.cfg_pulse_time,
+                      env.get("TMS_PULSE_TIME", self._config_defaults["TMS_PULSE_TIME"]), 5)
+        self._set_int(self.cfg_mep_start,
+                      env.get("START_MEP", self._config_defaults["START_MEP"]), 10)
+        self._set_int(self.cfg_mep_end,
+                      env.get("END_MEP", self._config_defaults["END_MEP"]), 100)
+
+        overrides = [k for k, src in source.items() if src == "env"]
+        detail = (f" · {len(overrides)} key(s) overridden by .env"
+                  if overrides else "")
+        self._set_config_status(
+            f"Loaded {self._lab_profile.path.name} ({self._lab_profile.path}){detail}")
 
     @staticmethod
     def _set_int(widget, text, fallback):
@@ -700,38 +764,39 @@ class MainWindow(QtWidgets.QMainWindow):
             self.cfg_root_folder.setText(folder)
 
     def on_config_save(self):
-        values = {
-            "RELAY_HOST": self.cfg_relay_host.text().strip(),
-            "RELAY_PORT": str(self.cfg_relay_port.value()),
-            "ROOT_FOLDER": self.cfg_root_folder.text().strip(),
-            "NEUROPILOT_UI_SCALE": self.cfg_ui_scale.text().strip(),
-            "ROBOT": self.cfg_robot_type.currentText().strip(),
-            "TMS_ROBOT_CONTROL_PATH": self.cfg_tms_path.text().strip(),
-            "STIMULATOR_PORT": self.cfg_stim_port.text().strip(),
-            "STIMULATOR_TTL_PORT": self.cfg_stim_ttl.text().strip(),
+        """Write the hardware settings to lab.yaml and the rest to .env.
+
+        Splitting them keeps the lab profile portable between projects while
+        .env stays the bootstrap/override layer; a key kept in .env still
+        wins after the restart.
+        """
+        lab_values = self.lab_values()
+        env_values = {
             "EMG_CHANNELS": self.cfg_emg_channels.text().strip(),
-            "EMG_COMPUTER_IP": self.cfg_emg_ip.text().strip(),
-            "EMG_COMPUTER_USERNAME": self.cfg_emg_user.text().strip(),
-            "EMG_COMPUTER_PASSWORD": self.cfg_emg_password.text(),
             "SAMPLING_RATE": str(self.cfg_sampling_rate.value()),
             "CUTOFF_FREQ": str(self.cfg_cutoff.value()),
             "TMS_PULSE_TIME": str(self.cfg_pulse_time.value()),
             "START_MEP": str(self.cfg_mep_start.value()),
             "END_MEP": str(self.cfg_mep_end.value()),
-            "ONLINE_FEM_SOLVER": self.cfg_fem_solver.currentText().strip(),
-            "ONLINE_FEM_ANISOTROPY": self.cfg_fem_anisotropy.currentText().strip(),
         }
-        # Empty text fields fall back to the defaults, so drop them instead of
-        # writing "KEY=" (which would defeat the fallback).
-        values = {k: v for k, v in values.items()
-                  if v != "" or k in ("NEUROPILOT_UI_SCALE", "TMS_ROBOT_CONTROL_PATH")}
+        env_values = {k: v for k, v in env_values.items() if v != ""}
         try:
-            self._config_store.write(values)
+            self._lab_profile.write(lab_values)
         except OSError as e:
-            self._set_config_status(f"Could not write {self._config_store.path}: {e}")
+            self._set_config_status(
+                f"Could not write {self._lab_profile.path}: {e}")
             return
+        try:
+            self._config_store.write(env_values)
+        except OSError as e:
+            self._set_config_status(
+                f"Saved lab profile · could not write {self._config_store.path}: {e}")
+            return
+        overrides = sorted(set(lab_values) & set(self._config_store.read()))
+        detail = (f" · {len(overrides)} key(s) pinned by .env" if overrides else "")
         self._set_config_status(
-            f"Saved to {self._config_store.path.name} — restart NeuroPilot to apply.")
+            f"Saved {self._lab_profile.path.name}{detail}"
+            " — restart NeuroPilot to apply.")
 
     # ── Config › Study ─────────────────────────────────────────────────
     def _study_dict(self):

@@ -5,6 +5,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- The hardware settings moved out of `.env` into a **lab profile**
+  (`~/.neuropilot/lab.yaml`, or `NEUROPILOT_LAB_FILE`): relay endpoint,
+  data folder, UI scale, robot model, stimulator ports, EMG computer
+  address/credentials, online-solver settings and the
+  `tms-robot-control` checkout.  `neuropilot.config` applies it as the
+  layer *below* `.env` (`shell > .env > lab.yaml > defaults`), so an
+  existing `.env` keeps winning and nothing changes for current setups.
+  Config › Lab now saves to `lab.yaml` ("Save lab profile"), marks the
+  fields a `.env` entry pins, and reports how many keys are overridden.
+  The restart-only analysis keys (MEP windows, sampling rate, channel
+  names) still go to `.env`.
+## [Unreleased]
+
 ### Added
 
 - GUI and robustness test suite: `tests/` now has ~490 tests, including

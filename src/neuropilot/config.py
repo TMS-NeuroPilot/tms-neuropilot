@@ -14,12 +14,19 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from .lab_profile import apply_environment
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # Load the suite-wide .env before any component reads os.environ.
 # load_dotenv does not override variables already set in the environment, so
 # explicit exports win over .env values.
 load_dotenv(REPO_ROOT / ".env")
+
+# Config > Lab edits ~/.neuropilot/lab.yaml.  It is the layer *below* .env:
+# only keys the shell and .env left unset are exported here, so .env remains
+# the override layer and existing installations behave exactly as before.
+LAB_PROFILE_KEYS = apply_environment()
 
 
 def _env(key: str, default: str) -> str:

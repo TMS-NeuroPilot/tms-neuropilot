@@ -74,34 +74,50 @@ minute); until it is ready the coil stays on target and the pulse is held,
 and switching back to precomputed releases it immediately.  The exported
 placements CSV records which source each pulse used (`e_field_mode`).
 
-## Proposed model
+## Implemented model
 
-1. **`.env` stays the bootstrap file.** Only what must exist before the
-   GUI starts (data folder, relay, UI scale, GLFW, health-check flag).
-   Everything else moves out so `.env` stops being a junk drawer.
-2. **Lab profile** — hardware settings (`~/.neuropilot/lab.yaml`), edited
-   in Config › Lab, with the .env keys still honoured as overrides so
-   existing installations keep working.
-3. **Study profile** — protocol settings (`<project>/study.yaml` or any
-   path): mapping parameters, MEP windows, stimulation defaults, EMG
-   channel names, default E-field mode. Saved/loaded from Config › Study
-   and applied to the live controls with one button.
+Precedence, highest first:
+
+```
+shell environment  >  .env (suite root)  >  ~/.neuropilot/lab.yaml  >  built-in defaults
+```
+
+1. **`.env` stays the bootstrap/override file.** It still holds what must
+   exist before the GUI starts (data folder, relay, UI scale, GLFW,
+   readiness timeout, health-check flag) and it can pin *any* lab value —
+   a key kept in `.env` wins over the lab profile, so existing
+   installations behave exactly as before.
+2. **Lab profile** — hardware settings in `~/.neuropilot/lab.yaml`
+   (`NEUROPILOT_LAB_FILE` moves it), edited in Config › Lab:
+   relay host/port, data folder, UI scale, robot model, stimulator
+   serial/TTL ports, EMG computer address + SMB credentials, online
+   solver and anisotropy, `tms-robot-control` checkout.
+   `neuropilot.config` exports it as the layer *under* `.env`
+   (`os.environ.setdefault` semantics), so every component and child
+   process sees one merged value.  Fields that `.env` pins are marked in
+   the GUI (tooltip + "N key(s) overridden by .env" in the status line).
+3. **Study profile** — protocol settings (`<data folder>/study.yaml` or
+   any path): mapping parameters, MEP windows, stimulation defaults, EMG
+   channel names, default E-field mode.  Saved/loaded from Config › Study
+   and applied to the live controls with one button; the MEP windows and
+   channel names still need a restart because they are read at import.
+   The EMG channel names and MEP windows therefore stay in `.env` (they
+   are the "restart applies" half of the Study page).
 4. **Subject/project file** — unchanged (`*.yaml` next to the project),
    edited on the Project page; Config › Subject shows a summary and the
    save/load shortcuts so all three scopes are visible in one place.
+   The chosen E-field mode travels with the project file
+   (`efield_mode: Online|Precomputed`).
 
 Rule of thumb: *would another lab need a different value?* → Lab.
 *Would another study?* → Study. *Would another subject?* → Project.
 
-## Status in this build
+### Status in this build
 
-- Config › Lab: implemented, writes `.env` (comments and unknown keys are
-  preserved; restart applies).
-- Config › Study: implemented as a YAML profile (default
-  `ROOT_FOLDER/study.yaml`) with *Apply to session* pushing the values
-  into the live controls; the MEP windows still need a restart.
-- Config › Subject: read-only summary of the project values plus
-  save/load/jump-to-Project shortcuts.
-- Moving the remaining `.env` entries into `lab.yaml` is the next step —
-  deferred because every component reads `os.environ` today; the lab page
-  already presents them as one group.
+- Config › Lab: implemented; *Save lab profile* writes `lab.yaml` and the
+  restart-needed analysis keys to `.env` (comments and unknown keys are
+  preserved), *Reload* merges lab profile + `.env` and marks overrides.
+- Config › Study: implemented as a YAML profile with *Apply to session*;
+  the MEP windows still need a restart.
+- Config › Subject: read-only summary plus save/load/jump-to-Project.
+- The E-field mode is persisted in the project file.
