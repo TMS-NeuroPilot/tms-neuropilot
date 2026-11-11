@@ -516,6 +516,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def _setup_mapping_panel(self):
         table = getattr(self, "results_table", None)
         if table is not None:
+            table.cellClicked.connect(self.on_results_row_clicked)
             table.verticalHeader().setVisible(False)
             header = table.horizontalHeader()
             header.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
@@ -545,6 +546,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 continue
             if isinstance(widget, QtWidgets.QComboBox):
                 widget.currentIndexChanged.connect(slot)
+            elif isinstance(widget, QtWidgets.QCheckBox):
+                widget.toggled.connect(slot)
             else:
                 widget.clicked.connect(slot)
 
@@ -634,6 +637,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if table is None:
             return
         keys = self._channel_keys()
+        self._table_keys = keys
         table.setRowCount(len(keys))
         for row, key in enumerate(keys):
             scores = self._mapping_scores.get(key)
@@ -662,12 +666,22 @@ class MainWindow(QtWidgets.QMainWindow):
                     f"{prefix}best {self._display_name(best_key)} "
                     f"R² {float(np.max(scores)):.3f} "
                     f"(element {int(np.argmax(scores))})")
-        table.setMinimumHeight(min(260, 42 + 26 * max(1, len(keys))))
+        # Size the table to its rows (the design height does not scale with
+        # the fonts, so a fixed height would scroll with only three rows).
+        table.resizeRowsToContents()
+        header_h = table.horizontalHeader().height()
+        rows_h = sum(table.rowHeight(r) for r in range(len(keys))) if keys else 0
+        table.setFixedHeight(min(340, header_h + rows_h
+                                 + 2 * table.frameWidth() + 8))
 
     def _set_selection_info(self, text):
         box = getattr(self, "selection_info", None)
         if box is not None:
             box.setPlainText(text)
+
+    @staticmethod
+    def _kv(label, value, width=10):
+        return f"{label:<{width}}{value}"
 
     def _format_scores(self, scores):
         lines = []
@@ -675,7 +689,7 @@ class MainWindow(QtWidgets.QMainWindow):
             value = (scores or {}).get(key)
             if value is None:
                 continue
-            lines.append(f"  {self._display_name(key):<6} R² {value:.3f}")
+            lines.append(self._kv(self._display_name(key), f"R²   {value:.3f}", width=8))
         return lines
 
     def on_element_picked(self, info):
@@ -684,11 +698,12 @@ class MainWindow(QtWidgets.QMainWindow):
         elif self._selection_pinned:
             return
         x, y, z = info.get("xyz", (0.0, 0.0, 0.0))
-        lines = [f"ELEMENT {info.get('element')}",
-                 f"  xyz  ({x:.1f}, {y:.1f}, {z:.1f}) mm"]
-        lines += self._format_scores(info.get("scores")) or ["  no R² yet"]
+        head = f"ELEMENT {info.get('element')}"
         if self._selection_pinned:
-            lines.insert(0, "● pinned")
+            head += "   ·   pinned"
+        lines = [head,
+                 self._kv("xyz", f"{x:7.1f}, {y:7.1f}, {z:7.1f}  mm", width=8)]
+        lines += self._format_scores(info.get("scores")) or [self._kv("R²", "not computed yet")]
         self._set_selection_info("\n".join(lines))
 
     def on_placement_picked(self, info):
@@ -698,22 +713,31 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         rec = info.get("record") or {}
         pos = rec.get("position") or (0.0, 0.0, 0.0)
-        lines = [f"TRIAL {rec.get('trial')}  ·  pulse {rec.get('pulse_index')}",
-                 f"  xyz  ({pos[0]:.1f}, {pos[1]:.1f}, {pos[2]:.1f}) mm",
-                 f"  aim error  {rec.get('aim_error_mm', 0.0):.1f} mm",
-                 f"  intensity  {rec.get('intensity', 0)} %MSO"]
+        head = f"TRIAL {rec.get('trial')}  ·  pulse {rec.get('pulse_index')}"
+        if self._selection_pinned:
+            head += "   ·   pinned"
+        lines = [head,
+                 self._kv("xyz", f"{pos[0]:7.1f}, {pos[1]:7.1f}, {pos[2]:7.1f}  mm"),
+                 self._kv("aim error", f"{rec.get('aim_error_mm', 0.0):6.1f}  mm"),
+                 self._kv("intensity", f"{rec.get('intensity', 0):6.0f}  %MSO")]
         for key, value in (rec.get("mep") or {}).items():
             if value is not None:
-                lines.append(f"  MEP {self._display_name(key):<6} {value:.2f} mV")
-        if self._selection_pinned:
-            lines.insert(0, "● pinned")
+                lines.append(self._kv(f"MEP {self._display_name(key)}", f"{value:6.2f}  mV"))
         self._set_selection_info("\n".join(lines))
 
     def on_mark_best(self, *_):
+        self._mark_best_for(self._selected_score_key())
+
+    def on_results_row_clicked(self, row, column):
+        """Clicking a row marks that channel's best element."""
+        keys = getattr(self, "_table_keys", [])
+        if 0 <= row < len(keys):
+            self._mark_best_for(keys[row])
+
+    def _mark_best_for(self, key):
         view = getattr(self, "widget_3d_viewer", None)
         if view is None:
             return
-        key = self._selected_score_key()
         element = view.mark_best_element(key)
         if element is None:
             self._set_selection_info("No R² map yet — collect at least three pulses.")
@@ -724,11 +748,12 @@ class MainWindow(QtWidgets.QMainWindow):
         centre = None
         if mesh is not None and element < mesh.n_cells:
             centre = mesh.cell_centers().points[element]
-        lines = [f"BEST R² — {self._display_name(key)}",
-                 f"  element {element}",
-                 f"  R² {best:.3f}"]
+        lines = [f"BEST R²   ·   {self._display_name(key)}   ·   pinned",
+                 self._kv("element", str(element), width=8),
+                 self._kv("R²", f"{best:.3f}", width=8)]
         if centre is not None:
-            lines.append(f"  xyz  ({centre[0]:.1f}, {centre[1]:.1f}, {centre[2]:.1f}) mm")
+            lines.append(self._kv("xyz", f"{centre[0]:7.1f}, {centre[1]:7.1f}, "
+                                         f"{centre[2]:7.1f}  mm", width=8))
         self._selection_pinned = True
         self._set_selection_info("\n".join(lines))
 

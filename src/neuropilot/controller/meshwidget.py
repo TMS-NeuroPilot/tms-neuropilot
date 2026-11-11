@@ -164,6 +164,7 @@ class MeshWidget(QWidget):
         self.mesh_roi = None
         self._cell_markers_info = []  # list of (cell_idx, color, label) tuples
         self._camera_mesh = None      # mesh the home camera was set for
+        self._bar_title = ""
         # Data-layer channel key ('ADC 0') -> display name from EMG_CHANNELS.
         self.channel_display_names = {}
 
@@ -379,7 +380,7 @@ class MeshWidget(QWidget):
     def _refresh_overlays(self):
         """Redraw placement spheres/handles/path and the best-element mark."""
         for name in ("placements", "coil_handles", "placement_path",
-                     "best_element", "best_element_pt"):
+                     "best_element", "best_element_pt", "bar_title"):
             self.plotter.remove_actor(name)
 
         on_head = self.current_mesh is self.mesh_head
@@ -387,6 +388,7 @@ class MeshWidget(QWidget):
             self._draw_placements()
         if self.current_mesh is self.mesh_roi and self._best_element is not None:
             self._draw_best_element()
+        self._add_bar_title()
         self._update_overlay_labels()
         self.plotter.render()
 
@@ -419,9 +421,7 @@ class MeshWidget(QWidget):
         self.plotter.add_points(points, scalars=values, cmap="turbo", clim=clim,
                                 render_points_as_spheres=True, point_size=22,
                                 name="placements", show_scalar_bar=False)
-        self.plotter.add_scalar_bar(title="", n_labels=4, vertical=False,
-                                    height=0.12, width=0.5,
-                                    position_x=0.25, position_y=0.02)
+        self._add_scalar_bar(title)
 
         if self._show_coil_handles:
             segments = [self._coil_handle_segment(rec) for rec in self.placements
@@ -434,28 +434,70 @@ class MeshWidget(QWidget):
                     vertices.extend([start, end])
                     lines.extend([2, 2 * k, 2 * k + 1])
                 poly = pv.PolyData(_np.asarray(vertices), lines=_np.asarray(lines))
-                # Thin sticks read as coil orientation without the bulk of
-                # 500 cylinders (which merge into a grey slab).
-                self.plotter.add_mesh(poly, color="#7C8794", line_width=3,
-                                      opacity=0.85, name="coil_handles")
+                # Sticks along the coil axis; light grey was invisible on the
+                # light scalp, so use a dark slate and a wider line.
+                self.plotter.add_mesh(poly, color="#3C4A56", line_width=5,
+                                      opacity=0.9, name="coil_handles")
 
         if self._show_path and len(points) > 1:
-            self.plotter.add_mesh(pv.lines_from_points(points), color="#D97706",
-                                  line_width=3, name="placement_path")
+            path = pv.lines_from_points(points)
+            # Colour the path by acquisition order so the sequence stays
+            # readable even when the coil jumps between targets.
+            trials = np.array([float(rec.get("trial", i))
+                               for i, rec in enumerate(self.placements)
+                               if rec.get("position")])
+            if trials.size == path.n_points:
+                path["trial"] = trials
+                self.plotter.add_mesh(path, scalars="trial", cmap="turbo",
+                                      line_width=4, name="placement_path",
+                                      show_scalar_bar=False)
+            else:
+                self.plotter.add_mesh(path, color="#D97706", line_width=4,
+                                      name="placement_path")
 
-    @staticmethod
-    def _coil_handle_segment(record):
+    def _coil_handle_segment(self, record):
         """(start, end) of a short stick along the coil axis, oriented by the
-        recorded rotation (SimNIBS xyz Euler angles)."""
+        recorded rotation (SimNIBS xyz Euler angles) and always pointing away
+        from the scalp - the coil's local z can face either way."""
         import numpy as np
         from scipy.spatial.transform import Rotation
         try:
             pos = np.asarray(record["position"], dtype=float)
             rot = record.get("rotation") or [0.0, 0.0, 0.0]
             normal = Rotation.from_euler("xyz", rot, degrees=True).apply([0.0, 0.0, 1.0])
+            if self.mesh_head is not None:
+                outward = pos - np.asarray(self.mesh_head.center)
+                if float(np.dot(normal, outward)) < 0.0:
+                    normal = -normal
             return pos + normal * 4.0, pos + normal * 26.0
         except Exception:
             return None
+
+    def _add_scalar_bar(self, title):
+        """Value bar with its title drawn as separate text above it.
+
+        VTK puts the built-in title straight over the middle tick label at
+        these sizes; a text actor gives as much separation as we want (and
+        it is included in screenshots)."""
+        self._bar_title = title or ""
+        # Leave the bar's label font at pyvista's default; only the title is
+        # ours (drawn above the bar so it never sits on the tick labels).
+        self.plotter.add_scalar_bar(title="", n_labels=4, vertical=False,
+                                    height=0.12, width=0.5,
+                                    position_x=0.25, position_y=0.02)
+        self._add_bar_title()
+
+    def _add_bar_title(self):
+        """(Re-)add the bar's title text - plotter.clear() and the overlay
+        refresh both drop it."""
+        if not getattr(self, "_bar_title", ""):
+            return
+        font = max(10, int(self.height() * 0.016))
+        # viewport=True: the tuple is in viewport fractions, otherwise
+        # pyvista reads it as pixels and the text lands in the corner.
+        self.plotter.add_text(self._bar_title, position=(0.25, 0.175),
+                              viewport=True, font_size=font,
+                              color="#3C444D", name="bar_title")
 
     def _draw_best_element(self):
         import numpy as np
@@ -778,6 +820,16 @@ class MeshWidget(QWidget):
                 else:
                     print(f"[WARNING] Data length ({n_data}) matches neither Points nor Cells.")
 
+            # The SimNIBS head surface has >1M triangles; that is fine for
+            # data but too heavy to rotate interactively.  A 90 % decimation
+            # is invisible at display zoom and keeps the GPU idle.
+            if mesh_type == "head" and loaded_mesh.n_cells > 200000:
+                try:
+                    loaded_mesh = loaded_mesh.decimate(0.9)
+                    print(f"Head mesh decimated for display: {loaded_mesh.n_cells} triangles")
+                except Exception as e:
+                    print(f"[WARN] head decimation skipped: {e}")
+
             # Assign to the corresponding mesh property
             if mesh_type == "head":
                 self.mesh_head = loaded_mesh
@@ -895,6 +947,7 @@ class MeshWidget(QWidget):
         #self.plotter.add_axes()
 
         if array_name is None:
+            self._bar_title = ""
             # Plain colour: the edge toggle stays available but is not forced
             # on (1.1M head triangles would render as a black mass).
             self.edge_checkbox.setEnabled(True)
@@ -912,11 +965,7 @@ class MeshWidget(QWidget):
                                   show_edges=show_lines, edge_color="black",
                                   clim=[0.0, 1.0], show_scalar_bar=False,
                                   name="main_mesh")
-            # No title on the bar: VTK draws it over the middle tick label,
-            # and the corner overlay already names the map.
-            self.plotter.add_scalar_bar(title="", n_labels=4, vertical=False,
-                                        height=0.12, width=0.5,
-                                        position_x=0.25, position_y=0.02)
+            self._add_scalar_bar(self.scalar_selector.currentText())
 
         # Only re-home the camera when the *mesh* changed: a colour switch or
         # a fresh R² map must not rotate the view under the user.
