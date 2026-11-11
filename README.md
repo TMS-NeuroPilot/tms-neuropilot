@@ -45,6 +45,20 @@ Copy `.env.example` to `.env`. Cross-component settings (relay endpoint,
 data folder, readiness timeout, real-relay path) live in one place;
 component-internal constants live in each component's `config.py`.
 
+## Tests
+
+```bash
+pytest                      # runs tests/ (pytest is in the `pipeline` env)
+pytest tests/test_efield_modes.py -v
+```
+
+The suite covers the parts that do not need hardware: the fit-function
+registry, the `.env` editor, the online solver lifecycle, the per-pulse
+E-field rows that let the E-field mode switch mid-run, the analysis
+assembly, the virtual EMG channels, robot health parsing, the GUI's mode
+and button gating, and the placements CSV export.  `tests/conftest.py` adds
+`src/` to the path, so no install step is needed beyond the environment.
+
 ## License
 
 NeuroPilot is licensed under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0

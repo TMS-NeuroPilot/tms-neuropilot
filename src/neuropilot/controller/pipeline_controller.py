@@ -17,6 +17,37 @@ from .transformations import compose_matrix
 # neuropilot.sim_robot.config.TOPIC_SET_HEAD_MESH).
 TOPIC_SET_HEAD_MESH = "Pipeline to Robot: Set head mesh"
 
+def precomputed_e_field_row(e_matrix, target_index, amplitude):
+    """E-field row of the precomputed matrix, scaled to the stimulator output.
+
+    ``e_matrix`` is the precomputed (n_targets, n_elements) matrix in V/m at
+    100 % output; ``amplitude`` is the applied stimulator amplitude in percent.
+    Returns None when no precomputed matrix or no target index is available.
+    """
+    if e_matrix is None or target_index is None:
+        return None
+    try:
+        row = np.asarray(e_matrix[target_index], dtype=float)
+    except (IndexError, TypeError, KeyError):
+        return None
+    return row * (float(amplitude) * 1.4)
+
+
+def assemble_analysis_matrix(pulse_e_fields, valid_indices):
+    """Regression matrix built from the per-pulse E-field rows.
+
+    A pulse whose E-field is missing (None) is dropped, and the returned
+    indices follow it, so the MEP history stays aligned with the matrix rows.
+    ``pulse_e_fields`` is indexed by pulse number, exactly like the MEP
+    history. Returns ``(kept_indices, matrix)`` with ``matrix is None`` when
+    no pulse carries an E-field.
+    """
+    keep = [int(i) for i in valid_indices
+            if 0 <= int(i) < len(pulse_e_fields) and pulse_e_fields[int(i)] is not None]
+    if not keep:
+        return np.empty(0, dtype=int), None
+    return np.asarray(keep, dtype=int), np.vstack([pulse_e_fields[i] for i in keep])
+
 matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
 from enum import Enum, auto
@@ -162,6 +193,12 @@ class PipelineController:
         # Data Storage for Analysis
         self.used_coil_placements_idx = []  # Stores the integer index (e.g., [0, 1, 5...])
         self.excluded_pulse_indices = set()
+        # One E-field row per pulse, in the same order as used_coil_placements_idx.
+        # The row comes from whichever source was active at stimulation time, so
+        # the E-field mode can be switched between pulses without misaligning
+        # the regression matrix. None marks a pulse whose field is missing.
+        self.pulse_e_fields = []
+        self.pulse_modes = []  # "online" / "precomputed", for diagnostics and exports
         self.mep_history = {}  # Stores MEPs: {'ADC 0': [0.1, 0.5...], ...}  # {'ADC 0': [], 'ADC 1': []}
         self.emg_preac_amp_history = {}  # Stores MEPs: {'ADC 0': [0.1, 0.5...], ...}  # {'ADC 0': [], 'ADC 1': []}
         self.emg_preac_var_history = {}  # Stores MEPs: {'ADC 0': [0.1, 0.5...], ...}  # {'ADC 0': [], 'ADC 1': []}
@@ -219,6 +256,7 @@ class PipelineController:
 
         self.final_scores = {}
         self.stim_armed = False
+        self._online_hold_logged = False
 
         # Mapping settings
         from .fit_functions import DEFAULT_FIT_NAME, resolve as resolve_fit
@@ -576,7 +614,8 @@ class PipelineController:
         self.start_of_experiment = datetime.now()
         self.datetime_str = f"{self.start_of_experiment.strftime('%Y%m%d_%H%M%S')}"
 
-        while self.online_fem_mgr.is_online and not self.online_fem_mgr.is_ready:
+        while (self.online_fem_mgr.is_online and not self.online_fem_mgr.is_ready
+               and self.online_fem_mgr.initializing):
             await asyncio.sleep(0.1)
 
         # for target_id, target in enumerate(target_queue):
@@ -728,6 +767,10 @@ class PipelineController:
                 "intensity": rt['intensity'][i],
                 "pressure": rt['pressure'][i],
                 "mep": mep,
+                # Which E-field source this pulse used (the mode can change
+                # between pulses; see set of pulse_modes).
+                "e_field_mode": (self.pulse_modes[i]
+                                 if i < len(self.pulse_modes) else None),
             })
         return records
 
@@ -973,6 +1016,23 @@ class PipelineController:
         return (datetime.now() - self.start_of_experiment).total_seconds()
 
     def fire_stim_step(self, target):
+        # A switch to the online solver may land mid-run.  Hold the pulse until
+        # the solver is ready instead of firing a pulse whose E-field cannot be
+        # computed; the coil simply stays on target meanwhile.  Switching back
+        # to precomputed releases the hold immediately.
+        if self.online_fem_mgr.is_online and not self.online_fem_mgr.is_ready:
+            if not self._online_hold_logged:
+                self._online_hold_logged = True
+                message = ("Holding stimulation: online E-field solver not ready yet "
+                           "(switch to precomputed to continue without it).")
+                print(message)
+                if self.control_panel is not None:
+                    self.control_panel.finishedsteps.appendPlainText(message)
+            return
+        if self._online_hold_logged:
+            self._online_hold_logged = False
+            print("Online solver ready, stimulation resumes.")
+
         if not self.stim_armed:
             self.stimulator.arm()
             self.stim_armed = True
@@ -1042,9 +1102,19 @@ class PipelineController:
             if self.online_fem_mgr.is_online:
                 self.online_fem_mgr.compute_e_field(marker, self.stimulator_amplitude_at_stim)
 
+            # E-field this pulse actually saw, from whichever source is active
+            # right now (the mode may change between pulses).
+            if self.online_fem_mgr.is_online:
+                e_row = self.online_fem_mgr.e_matrix[-1] if self.online_fem_mgr.e_matrix is not None else None
+                pulse_mode = "online"
+            else:
+                e_row = precomputed_e_field_row(self.e_matrix,
+                                                self.current_target_index,
+                                                self.stimulator_amplitude_at_stim)
+                pulse_mode = "precomputed"
 
-            if self.online_fem_mgr.is_online and self.online_fem_mgr.e_matrix is not None:
-                e_field_for_mep = self.online_fem_mgr.e_matrix[-1]  #last computed online efield
+            if self.online_fem_mgr.is_online and e_row is not None:
+                e_field_for_mep = e_row  # last computed online efield
                 # SMB reads are blocking network I/O; run them on a worker thread
                 emg_data = await asyncio.to_thread(self.emg_computer.get_latest_emg_df, None, e_field_for_mep)
             else:
@@ -1057,6 +1127,9 @@ class PipelineController:
             # if meps:
             # Store the index of the coil position used
             self.used_coil_placements_idx.append(self.current_target_index)
+            # ... and the E-field row of the same pulse (kept index-aligned)
+            self.pulse_e_fields.append(None if e_row is None else np.array(e_row, dtype=float, copy=True))
+            self.pulse_modes.append(pulse_mode)
 
             # Store MEPs
             for ch, val in meps.items():
@@ -1335,7 +1408,7 @@ class PipelineController:
 
     def run_analysis(self):
         print("--- Running Analysis ---")
-        if self.e_matrix is None:
+        if not self.online_fem_mgr.is_online and self.e_matrix is None and not self.pulse_e_fields:
             print("Skipping: No E-Matrix loaded yet.")
             return
 
@@ -1350,24 +1423,17 @@ class PipelineController:
         print(f"valid_indices: {valid_indices}")
         print(f"self.realized_targets['intensity']: {self.realized_targets['intensity']}")
         print(f" self.used_coil_placements_idx: {self.used_coil_placements_idx}")
-        # 2. Extract valid spatial targets for the E-matrix
-        # actual_targets = [self.used_coil_placements_idx[i] for i in valid_indices]
-        actual_targets = np.array(self.used_coil_placements_idx)[valid_indices]
+        # 2. Build the regression matrix from the per-pulse E-fields.  Pulses
+        # collected from the precomputed matrix and from the online solver are
+        # both in V/m for the applied amplitude, so they mix without a mode
+        # switch invalidating the run; pulses without a field are dropped.
+        valid_indices, e_matrix_subset = assemble_analysis_matrix(self.pulse_e_fields, valid_indices)
+        if e_matrix_subset is None or len(valid_indices) < 3:
+            print(f"Skipping analysis: {len(valid_indices)} pulse(s) with an E-field (need 3).")
+            return
         if self.online_fem_mgr.is_online:
-            e_matrix_subset = self.online_fem_mgr.e_matrix[valid_indices, :].copy()
-            diff = np.mean(np.abs(self.e_matrix[actual_targets[-1], :] * 75 * 1.4 - self.online_fem_mgr.e_matrix[valid_indices[-1], :]))
-            print(f"diff: {diff}")
-
-        #     e_matrix_subset = self.online_e_matrix[valid_indices,:].copy()
-        #     diff = np.mean(np.abs(self.e_matrix[actual_targets[-1], :] * 75 * 1.4 - self.online_e_matrix[valid_indices[-1],:]))
-        #     print(f"diff: {diff}")
-        else:
-            # offline e field
-            e_matrix_subset = self.e_matrix[actual_targets, :].copy()
-
-            # take realized stimulator intensity into account
-            e_matrix_subset *= (np.array(self.realized_targets['intensity'])[valid_indices] * 1.4)[:,np.newaxis] # (3,)
-
+            print(f"online pulses: {self.pulse_modes.count('online')} / "
+                  f"precomputed pulses: {self.pulse_modes.count('precomputed')}")
         # 3. Filter the MEP history to match
         filtered_mep_history = {
             ch: [mep_list[i] for i in valid_indices]

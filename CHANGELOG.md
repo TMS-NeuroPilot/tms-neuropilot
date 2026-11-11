@@ -5,6 +5,29 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- The E-field mode can now be switched in flight: precomputed and online
+  fields are recorded per pulse (`pulse_e_fields`), so a switch only
+  changes which source the following pulses use and never mixes up the
+  regression matrix or the MEP history.  Both radio buttons stay enabled
+  for the whole session; picking online starts the (idempotent) solver
+  load once, picking precomputed never waits for it, and a pulse is held
+  -- coil on target -- while a freshly started online solver is still
+  loading, so no pulse is ever stimulated without the field it belongs to.
+  The placements CSV gained an `e_field_mode` column.
+- A unit-test suite (`tests/`, 130 tests, `pytest`): fit-function registry,
+  `.env` editor, online solver lifecycle (single background load, retry
+  after failure), per-pulse E-field rows, `run_analysis` across mode
+  switches, virtual EMG channels, robot health parsing, GUI mode/button
+  gating and the placements export.
+
+### Fixed
+
+- Starting an experiment while the online solver had failed to load no
+  longer hangs the start-up wait; the run begins and the pulse hold
+  reports the problem.
+
 ### Changed
 
 - The Config tab is split into three scopes: **Lab (hardware)** — relay,

@@ -18,6 +18,7 @@ class OnlineFEMManager:
     def __init__(self):
         self.online_fem = None          # True/False/None — set by GUI radio buttons
         self.ready = False
+        self.initializing = False       # a background initialize() is in flight
         self.e_matrix = None            # accumulated online E-field matrix (n_pulses, n_elements)
 
         self.coil_fn = None
@@ -88,9 +89,27 @@ class OnlineFEMManager:
             except Exception as e:
                 print(f"OnlineFEM initialization failed: {e}")
                 self.ready = False
+            finally:
+                self.initializing = False
 
         self.ready = False
+        self.initializing = True
         threading.Thread(target=_worker, daemon=True).start()
+
+    def ensure_initialized(self, callback=None):
+        """Start initialization unless the solver is ready or already starting.
+
+        Switching the E-field mode back and forth must not spawn a second
+        background loader (the mesh read is expensive and not re-entrant).
+        """
+        if self.ready or self.initializing:
+            if self.ready and callback is not None:
+                callback()
+            return
+        if not (self.mesh_fn_msh and self.roi_fn_hdf5 and self.coil_fn):
+            print("OnlineFEM: paths incomplete, initialization not started.")
+            return
+        self.init_background(callback)
 
     # ── E-field computation ───────────────────────────────────────
 

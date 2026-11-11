@@ -23,12 +23,16 @@ dependencies = [
 # Install with:  pip install -e . --no-deps
 gui = ["PyQt5", "qasync"]
 sim = ["mujoco", "pybullet", "ikpy"]
+dev = ["pytest>=8"]
 
 [project.scripts]
 neuropilot = "neuropilot.cli:main"
 
 [project.urls]
 Homepage = "https://gitlab.gwdg.de/tms-localization/papers/neuropilot"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -65,6 +65,15 @@ function, subsampling). Config page: everything listed above.
 Values entered in the Control page are written into the project file on
 save; the E-field mode is not persisted.
 
+The E-field mode itself is switchable at any time, also while a mapping is
+running: every pulse records the E-field it was stimulated with (from the
+precomputed matrix or from the online solver), so a switch only affects the
+following pulses and the regression stays index-aligned with the MEP
+history.  Switching to online starts the solver load once (it takes about a
+minute); until it is ready the coil stays on target and the pulse is held,
+and switching back to precomputed releases it immediately.  The exported
+placements CSV records which source each pulse used (`e_field_mode`).
+
 ## Proposed model
 
 1. **`.env` stays the bootstrap file.** Only what must exist before the

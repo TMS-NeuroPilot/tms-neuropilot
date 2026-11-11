@@ -1212,7 +1212,8 @@ class MainWindow(QtWidgets.QMainWindow):
                   "x_realized", "y_realized", "z_realized",
                   "rota_realized", "rotb_realized", "rotc_realized",
                   "x_target", "y_target", "z_target",
-                  "aim_error_mm", "intensity_pctMSO", "pressure"]
+                  "aim_error_mm", "intensity_pctMSO", "pressure",
+                  "e_field_mode"]
         header += [f"mep_{self._display_name(k)}_mV" for k in keys]
         with open(path, "w", newline="") as f:
             writer = csv.writer(f)
@@ -1225,7 +1226,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 row += [f"{v:.2f}" for v in rot] if rot else ["", "", ""]
                 row += [f"{v:.3f}" for v in tpos] if tpos else ["", "", ""]
                 row += [f"{rec.get('aim_error_mm', 0.0):.2f}",
-                        rec.get("intensity", ""), rec.get("pressure", "")]
+                        rec.get("intensity", ""), rec.get("pressure", ""),
+                        rec.get("e_field_mode") or ""]
                 mep = rec.get("mep") or {}
                 row += ["" if mep.get(k) is None else f"{mep[k]:.4f}" for k in keys]
                 writer.writerow(row)
@@ -1630,35 +1632,41 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
         self._resize_results_panel(s)
 
     def on_efield_mode_changed(self):
+        """Switch between precomputed and online E-fields, also mid-run.
+
+        The pipeline records one E-field row per pulse, so a switch only
+        changes which source the *next* pulse uses; the analysis keeps the
+        pulses it already has.  Both radios stay enabled so the operator can
+        always switch back, and the online solver is initialised once instead
+        of once per toggle.
+        """
         if not (self.online_efield_btn.isChecked() or self.offline_efield_btn.isChecked()):
             return
+        online = self.online_efield_btn.isChecked()
         if self.controller:
-            self.controller.online_fem_mgr.online_fem = self.online_efield_btn.isChecked()
-            if self.controller.online_fem_mgr.is_online:
-                import threading
-                # self.controller.online_fem_mgr.ready = False #redundent
-                #threading.Thread(target=self.controller.online_fem_mgr.init_background, daemon=True).start()
-                self.controller.online_fem_mgr.init_background(callback=self.update_button_states)
-
-        #self.online_efield_btn.setEnabled(False)
-        #self.offline_efield_btn.setEnabled(False)
-        if self.online_efield_btn.isChecked():
-            self.offline_efield_btn.setEnabled(False)  # grey out the other
-        else:
-            self.online_efield_btn.setEnabled(False)  # grey out the other
+            self.controller.online_fem_mgr.online_fem = online
+            if online:
+                self.controller.online_fem_mgr.ensure_initialized(callback=self.update_button_states)
         self.efield_mode_selected = True
         self.update_button_states()
 
     def _check_paths_ready(self):
-        all_set = (
+        all_set = bool(
                 self.controller
                 and self.controller.online_fem_mgr.mesh_fn_msh
                 and self.controller.online_fem_mgr.roi_fn_hdf5
                 and self.controller.online_fem_mgr.coil_fn
         )
-        if not self.efield_mode_selected:
-            self.online_efield_btn.setEnabled(bool(all_set))
-            self.offline_efield_btn.setEnabled(bool(all_set))
+        # Both modes stay selectable for the whole session; an in-flight
+        # switch is allowed and only affects the following pulses.
+        self.online_efield_btn.setEnabled(all_set)
+        self.offline_efield_btn.setEnabled(all_set)
+        # Paths may arrive *after* the operator picked online (project load,
+        # path edit); make sure the solver then starts after all.
+        if all_set and self.online_efield_btn.isChecked() and self.controller:
+            self.controller.online_fem_mgr.ensure_initialized(
+                callback=self.update_button_states)
+        self.update_button_states()
 
     def update_button_states(self):
         """Gate the transport buttons: nothing runs before the E-field mode is
@@ -1677,8 +1685,15 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
             return
 
         fem_ok = True
-        if self.controller and self.controller.online_fem_mgr.is_online:
-            fem_ok = self.controller.online_fem_mgr.is_ready
+        if self.controller:
+            mgr = self.controller.online_fem_mgr
+            if mgr.is_online:
+                # Online mode waits for the solver, but a running experiment
+                # stays usable: pulses collected so far keep their fields.
+                fem_ok = mgr.is_ready or running
+            else:
+                # Precomputed mode without a matrix loaded has no E-field.
+                fem_ok = self.controller.e_matrix is not None or running
 
         # Manual mode runs without a robot system: the operator is the robot.
         robot_ok = ((self.controller is not None and getattr(self.controller, "manual", False))

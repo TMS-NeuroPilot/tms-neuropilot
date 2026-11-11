@@ -1,0 +1,102 @@
+"""A pulse must never fire without the E-field it is supposed to use.
+
+When the operator switches to the online solver mid-run, the solver may still
+be loading.  ``fire_stim_step`` holds the pulse (the coil stays on target)
+until the solver is ready, and releases it as soon as it is -- or as soon as
+the operator switches back to the precomputed matrix.
+"""
+
+import time
+from types import SimpleNamespace
+
+from neuropilot.controller.pipeline_controller import PipelineController
+
+fire_stim_step = PipelineController.fire_stim_step
+
+
+class FakeStimulator:
+    def __init__(self):
+        self.armed = 0
+        self.amplitudes = []
+
+    def arm(self):
+        self.armed += 1
+
+    def set_amplitude(self, value):
+        self.amplitudes.append(value)
+
+
+class FakeLog:
+    def __init__(self):
+        self.lines = []
+
+    def appendPlainText(self, text):
+        self.lines.append(text)
+
+
+class FakeManager:
+    def __init__(self, online, ready):
+        self.online_fem = online
+        self.ready = ready
+
+    @property
+    def is_online(self):
+        return self.online_fem is True
+
+    @property
+    def is_ready(self):
+        return self.ready
+
+
+def make_controller(online=True, ready=False):
+    ctrl = SimpleNamespace(
+        online_fem_mgr=FakeManager(online, ready),
+        _online_hold_logged=False,
+        control_panel=SimpleNamespace(finishedsteps=FakeLog()),
+        stim_armed=False,
+        stimulator=FakeStimulator(),
+        stimulator_amplitude=55,
+        stimulator_amplitude_at_stim=-1,
+        current_step_start_time=time.time(),
+    )
+    return ctrl
+
+
+def test_pulse_is_held_while_the_solver_starts():
+    ctrl = make_controller(online=True, ready=False)
+    fire_stim_step(ctrl, target=None)
+    assert ctrl.stimulator.armed == 0
+    assert ctrl._online_hold_logged is True
+    assert any("Holding stimulation" in line for line in ctrl.control_panel.finishedsteps.lines)
+
+
+def test_hold_message_is_written_once():
+    ctrl = make_controller(online=True, ready=False)
+    for _ in range(5):
+        fire_stim_step(ctrl, target=None)
+    assert len(ctrl.control_panel.finishedsteps.lines) == 1
+
+
+def test_pulse_resumes_when_the_solver_becomes_ready():
+    ctrl = make_controller(online=True, ready=False)
+    fire_stim_step(ctrl, target=None)
+    ctrl.online_fem_mgr.ready = True
+    fire_stim_step(ctrl, target=None)
+    assert ctrl.stimulator.armed == 1
+    assert ctrl._online_hold_logged is False
+    assert ctrl.stimulator_amplitude_at_stim == 55
+
+
+def test_switching_back_to_precomputed_releases_the_pulse():
+    ctrl = make_controller(online=True, ready=False)
+    fire_stim_step(ctrl, target=None)
+    ctrl.online_fem_mgr.online_fem = False      # operator picked precomputed
+    fire_stim_step(ctrl, target=None)
+    assert ctrl.stimulator.armed == 1
+
+
+def test_precomputed_mode_never_waits():
+    ctrl = make_controller(online=False, ready=False)
+    fire_stim_step(ctrl, target=None)
+    assert ctrl.stimulator.armed == 1
+    assert ctrl.control_panel.finishedsteps.lines == []
