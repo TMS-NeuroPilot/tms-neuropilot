@@ -26,17 +26,65 @@ MANAGED_KEYS = (
 _LINE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$")
 
 
+_ESCAPES = {"n": "\n", "t": "\t", "r": "\r", '"': '"', "'": "'", "\\": "\\"}
+
+
 def _clean(value: str) -> str:
-    """Strip surrounding quotes and inline comments the way dotenv does."""
+    """Read a value the way python-dotenv does.
+
+    * a quoted value keeps everything up to its closing quote (``\\"`` escapes
+      a double quote), so ``#`` and spaces survive;
+    * an unquoted value is cut at a ``#`` that follows whitespace -- a ``#``
+      inside a password or path (``p#ss``) is *not* a comment, which the old
+      ``split('#')`` got wrong and silently truncated the value;
+    * surrounding whitespace is dropped.
+    """
     value = value.strip()
     if not value:
         return ""
     if value[0] in "\"'":
         quote = value[0]
-        end = value.find(quote, 1)
-        if end != -1:
-            return value[1:end]
-    return value.split("#", 1)[0].strip()
+        out = []
+        i = 1
+        while i < len(value):
+            char = value[i]
+            if quote == '"' and char == "\\" and i + 1 < len(value):
+                # Decode the escapes python-dotenv knows; an unknown sequence
+                # keeps its backslash (a Windows path must survive).
+                decoded = _ESCAPES.get(value[i + 1])
+                if decoded is not None:
+                    out.append(decoded)
+                    i += 2
+                    continue
+                out.append(char)
+                i += 1
+                continue
+            if char == quote:
+                break
+            out.append(char)
+            i += 1
+        return "".join(out)
+    comment = re.search(r"\s#", value)
+    if comment is not None:
+        value = value[:comment.start()]
+    return value.strip()
+
+
+def _format(value: str) -> str:
+    """Write a value so python-dotenv reads it back unchanged.
+
+    Anything that could be re-interpreted -- a comment ``#``, whitespace,
+    quotes, a backslash, an empty string -- is double-quoted with ``\\`` and
+    ``"`` escaped (the only escapes dotenv decodes).  Plain values are left
+    alone so the file keeps its familiar look.
+    """
+    value = str(value)
+    if value == "":
+        return ""
+    if value == value.strip() and not re.search(r'[\s#"\'\\]', value):
+        return value
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
 
 
 class ConfigStore:
@@ -86,13 +134,13 @@ class ConfigStore:
                 continue
             key = match.group(1)
             seen.add(key)
-            lines[i] = f"{key}={values[key]}"
+            lines[i] = f"{key}={_format(values[key])}"
 
         missing = [k for k in MANAGED_KEYS if k in values and k not in seen]
         if missing:
             if lines and lines[-1].strip():
                 lines.append("")
-            lines.extend(f"{key}={values[key]}" for key in missing)
+            lines.extend(f"{key}={_format(values[key])}" for key in missing)
 
         text = "\n".join(lines).rstrip() + "\n"
         self.path.parent.mkdir(parents=True, exist_ok=True)

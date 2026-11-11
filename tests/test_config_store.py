@@ -83,7 +83,8 @@ def test_round_trip_of_every_managed_key(tmp_path):
     ("'single'", "single"),
     ("value # comment", "value"),
     ("", ""),
-    ("# whole-line comment", ""),
+    ("#value-not-a-comment", "#value-not-a-comment"),
+    ("value # trailing comment", "value"),
 ])
 def test_clean_matches_dotenv_semantics(raw, expected):
     assert _clean(raw) == expected

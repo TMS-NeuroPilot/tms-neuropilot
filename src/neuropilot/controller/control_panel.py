@@ -87,6 +87,21 @@ def _control_ui_icons():
     }
 
 
+def _fmt_number(value, spec):
+    """Format a number for a CSV cell; None/blank/unparsable becomes "".
+
+    Placement records come from the live session *and* from loaded bundles, so
+    a missing aim error or intensity must leave an empty cell instead of
+    raising (or writing the string "None").
+    """
+    if value is None or value == "":
+        return ""
+    try:
+        return format(float(value), spec) if spec else str(value)
+    except (TypeError, ValueError):
+        return ""
+
+
 def _session_cache_path():
     """Per-user cache file holding the project fields between runs.
 
@@ -1372,8 +1387,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 row += [f"{v:.3f}" for v in pos] if pos else ["", "", ""]
                 row += [f"{v:.2f}" for v in rot] if rot else ["", "", ""]
                 row += [f"{v:.3f}" for v in tpos] if tpos else ["", "", ""]
-                row += [f"{rec.get('aim_error_mm', 0.0):.2f}",
-                        rec.get("intensity", ""), rec.get("pressure", ""),
+                row += [_fmt_number(rec.get("aim_error_mm"), ".2f"),
+                        _fmt_number(rec.get("intensity"), ""),
+                        _fmt_number(rec.get("pressure"), ""),
                         rec.get("e_field_mode") or ""]
                 mep = rec.get("mep") or {}
                 row += ["" if mep.get(k) is None else f"{mep[k]:.4f}" for k in keys]

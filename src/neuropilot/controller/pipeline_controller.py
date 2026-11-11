@@ -368,6 +368,16 @@ class PipelineController:
         self.final_scores = {}
         self.stim_armed = False
         self._online_hold_logged = False
+        self._health_hold_logged = False
+        self._amplitude_hold_logged = False
+        self._fire_mono = None
+        self._realized_mono = None
+        self._last_pulse_mono = None
+        # How long to wait for InVesalius to confirm the realized coil pose
+        # before the pulse is skipped (never spin forever).
+        self.collect_timeout_s = float(os.getenv("COLLECT_TIMEOUT_S", "20"))
+        self.aborted_by = None
+        self.debug_geodesic = os.getenv("NEUROPILOT_DEBUG_GEODESIC", "").lower() in ("1", "true", "yes")
 
         # Mapping settings
         from .fit_functions import DEFAULT_FIT_NAME, resolve as resolve_fit
@@ -535,8 +545,13 @@ class PipelineController:
             print(f"[WARN] could not push robot speeds: {e}")
 
     def finish_experiment(self):
+        if self.is_finished:
+            return
         self.is_finished = True
         print("Finish pressed.")
+        # Release the robot and stop it, exactly like the Skip button: Finish
+        # used to jump to SKIP without the cleanup, leaving the coil pressed.
+        self._request_stop()
         self.switch_step(Step.SKIP)
 
     def set_amplitude_stim(self, amplitude):
@@ -808,7 +823,26 @@ class PipelineController:
             while self.current_step != Step.COMPLETE:
                 if self.move_coil_up_flag:
                     break
-                if self.control_panel is None or (self.control_panel and self.no_error_states()):
+                # Stop/Skip/Finish must work even when a system is unhealthy:
+                # the operator has to be able to end a session with a dead EMG
+                # or robot.  Only the *work* steps are gated on the health.
+                if self.current_step == Step.SKIP:
+                    self.switch_step(Step.COMPLETE)
+                    continue
+                if self.control_panel is not None and not self.no_error_states():
+                    if not self._health_hold_logged:
+                        self._health_hold_logged = True
+                        self._log_step(
+                            f"Held at {self.current_step.name}: "
+                            f"{self._health_reason()} not ready. "
+                            "Finish ends the session.")
+                    await asyncio.sleep(0.05)
+                    continue
+                if self._health_hold_logged:
+                    self._health_hold_logged = False
+                    self._log_step("All systems ready again, continuing.")
+
+                try:
                     if self.current_step == Step.SEND_MARKER:
                         self.send_marker_step(target)
                     elif self.current_step == Step.START_TRACKING:
@@ -816,15 +850,24 @@ class PipelineController:
                     elif self.current_step == Step.WAIT_FOR_TARGET_REACHED:
                         await self.wait_for_target_reached_step(target)
                     elif self.current_step == Step.FIRE_STIM:
+                        if self.is_paused:
+                            # Pause works inside a target too: hold before the
+                            # pulse instead of only between targets.
+                            await asyncio.sleep(0.05)
+                            continue
                         self.fire_stim_step(target)
                     elif self.current_step == Step.COLLECT_DATA:
                         await self.collect_data_step(target)
                     elif self.current_step == Step.ANALYSE:
                         # print("Switched to analyse")
                         self.analyse_step(target)
-                    elif self.current_step == Step.SKIP:
-                        # print("Skip step")
-                        self.switch_step(Step.COMPLETE)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    # One failing step must not take the whole session down
+                    # silently: report it, stop the run and save what we have.
+                    self._abort_run(e)
+                    break
 
                 # To stop CPU overload
                 await asyncio.sleep(0.05)
@@ -847,10 +890,14 @@ class PipelineController:
 
         if self.running_analyses_tasks:
             print("Waiting for final R2 map.")
-            await asyncio.gather(*self.running_analyses_tasks)
+            # A failed analysis must not abort the finalisation (and lose the
+            # results file): the failure was logged when it happened.
+            await asyncio.gather(*self.running_analyses_tasks,
+                                 return_exceptions=True)
+            self.running_analyses_tasks = []
             self.push_mapping_results()
 
-        if self.simulation:
+        if self.simulation and self.debug_geodesic:
             self.final_adc1_geodesic_and_markers()
 
         # save results
@@ -877,8 +924,9 @@ class PipelineController:
             if self.results_fn is not None:
                 results.to_csv(self.results_fn, index=False)
         except Exception as e:
-            print("Something wrong with results collection / saving:")
-            print(e)
+            # A save failure must be visible to the operator, not just printed.
+            self._log_step(f"[WARN] could not write the results file: "
+                           f"{type(e).__name__}: {e}")
 
     # ── mapping results for the 3D page ─────────────────────────────────
     def placement_records(self):
@@ -934,6 +982,7 @@ class PipelineController:
         self.target_reached = False
         self.target_created = False
         self.realized_target = None
+        self._realized_mono = None
 
     async def run_health_checks(self):
         """
@@ -951,6 +1000,45 @@ class PipelineController:
             await asyncio.gather(*(s.check_system() for s in self.systems))
             # To stop CPU overload
             await asyncio.sleep(0.5)
+
+    def _log_step(self, text):
+        """One line to stdout and to the operator's step log."""
+        print(text)
+        panel = self.control_panel
+        if panel is None:
+            return
+        try:
+            panel.finishedsteps.appendPlainText(text)
+        except (AttributeError, RuntimeError):
+            pass
+
+    def _health_reason(self):
+        bad = [getattr(system, "NAME", "?") for system in self.systems
+               if system.is_error_state()]
+        return ", ".join(bad) if bad else "a subsystem"
+
+    def _abort_run(self, error):
+        """A step raised: stop the run, tell the operator, keep the data."""
+        import traceback
+        self._log_step(f"[ERROR] {self.current_step.name} failed: "
+                       f"{type(error).__name__}: {error}")
+        traceback.print_exc()
+        self.aborted_by = f"{self.current_step.name}: {error}"
+        self.is_finished = True
+        self.current_step = Step.COMPLETE
+
+    def _request_stop(self):
+        """Send the same stop/robot-release as the Skip button, if possible."""
+        if self.manual:
+            return
+        try:
+            asyncio.create_task(self.remote.send_message('STOP', data={}))
+            asyncio.create_task(self.remote.send_message(
+                "Press robot button", data={'pressed': False}))
+        except RuntimeError:
+            # No running loop (GUI-only session or a unit test): the relay
+            # sends are best effort.
+            pass
 
     def switch_step(self, new_step):
         """
@@ -976,6 +1064,11 @@ class PipelineController:
                     asyncio.create_task(self.remote.send_message("Press robot button", data={'pressed': False}))
 
             elif new_step.lower() == "previous":
+                if self.current_step in (Step.FIRE_STIM, Step.COLLECT_DATA):
+                    # The step would resume and overwrite the jump; ignore it
+                    # instead of mislabelling the pulse that is in flight.
+                    self._log_step("Previous ignored: a pulse is in flight.")
+                    return
                 self._go_back = True
                 print(f" before: self.current_pulse_idx {self.current_target_order_idx}")
                 new_step = Step.COMPLETE
@@ -987,6 +1080,9 @@ class PipelineController:
                 self.current_rep = 1 # also reset repetitions
                 print(f" after: self.current_pulse_idx {self.current_target_order_idx}")
         self.current_step_start_time = time.time()
+        # Wall-clock is for the logs; the state machine measures intervals on
+        # the monotonic clock so an NTP jump cannot shorten the ISI.
+        self.current_step_started_mono = time.monotonic()
         self.current_step = new_step
         # print("Current step is changed to %s" % self.current_step)
 
@@ -1103,9 +1199,12 @@ class PipelineController:
         # Manual mode: the hand-held coil provides the pressure -- only the
         # coil-at-target signal and the ISI gate the stimulation.
         force_ok = self.manual or self.cobotOnTarget > self.pressure_thresh
-        if (self.target_reached and
-                force_ok and
-                (self.get_time_now() - self.time_at_stim >= self.minium_isi)):
+        # minium_isi is a safety limit: measure it on the monotonic clock so a
+        # system clock jump can never shorten the interval between pulses.
+        last_pulse_mono = getattr(self, "_last_pulse_mono", None)
+        isi_ok = (last_pulse_mono is None
+                  or self.mono_now() - last_pulse_mono >= self.minium_isi)
+        if self.target_reached and force_ok and isi_ok:
             print("Stopping target tracking.")
             if not self.manual:
                 asyncio.create_task(self.remote.send_message("Press robot button", data={'pressed': False}))
@@ -1128,6 +1227,10 @@ class PipelineController:
             print(f"Error during stimulation: {e}")
 
 
+    def mono_now(self):
+        """Seconds on a monotonic clock (immune to system clock jumps)."""
+        return time.monotonic()
+
     def get_time_now(self):
         """
         Returns the time in seconds since start of experiment.
@@ -1135,6 +1238,16 @@ class PipelineController:
         return (datetime.now() - self.start_of_experiment).total_seconds()
 
     def fire_stim_step(self, target):
+        if self.stimulator_amplitude is None:
+            # The GUI normally sets this, but a session restored without a
+            # cache and started without touching the slider must not crash
+            # inside the stimulator call after the coil was pressed on.
+            if not self._amplitude_hold_logged:
+                self._amplitude_hold_logged = True
+                self._log_step("Holding stimulation: no stimulator amplitude set.")
+            return
+        self._amplitude_hold_logged = False
+
         # A switch to the online solver may land mid-run.  Hold the pulse until
         # the solver is ready instead of firing a pulse whose E-field cannot be
         # computed; the coil simply stays on target meanwhile.  Switching back
@@ -1173,6 +1286,12 @@ class PipelineController:
                 )
 
 
+            # A late realized-target message from the previous pulse must not
+            # be used for this one.
+            self.target_created = False
+            self.realized_target = None
+            self._fire_mono = self.mono_now()
+
             #self.stimulator.fire()
             self.trigger_stim()
 
@@ -1182,12 +1301,29 @@ class PipelineController:
             asyncio.create_task(self.remote.send_message(topic, data = {"label" : "stim_mark"}))
 
             self.stim_armed = False
+            self._last_pulse_mono = self.mono_now()
             print("Switch to collect")
             self.switch_step(Step.COLLECT_DATA)
 
     async def collect_data_step(self, target):
         # Wait to collect the data until we get the call from InVesalius with the coil position at the moment of stimulation.
         # We also wait a short while to ensure the EMG Computer has printed its EMG file. This length of wait needs to be validated.
+        # A realized target that arrived *before* this pulse fired belongs to
+        # the previous one; drop it instead of recording the wrong geometry.
+        if (self.target_created and self._fire_mono is not None
+                and getattr(self, "_realized_mono", None) is not None
+                and self._realized_mono < self._fire_mono):
+            self._log_step("Ignoring a realized target from the previous pulse.")
+            self.target_created = False
+            self.realized_target = None
+        if not self.target_created:
+            waited = time.time() - self.current_step_start_time
+            if waited > self.collect_timeout_s:
+                # InVesalius never answered: do not spin forever.
+                self._log_step(
+                    f"No realized target after {waited:.0f} s -- pulse skipped.")
+                self.switch_step(Step.COMPLETE)
+                return
         if self.target_created and time.time() - self.current_step_start_time > 2.0:
             # self.stimulator.disarm()
 
@@ -1241,6 +1377,12 @@ class PipelineController:
             else:
                 # emg_data = self.emg_computer.get_latest_emg_df(idx=self.current_pulse_idx) # TODO: None -> latest file, for skipped targets.
                 emg_data = await asyncio.to_thread(self.emg_computer.get_latest_emg_df, None, None)  # TODO: None -> latest file, for skipped targets.
+
+            if self.current_step != Step.COLLECT_DATA:
+                # Skip/Finish arrived while the EMG was being read: drop this
+                # pulse instead of recording it and jumping to ANALYSE.
+                self._log_step("Pulse discarded: the step was aborted while reading the EMG.")
+                return
 
             meps, emg_preac_amp, emg_preac_var = self.compute_meps(emg_data)
 
@@ -1426,12 +1568,14 @@ class PipelineController:
         -------
         None
         """
+        if not isinstance(data, dict) or data.get("markers") is None:
+            # A malformed or empty frame must not raise inside the relay.
+            return
         print(f"GetRealizedTarget called: {data['markers']}")
-        if data["markers"] is not None:
-            print("GetRealizedTarget called")
-            self.target_created = True
-            # Store but not used
-            self.realized_target = data
+        self.target_created = True
+        self._realized_mono = self.mono_now()
+        # Store but not used
+        self.realized_target = data
 
     def create_emg_plot(self, emg_data):
         df = emg_data

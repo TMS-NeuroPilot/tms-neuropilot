@@ -13,7 +13,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from neuropilot.controller.pipeline_controller import PipelineController
+from neuropilot.controller.pipeline_controller import PipelineController, Step
 
 collect_data_step = PipelineController.collect_data_step
 
@@ -85,10 +85,15 @@ def make_controller(online=False, e_matrix=None, computed=None, amplitude=70):
         control_panel=None,
         datetime_str="20260101_000000",
         steps=[],
+        current_step=Step.COLLECT_DATA,
+        _fire_mono=0.0,
+        _realized_mono=None,
+        collect_timeout_s=20.0,
     )
     ctrl.compute_meps = lambda df: ({"ADC 0": 0.5}, {"ADC 0": 1.0}, {"ADC 0": 0.1})
     ctrl.push_mapping_results = lambda: None
     ctrl.switch_step = lambda step: ctrl.steps.append(step)
+    ctrl._log_step = lambda text: ctrl.steps.append(text)
     return ctrl
 
 
@@ -209,3 +214,40 @@ def test_results_file_is_written_next_to_the_configured_name(tmp_path):
     written = list(tmp_path.glob("results20260101_000000.csv"))
     assert len(written) == 1
     assert "intensity" in written[0].read_text().splitlines()[0]
+
+
+def test_stale_realized_target_is_rejected():
+    # The message arrived before this pulse fired: it belongs to the previous
+    # pulse, so the geometry (and, online, the E-field position) must not be
+    # recorded against this one.
+    ctrl = make_controller(online=False, e_matrix=np.ones((2, 2)))
+    ctrl.target_created = True
+    ctrl._fire_mono = 100.0
+    ctrl._realized_mono = 90.0
+    run_step(ctrl)
+    assert ctrl.pulse_e_fields == []
+    assert ctrl.used_coil_placements_idx == []
+    assert ctrl.target_created is False
+
+
+def test_collect_gives_up_when_no_realized_target_arrives():
+    ctrl = make_controller(online=False, e_matrix=np.ones((2, 2)))
+    ctrl.target_created = False
+    ctrl.current_step_start_time = time.time() - 30
+    ctrl.collect_timeout_s = 20
+    run_step(ctrl)
+    assert ctrl.steps and ctrl.steps[-1] is Step.COMPLETE
+    assert ctrl.pulse_e_fields == []
+
+
+def test_pulse_is_discarded_when_the_step_is_aborted_during_the_read():
+    ctrl = make_controller(online=False, e_matrix=np.ones((2, 2)))
+
+    def aborting_read(idx=None, e_field_for_mep=None):
+        ctrl.current_step = Step.SKIP
+        return object()
+
+    ctrl.emg_computer.get_latest_emg_df = aborting_read
+    run_step(ctrl)
+    assert ctrl.pulse_e_fields == []
+    assert ctrl.mep_history == {}

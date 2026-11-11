@@ -52,6 +52,7 @@ def make_controller(online=True, ready=False):
     ctrl = SimpleNamespace(
         online_fem_mgr=FakeManager(online, ready),
         _online_hold_logged=False,
+        _amplitude_hold_logged=False,
         control_panel=SimpleNamespace(finishedsteps=FakeLog()),
         stim_armed=False,
         stimulator=FakeStimulator(),
@@ -59,6 +60,7 @@ def make_controller(online=True, ready=False):
         stimulator_amplitude_at_stim=-1,
         current_step_start_time=time.time(),
     )
+    ctrl._log_step = lambda text: ctrl.control_panel.finishedsteps.appendPlainText(text)
     return ctrl
 
 
@@ -100,3 +102,25 @@ def test_precomputed_mode_never_waits():
     fire_stim_step(ctrl, target=None)
     assert ctrl.stimulator.armed == 1
     assert ctrl.control_panel.finishedsteps.lines == []
+
+
+def test_pulse_is_held_without_a_stimulator_amplitude():
+    ctrl = make_controller(online=False)
+    ctrl.stimulator_amplitude = None
+    fire_stim_step(ctrl, target=None)
+    assert ctrl.stimulator.armed == 0
+    assert ctrl._amplitude_hold_logged is True
+
+
+def test_amplitude_hold_is_reported_once_and_released():
+    ctrl = make_controller(online=False)
+    ctrl.stimulator_amplitude = None
+    for _ in range(3):
+        fire_stim_step(ctrl, target=None)
+    lines = [l for l in ctrl.control_panel.finishedsteps.lines if "amplitude" in l]
+    assert len(lines) == 1
+
+    ctrl.stimulator_amplitude = 55
+    fire_stim_step(ctrl, target=None)
+    assert ctrl.stimulator.armed == 1
+    assert ctrl._amplitude_hold_logged is False
