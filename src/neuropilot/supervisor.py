@@ -194,5 +194,15 @@ def real_stack(with_relay=False):
     return components
 
 
+def manual_stack(with_relay=False):
+    """Manual mode: real hardware, no robot (the operator moves the coil)."""
+    components = []
+    if with_relay:
+        components.append(_real_relay_component())
+    components.append(Component("controller", "neuropilot.controller",
+                                ["--manual"], wait_ready=None))
+    return components
+
+
 def real_controller():
     return real_stack(with_relay=False)

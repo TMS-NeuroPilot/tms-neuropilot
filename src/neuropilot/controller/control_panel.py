@@ -632,7 +632,11 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.controller and self.controller.online_fem_mgr.is_online:
             fem_ok = self.controller.online_fem_mgr.is_ready
 
-        if self.robot_ready and self.stim_ready and self.emg_ready and fem_ok:
+        # Manual mode runs without a robot system: the operator is the robot.
+        robot_ok = ((self.controller is not None and getattr(self.controller, "manual", False))
+                    or self.robot_ready)
+
+        if robot_ok and self.stim_ready and self.emg_ready and fem_ok:
             self.start_btn.setEnabled(True)
             self.skiptarget.setEnabled(True)
             self.back_btn.setEnabled(True)
@@ -819,6 +823,13 @@ class MainWindow(QtWidgets.QMainWindow):
         print(f"UI: Fit Function shape selected -> {fit_func}")
         if self.controller:
             self.controller.set_fit_function(fit_func)
+
+    def set_robot_manual(self):
+        """Manual mode: no robot system exists — mark the Connections page
+        robot group accordingly."""
+        group = getattr(self, "groupBox_3", None)
+        if group is not None:
+            group.setTitle("Robot — not used (manual)")
 
     def initialize(self, all_error_recoveries):
         self.all_error_recoveries = all_error_recoveries

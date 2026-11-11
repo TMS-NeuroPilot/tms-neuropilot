@@ -63,7 +63,7 @@ class Step(Enum):
     SKIP = auto()
 
 class PipelineController:
-    def __init__(self, remote, simulation,control_panel = None):
+    def __init__(self, remote, simulation,control_panel = None, manual=False):
         self.datetime_str = ""
         self.start_of_experiment = None
         self.control_panel = control_panel
@@ -74,13 +74,23 @@ class PipelineController:
         ## Initializing systems
         self.systems = []
 
-        self.robot = Robot(update_control_panel_func, self.remote)
-        self.systems.append(self.robot)
-        self.simulation = simulation
-        # The Robot system speaks the relay protocol in both modes; only the
-        # controller knows which one is behind it (the sim robot process).
-        self.robot.DESCRIPTION = ("Simulated (virtual twin)" if simulation
-                                  else "Real (via relay)")
+        # Manual mode: real stimulator/EMG/navigation but no robot — the
+        # operator moves the coil by hand guided by Invesalius.
+        self.manual = manual
+
+        if not manual:
+            self.robot = Robot(update_control_panel_func, self.remote)
+            self.systems.append(self.robot)
+            self.simulation = simulation
+            # The Robot system speaks the relay protocol in both modes; only the
+            # controller knows which one is behind it (the sim robot process).
+            self.robot.DESCRIPTION = ("Simulated (virtual twin)" if simulation
+                                      else "Real (via relay)")
+        else:
+            self.robot = None
+            self.simulation = False
+            if self.control_panel:
+                self.control_panel.set_robot_manual()
 
         if not simulation:
             self.emg_computer = EMGComputer(update_control_panel_func)
@@ -717,15 +727,17 @@ class PipelineController:
         if isinstance(new_step, str):
             if new_step.lower() == "skip":
                 new_step = Step.COMPLETE
-                asyncio.create_task(self.remote.send_message('STOP', data = {}))
-                asyncio.create_task(self.remote.send_message("Press robot button", data={'pressed': False}))
+                if not self.manual:
+                    asyncio.create_task(self.remote.send_message('STOP', data = {}))
+                    asyncio.create_task(self.remote.send_message("Press robot button", data={'pressed': False}))
 
             elif new_step.lower() == "previous":
                 self._go_back = True
                 print(f" before: self.current_pulse_idx {self.current_target_order_idx}")
                 new_step = Step.COMPLETE
-                asyncio.create_task(self.remote.send_message('STOP', data={}))
-                asyncio.create_task(self.remote.send_message("Press robot button", data={'pressed': False}))
+                if not self.manual:
+                    asyncio.create_task(self.remote.send_message('STOP', data={}))
+                    asyncio.create_task(self.remote.send_message("Press robot button", data={'pressed': False}))
                 if self.current_target_order_idx > 0:
                     self.current_target_order_idx -= 1
                 self.current_rep = 1 # also reset repetitions
@@ -848,13 +860,19 @@ class PipelineController:
         """
         Sends robot awawy from head by sending objective = 2
         """
+        if self.manual:
+            return  # no robot to move away
         asyncio.create_task(self.remote.send_message("Neuronavigation to Robot: Set objective", {'objective': 2}))
 
     def start_tracking_step(self, target):
         # Giving InVesalius some time to be ready
         if time.time() - self.current_step_start_time > 3.0:
-            print("Tracking target with robot!")
-            asyncio.create_task(self.remote.send_message("Press robot button", data = { 'pressed' : True}))
+            if self.manual:
+                # No robot: Invesalius tracks the hand-held coil directly.
+                print("Tracking target (manual)")
+            else:
+                print("Tracking target with robot!")
+                asyncio.create_task(self.remote.send_message("Press robot button", data = { 'pressed' : True}))
 
             self.switch_step(Step.WAIT_FOR_TARGET_REACHED)
 
@@ -862,11 +880,15 @@ class PipelineController:
         # self.target_reached is set to true by OnCoilAtTarget when InVesalius send that message.
         if self.running_analyses_tasks:
             await asyncio.gather(*self.running_analyses_tasks)
+        # Manual mode: the hand-held coil provides the pressure -- only the
+        # coil-at-target signal and the ISI gate the stimulation.
+        force_ok = self.manual or self.cobotOnTarget > self.pressure_thresh
         if (self.target_reached and
-                self.cobotOnTarget > self.pressure_thresh and
+                force_ok and
                 (self.get_time_now() - self.time_at_stim >= self.minium_isi)):
             print("Stopping target tracking.")
-            asyncio.create_task(self.remote.send_message("Press robot button", data={'pressed': False}))
+            if not self.manual:
+                asyncio.create_task(self.remote.send_message("Press robot button", data={'pressed': False}))
             self.switch_step(Step.FIRE_STIM)
 
     def trigger_stim(self):

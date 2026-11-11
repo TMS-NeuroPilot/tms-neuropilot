@@ -65,15 +65,15 @@ def get_command_line_arguments():
 
     return host, port
 
-async def main(enable_health_check_and_control_panel, simulation):
+async def main(enable_health_check_and_control_panel, simulation, manual=False):
     """Build all components and keep the event loop alive.
 
     Creates the relay ``Remote`` (simulated or real variant, depending on
     ``simulation``), the control panel window (if enabled) and the
-    ``PipelineController``, connects to the relay server and finally starts
-    the pipeline as a background task. The trailing sleep loop keeps the
-    coroutine alive; Qt event processing continues in parallel through the
-    qasync integration.
+    ``PipelineController`` (``manual`` runs without a robot system), connects
+    to the relay server and finally starts the pipeline as a background task.
+    The trailing sleep loop keeps the coroutine alive; Qt event processing
+    continues in parallel through the qasync integration.
     """
     # Configure logging.
     np.set_printoptions(formatter={'float': '{:0.1f}'.format})
@@ -99,7 +99,8 @@ async def main(enable_health_check_and_control_panel, simulation):
     # The controller tracks whether health checks and the control panel are
     # active via `control_panel is not None`.
     controller = PipelineController(remote=remote,
-                                    control_panel=app.window2 if enable_health_check_and_control_panel else None,simulation=simulation)
+                                    control_panel=app.window2 if enable_health_check_and_control_panel else None,simulation=simulation,
+                                    manual=manual)
     controller.register_remote_handlers()
     if enable_health_check_and_control_panel:
         app.window2.set_controller(controller)
@@ -141,6 +142,9 @@ def run(argv=None):
                        help='start in simulation mode (skip the mode dialog)')
     group.add_argument('--real', action='store_true',
                        help='start in real-hardware mode (skip the mode dialog)')
+    group.add_argument('--manual', action='store_true',
+                       help='start in manual mode: real hardware, no robot '
+                            '(skip the mode dialog)')
     args = parser.parse_args(argv)
 
     app = QApplication(sys.argv)
@@ -156,9 +160,10 @@ def run(argv=None):
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
 
-    if args.sim or args.real:
+    if args.sim or args.real or args.manual:
         is_simulation = args.sim
-        print(f"Is Simulation: {is_simulation}")
+        is_manual = args.manual
+        print(f"Mode: {'manual' if is_manual else ('simulation' if is_simulation else 'real')}")
     else:
         # Create and show our custom dialog
         dialog = windowmode.ModeSelectionDialog()
@@ -166,7 +171,8 @@ def run(argv=None):
         # exec_() blocks until the user clicks a button
         if dialog.exec_() == QDialog.Accepted:
             is_simulation = dialog.is_simulation
-            print(f"Is Simulation: {is_simulation}")
+            is_manual = dialog.is_manual
+            print(f"Is Simulation: {is_simulation}" + (" (manual)" if is_manual else ""))
         else:
             print("User closed the dialog without selecting.")
             return 0
@@ -177,9 +183,9 @@ def run(argv=None):
     enable_health_check_and_control_panel = os.getenv('ENABLE_HEALTH_CHECK_AND_CONTROL_PANEL', 'false').lower() == 'true'
     try:
         if enable_health_check_and_control_panel:
-            qasync.run(main(enable_health_check_and_control_panel,is_simulation))
+            qasync.run(main(enable_health_check_and_control_panel,is_simulation,is_manual))
         else:
-            asyncio.run(main(enable_health_check_and_control_panel,is_simulation))
+            asyncio.run(main(enable_health_check_and_control_panel,is_simulation,is_manual))
     except asyncio.exceptions.CancelledError:
         print("KeyboardInterrupt: application exiting")
         cleanup()
