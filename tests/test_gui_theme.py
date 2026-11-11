@@ -173,3 +173,33 @@ def test_theme_change_after_resize_keeps_the_scaling(window, qapp):
 
 
 pytestmark = pytest.mark.gui
+
+
+def test_startup_does_not_create_the_lab_profile(qapp, gui_env, monkeypatch, tmp_path):
+    from helpers import build_window
+    from neuropilot.lab_profile import LabProfile
+
+    cache = gui_env / "last_session.yaml"
+    from neuropilot.controller import control_panel as cp
+    monkeypatch.setattr(cp, "_session_cache_path", lambda: str(cache))
+    profile_path = tmp_path / "lab.yaml"
+    monkeypatch.setenv("NEUROPILOT_LAB_FILE", str(profile_path))
+
+    win = build_window(qapp, gui_env, monkeypatch)
+    try:
+        qapp.processEvents()
+        assert not profile_path.exists() or "UI_THEME" not in profile_path.read_text()
+        assert win._theme_name == theme.DEFAULT_THEME
+    finally:
+        win.close()
+        win.deleteLater()
+        qapp.processEvents()
+
+
+def test_reapplying_the_same_theme_does_not_write(window, qapp, tmp_path):
+    window.cfg_theme.setCurrentText("Graphite")
+    qapp.processEvents()
+    first = window._lab_profile.path.read_text()
+    window.cfg_theme.setCurrentText("Graphite")     # same value: no signal
+    qapp.processEvents()
+    assert window._lab_profile.path.read_text() == first

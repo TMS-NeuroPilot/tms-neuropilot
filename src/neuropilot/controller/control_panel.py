@@ -772,7 +772,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.cfg_robot_type.isEditable() is False:
             self.cfg_robot_type.setEditable(True)
 
-        self.cfg_theme.addItems(list(THEMES))
+        self._theme_loading = True
+        self.cfg_theme.addItems(list(THEMES))     # populate without writing
         self._theme_loading = False
         self.cfg_theme.currentTextChanged.connect(self.on_theme_changed)
 
@@ -892,10 +893,15 @@ class MainWindow(QtWidgets.QMainWindow):
             f"Loaded {self._lab_profile.path.name} ({self._lab_profile.path}){detail}")
 
     def on_theme_changed(self, name):
-        """Apply a theme immediately and remember it in the lab profile."""
+        """Apply a theme immediately and remember it in the lab profile.
+
+        Only a real change is written: populating the combo or reloading the
+        page must not create or touch the lab profile.
+        """
         if getattr(self, "_theme_loading", False) or not name:
             return
-        self.apply_theme(name, persist=True)
+        changed = name != self._theme_name
+        self.apply_theme(name, persist=changed)
         if hasattr(self, "cfg_status_label"):
             self._set_config_status(f"Theme: {name} (applied)")
 
