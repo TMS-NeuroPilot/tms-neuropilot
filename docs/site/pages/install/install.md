@@ -1,0 +1,153 @@
+# Install the suite
+
+This page installs NeuroPilot into a conda environment and configures it. It
+assumes the machine already has conda (miniforge or miniconda).
+
+## 1. Get the code
+
+```bash
+git clone https://gitlab.gwdg.de/tms-localization/papers/neuropilot.git
+cd neuropilot
+```
+
+The repository is self-contained: `src/` holds the four packages, `scripts/`
+the data-preparation tools, `docs/` the documentation sources.
+
+## 2. Create the environment
+
+```bash
+conda create -n pipeline python=3.11 -y
+conda activate pipeline
+conda install -c conda-forge -y \
+    pyqt qasync pyvista vtk h5py scipy numpy pyyaml requests \
+    python-socketio aiohttp python-dotenv
+pip install mujoco pybullet ikpy smbprotocol
+```
+
+That is the minimum for the simulator and the GUI. The exact package set of an
+existing lab machine is a superset; if you are migrating, `conda list` on the
+old machine is the reference.
+
+!!! note "Why conda for Qt and VTK"
+    PyQt5 and VTK are binary packages with system-library expectations. Conda
+    ships consistent builds; a mixed pip/conda environment is the most common
+    source of "it starts on my machine but not on the lab PC".
+
+## 3. Install the lab packages
+
+```bash
+pip install pynibs            # MEP extraction + fit functions
+pip install magicpy           # only needed for a real stimulator
+```
+
+If the package index does not have them, install the wheels the group keeps on
+GitLab or on the lab share. Check what is missing with:
+
+```bash
+python -c "import pynibs; print(pynibs.__file__)"
+```
+
+## 4. Install SimNIBS (for the online E-field mode and `.msh` meshes)
+
+The precomputed E-field mode needs no SimNIBS. The online mode and reading
+SimNIBS `.msh` head meshes do.
+
+One known-good recipe, all inside `pipeline`:
+
+```bash
+# official SimNIBS 4.5.0 wheel from the GitHub release
+pip install simnibs-4.5.0-*.whl
+pip install petsc4py-*.whl          # SimNIBS' own wheel
+pip install mkl tbb numba fmm3dpy samseg
+conda install -c conda-forge python-mumps
+```
+
+!!! warning "MKL sonames"
+    The `petsc4py` wheel links older MKL sonames (`libmkl*.so.2`). If the
+    simulation import fails with a missing `libmkl_*.so.2`, copy those files
+    from a working SimNIBS environment into `$CONDA_PREFIX/lib` — this is a
+    packaging quirk, not a NeuroPilot problem. A separate `simnibs` conda
+    environment (the official installer) also works; NeuroPilot only needs
+    `simnibs` importable in `pipeline` for the online solver.
+
+Check it:
+
+```bash
+python -c "import simnibs; print(simnibs.__version__)"
+```
+
+## 5. Install NeuroPilot in editable mode
+
+```bash
+pip install -e . --no-deps
+```
+
+`--no-deps` prevents pip from rebuilding PyQt5 or numpy from source; the heavy
+dependencies are already in the environment. Editable mode means your edits in
+`src/` take effect immediately.
+
+Verify the entry point:
+
+```bash
+neuropilot --help
+python -c "import neuropilot, neuropilot.controller; print('imports ok')"
+```
+
+## 6. Create `.env`
+
+```bash
+cp .env.example .env
+```
+
+Every key has a working default, so `.env` can stay as it is for a first run.
+What you will eventually edit:
+
+| Key | Change it when |
+|---|---|
+| `ROOT_FOLDER` | results should not live in `~/.neuropilot` |
+| `RELAY_HOST`, `RELAY_PORT` | the relay runs on another machine or port 5000 is taken |
+| `STIMULATOR_PORT`, `STIMULATOR_TTL_PORT` | the real stimulator is on different devices |
+| `EMG_COMPUTER_IP`, `EMG_COMPUTER_USERNAME`, `EMG_COMPUTER_PASSWORD` | the CED PC has a different address or share account |
+| `ONLINE_FEM_SOLVER`, `ONLINE_FEM_ANISOTROPY` | the solver should use `amg` or anisotropic conductivity |
+| `TMS_ROBOT_CONTROL_PATH` | `neuropilot real --launch-relay` should start the production relay |
+
+`.env` is read **once, at import time**, by `neuropilot.config`; restart the
+controller after editing it. See the [`.env` reference](config/env.md) for all
+keys and the [settings model](config/model.md) for how `.env` interacts with
+the lab profile.
+
+## 7. Optional: the GUI scale and the theme
+
+On a HiDPI screen the GUI may open too small or too large. Set the scale
+explicitly in `.env`:
+
+```bash
+NEUROPILOT_UI_SCALE=1.25
+```
+
+The colour theme is chosen in **Config › Lab › Theme** and stored in the lab
+profile; see [Themes and display](gui/themes.md).
+
+## Updating
+
+```bash
+git pull
+pip install -e . --no-deps       # only needed when the entry point or deps change
+```
+
+Then restart the controller. The lab profile and `.env` are not touched by an
+update.
+
+## Resetting
+
+- **Configuration:** delete `~/.neuropilot/lab.yaml` (lab settings) and your
+  `.env` (bootstrap overrides). Both regenerate from defaults on the next start.
+- **Session data:** `~/.neuropilot/` holds the results and the last-session
+  cache; move it aside rather than deleting it if you may need the data.
+- **Environment:** `conda env remove -n pipeline` and start again.
+
+## Next
+
+- [Lab and hardware setup](install/hardware.md) — only needed for real hardware.
+- [Verify the installation](install/verify.md) — prove that everything works.
+- [Quick start](start/quickstart.md) — run the simulator.

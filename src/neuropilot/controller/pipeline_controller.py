@@ -367,12 +367,14 @@ class PipelineController:
 
         # load env stuff
         self.config = {} # TODO: replace this from load project
-        self.config["TMS_PULSE_TIME"] = float(os.getenv("TMS_PULSE_TIME"))/10
-        self.config["START_MEP"] = int(os.getenv("START_MEP"))
-        self.config["END_MEP"] = int(os.getenv("END_MEP"))
-        self.config["MEASUREMENT_START_TIME"] = int(os.getenv("MEASUREMENT_START_TIME"))
-        self.config["SAMPLING_RATE"] = int(os.getenv("SAMPLING_RATE"))
-        self.config["CUTOFF_FREQ"] = int(os.getenv("CUTOFF_FREQ"))
+        # The defaults match .env.example and docs/CONFIG.md: a checkout with
+        # no .env must still start (the windows are the documented ones).
+        self.config["TMS_PULSE_TIME"] = float(os.getenv("TMS_PULSE_TIME", "5"))/10
+        self.config["START_MEP"] = int(os.getenv("START_MEP", "10"))
+        self.config["END_MEP"] = int(os.getenv("END_MEP", "100"))
+        self.config["MEASUREMENT_START_TIME"] = int(os.getenv("MEASUREMENT_START_TIME", "0"))
+        self.config["SAMPLING_RATE"] = int(os.getenv("SAMPLING_RATE", "4000"))
+        self.config["CUTOFF_FREQ"] = int(os.getenv("CUTOFF_FREQ", "500"))
 
         self.final_scores = {}
         self.stim_armed = False
@@ -1903,8 +1905,19 @@ class PipelineController:
                     placements = f['matsimnibs'][:]
             except (OSError, KeyError):
                 return True
-            if (placements.shape == self._library_mats.shape
-                    and not np.allclose(placements, self._library_mats, atol=0.5)):
+            # SimNIBS writes placements as (4, 4, n); some E-field libraries
+            # store the same matrices as (n, 4, 4).  Normalise before the
+            # comparison, otherwise differently ordered files look identical
+            # because the shapes never match.
+            library = self._library_mats
+            if (placements.ndim == 3 and library.ndim == 3
+                    and placements.shape != library.shape):
+                if placements.shape[:2] == (4, 4) and library.shape[1:] == (4, 4):
+                    library = library.transpose(1, 2, 0)
+                elif library.shape[:2] == (4, 4) and placements.shape[1:] == (4, 4):
+                    placements = placements.transpose(1, 2, 0)
+            if (placements.shape == library.shape
+                    and not np.allclose(placements, library, atol=0.5)):
                 self.library_warning = (
                     "The E-field library was computed for different coil "
                     "placements than the loaded placement file.")

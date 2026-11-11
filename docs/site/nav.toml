@@ -1,0 +1,92 @@
+# Site navigation.  Every page under pages/ must appear here exactly once;
+# the build fails on orphans and on missing files (that is the point).
+#
+# pages = [[title, path, blurb], ...]
+# The blurb is used for the search result and the meta description.
+
+[[sections]]
+title = "Start here"
+pages = [
+  ["Overview", "index.md", "What NeuroPilot is, what it does, and how to read this documentation."],
+  ["Quick start", "start/quickstart.md", "Run a complete simulated mapping session in ten minutes."],
+  ["Key concepts", "start/concepts.md", "Targets, pulses, E-fields, MEPs, R² maps and the vocabulary the rest of the site uses."],
+  ["Units and frames", "start/units.md", "Millimetres, degrees, head space, robot base and the coil-handle convention."],
+]
+
+[[sections]]
+title = "Install"
+pages = [
+  ["Prerequisites", "install/prerequisites.md", "Python, Qt, SimNIBS, a display and the hardware a real session needs."],
+  ["Install the suite", "install/install.md", "Conda environment, editable install, SimNIBS and the .env bootstrap file."],
+  ["Lab and hardware setup", "install/hardware.md", "Relay, stimulator, EMG computer, robot and neuronavigation wiring."],
+  ["Verify the installation", "install/verify.md", "Checks that prove every component, solver and serial port works."],
+]
+
+[[sections]]
+title = "Prepare a session"
+pages = [
+  ["Subject data", "prepare/subject-data.md", "From a T1 MRI to the head mesh and the ROI surface NeuroPilot loads."],
+  ["E-field library", "prepare/efield-library.md", "Build the precomputed E-field HDF5 and understand what the solver stores."],
+  ["Coil placements and target order", "prepare/placements.md", "The placement library, the target-order file and how the loop consumes them."],
+  ["EMG channels and MEP windows", "prepare/emg.md", "Channel names, cortical sources, sampling rate and the extraction window."],
+  ["The project file", "prepare/project.md", "Every key of the per-subject YAML, with an annotated example."],
+  ["Study profiles", "prepare/study.md", "One protocol file for mapping, stimulation and analysis defaults."],
+]
+
+[[sections]]
+title = "Run a session"
+pages = [
+  ["Run modes", "run/modes.md", "Simulation, real hardware and manual mode — what differs and when to use which."],
+  ["A simulated session", "run/simulated.md", "Follow one mapping from Connect to Complete in the virtual twin."],
+  ["Real session checklist", "run/real.md", "The ordered checklist for a session with a participant."],
+  ["Manual mode", "run/manual.md", "Hardware without the robot: the experimenter positions the coil."],
+  ["E-field modes", "run/efield-modes.md", "Precomputed versus online FEM, and switching mid-run without losing alignment."],
+  ["The mapping loop", "run/mapping-loop.md", "The controller state machine step by step, including skip and recovery."],
+]
+
+[[sections]]
+title = "GUI reference"
+pages = [
+  ["Project page", "gui/project.md", "Load and save the subject files and set the stimulation defaults."],
+  ["Connections page", "gui/connections.md", "Health of the stimulator, EMG, robot and neuronavigation, with recovery."],
+  ["Control page", "gui/control.md", "Start, pause, skip and tune a mapping; read the live status and log."],
+  ["MEP results page", "gui/mep.md", "The MEP trend, the live EMG trace and how to read them."],
+  ["Cortical results page", "gui/cortical.md", "The 3-D R² map, placement overlays, selection readout and export."],
+  ["Config page", "gui/config.md", "Lab, Study and Subject scopes in one place, and what applies when."],
+  ["Themes and display", "gui/themes.md", "Five colour themes, UI scaling and the display options."],
+]
+
+[[sections]]
+title = "Configuration"
+pages = [
+  ["Settings model", "config/model.md", "The four configuration layers and exactly which one wins."],
+  [".env reference", "config/env.md", "Every environment key: meaning, default, scope and restart behaviour."],
+  ["Lab profile reference", "config/lab.md", "Every ~/.neuropilot/lab.yaml key and the files it controls."],
+]
+
+[[sections]]
+title = "Results"
+pages = [
+  ["Analysis and fits", "results/analysis.md", "How a pulse becomes a regression row and a map of R² over the cortex."],
+  ["Export and data formats", "results/export.md", "The results CSV, session records, plots and screenshots."],
+]
+
+[[sections]]
+title = "Extend"
+pages = [
+  ["Add a robot", "extend/robots.md", "One RobotSpec plus two assets makes a new arm usable in the simulator."],
+  ["Add a theme", "extend/themes.md", "The token palette a theme must define and the contrast tests that guard it."],
+  ["Add a component", "extend/components.md", "Register relay topics on both sides and plug a new process into the supervisor."],
+]
+
+[[sections]]
+title = "Reference"
+pages = [
+  ["Architecture", "reference/architecture.md", "Components, processes, data flow and the repository layout."],
+  ["Relay protocol", "reference/relay.md", "Topics, payloads and routing between robot, neuronavigation and controller."],
+  ["Command line", "reference/cli.md", "Every subcommand and flag, with the environment it expects."],
+  ["Testing and CI", "reference/testing.md", "The test suite, the GUI snapshots and the GitLab pipeline."],
+  ["Troubleshooting", "reference/troubleshooting.md", "Symptom → cause → fix for the failures seen in practice."],
+  ["Glossary", "reference/glossary.md", "The terms used across the code, the literature and this site."],
+  ["Changelog", "reference/changelog.md", "What changed, release by release, and what is still open."],
+]

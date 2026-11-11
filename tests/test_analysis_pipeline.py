@@ -179,6 +179,32 @@ def test_different_placements_with_the_same_count_warn(analysis, h5file):
     assert "different coil placements" in analysis.library_warning
 
 
+def test_transposed_library_layout_is_compared_not_skipped(analysis, h5file):
+    """(n, 4, 4) in the library and (4, 4, n) in the placements agree."""
+    mats = np.repeat(np.eye(4)[:, :, None], 3, axis=2)
+    library = h5file({"E_mag": np.ones((3, 4)),
+                      "matsimnibs": mats.transpose(2, 0, 1)}, "e.hdf5")
+    targets = h5file({"matsimnibs": mats}, "t.hdf5")
+
+    analysis.set_e_matrix_file(str(library))
+    analysis.set_targets_file(str(targets))
+    assert analysis.library_warning is None
+
+
+def test_transposed_layout_with_different_matrices_warns(analysis, h5file):
+    mats = np.repeat(np.eye(4)[:, :, None], 3, axis=2)
+    shifted = mats.copy()
+    shifted[0, 3, :] = 9.0
+    library = h5file({"E_mag": np.ones((3, 4)),
+                      "matsimnibs": shifted.transpose(2, 0, 1)}, "e.hdf5")
+    targets = h5file({"matsimnibs": mats}, "t.hdf5")
+
+    analysis.set_e_matrix_file(str(library))
+    analysis.set_targets_file(str(targets))
+    assert analysis.library_warning
+    assert "different coil placements" in analysis.library_warning
+
+
 def test_the_warning_clears_when_the_files_agree_again(analysis, e_matrix_hdf5,
                                                        placements_hdf5):
     analysis.set_e_matrix_file(str(e_matrix_hdf5(2, 6)))

@@ -12,6 +12,7 @@
 stages:
   - check
   - test
+  - deploy
 
 variables:
   # Empty -> scripts/ci-python.sh looks for the `pipeline` env.
@@ -39,6 +40,17 @@ check:syntax:
     - $PYTHON -m compileall -q src/neuropilot && echo "syntax OK"
     - $PYTHON -c "import pathlib, tomllib; tomllib.loads(pathlib.Path('pyproject.toml').read_text()); print('pyproject.toml OK')"
 
+# The documentation site is built with a dependency-free generator
+# (docs/site/build.py).  This job only checks it: no network, no packages, and
+# a failure means a broken link, an orphan page or a missing nav entry.
+check:docs:
+  stage: check
+  script:
+    - $PYTHON docs/site/build.py --check
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+
 test:
   stage: test
   script:
@@ -52,6 +64,19 @@ test:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH'
+
+# GitLab Pages: publish the documentation site.  The `pages` job name and the
+# `public` artifact are what GitLab expects; the build needs no network.
+pages:
+  stage: deploy
+  script:
+    - $PYTHON docs/site/build.py --out public
+  artifacts:
+    paths:
+      - public
+    expire_in: 1 week
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 
 # Optional: run on a machine with a display (the six-page snapshot test needs
 # OpenGL, so a headless runner is not enough).  Start it by hand from the

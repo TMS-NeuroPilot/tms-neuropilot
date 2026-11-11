@@ -25,6 +25,24 @@ neuropilot real [--launch-relay]           # real-hardware mode
 previous one is ready, all logs prefixed by role in one terminal. Ctrl+C
 shuts the whole stack down.
 
+## Documentation
+
+The full documentation — installation, subject-data preparation, every GUI page
+and configuration key, the workflows, the architecture, the relay protocol and
+troubleshooting — is published with GitLab Pages:
+
+<https://tms-localization.pages.gwdg.de/papers/neuropilot/>
+
+Its sources live in `docs/site/`: plain Markdown plus a dependency-free
+generator (no MkDocs, no network). Build and preview locally:
+
+```bash
+python docs/site/build.py --serve 8000    # http://localhost:8000
+python docs/site/build.py --check         # what the CI job verifies
+```
+
+`docs/site/README.md` is the authoring guide (Markdown subset, nav, figures).
+
 ## Components
 
 | Package | Origin | Role |
