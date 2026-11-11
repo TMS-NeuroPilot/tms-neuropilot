@@ -8,6 +8,7 @@ from .systems.system import SystemStatus
 import pynibs
 import time
 import yaml
+import numpy as np
 
 def resource_path(relative_path: str) -> str:
     """
@@ -300,6 +301,13 @@ class MainWindow(QtWidgets.QMainWindow):
             self._corner_pairs[attr] = (led, cap)
         self.tabWidget.setCornerWidget(corner, QtCore.Qt.TopRightCorner)
 
+        # Mapping-results panel: state, table and wiring.
+        self._mapping_scores = {}        # channel key -> R2 per ROI element
+        self._mapping_placements = []    # realized coil placements
+        self._emg_display_names = []
+        self._selection_pinned = False
+        self._setup_mapping_panel()
+
         # Check tick + spin-box chevrons come from generated PNGs; the rules
         # are appended here so they take part in the normal px scaling.
         self._install_ui_assets()
@@ -464,6 +472,355 @@ class MainWindow(QtWidgets.QMainWindow):
             10, max(10, row_h),
             QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         grid.invalidate()
+
+    # ── Mapping results panel ───────────────────────────────────────────
+    def _setup_mapping_panel(self):
+        table = getattr(self, "results_table", None)
+        if table is not None:
+            table.verticalHeader().setVisible(False)
+            header = table.horizontalHeader()
+            header.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
+            header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
+            header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
+            table.setMinimumHeight(90)
+            table.setMaximumHeight(260)
+        self._rebuild_placement_metric_combo()
+
+        view = getattr(self, "widget_3d_viewer", None)
+        if view is not None:
+            view.element_picked.connect(self.on_element_picked)
+            view.placement_picked.connect(self.on_placement_picked)
+            view.radio_head.toggled.connect(self._update_results_controls)
+            view.radio_roi.toggled.connect(self._update_results_controls)
+
+        for attr, slot in (("placement_metric_combo", self.on_placement_metric_changed),
+                           ("show_placements_chk", self.on_placement_options_changed),
+                           ("show_coil_chk", self.on_placement_options_changed),
+                           ("show_path_chk", self.on_placement_options_changed),
+                           ("mark_best_btn", self.on_mark_best),
+                           ("clear_marks_btn", self.on_clear_marks),
+                           ("screenshot_btn", self.on_screenshot),
+                           ("export_btn", self.on_export_results)):
+            widget = getattr(self, attr, None)
+            if widget is None:
+                continue
+            if isinstance(widget, QtWidgets.QComboBox):
+                widget.currentIndexChanged.connect(slot)
+            else:
+                widget.clicked.connect(slot)
+
+        # Sync the viewer with the checkbox defaults in the .ui.
+        self.on_placement_options_changed()
+        self._update_results_controls()
+        self._set_selection_info("Hover the mesh for R² values; click to pin.\n"
+                                 "On the head view, hover a coil placement for trial data.")
+
+    def _update_results_controls(self, *_):
+        """Placement controls only apply to the head view, the best-R² mark
+        only to the ROI view."""
+        view = getattr(self, "widget_3d_viewer", None)
+        if view is None:
+            return
+        head = view.radio_head.isChecked()
+        for attr in ("placement_metric_combo", "show_placements_chk",
+                     "show_coil_chk", "show_path_chk"):
+            widget = getattr(self, attr, None)
+            if widget is not None:
+                widget.setEnabled(head)
+        mark = getattr(self, "mark_best_btn", None)
+        if mark is not None:
+            mark.setEnabled(not head)
+
+    def _rebuild_placement_metric_combo(self):
+        combo = getattr(self, "placement_metric_combo", None)
+        if combo is None:
+            return
+        combo.blockSignals(True)
+        combo.clear()
+        for i, name in enumerate(self._emg_display_names):
+            combo.addItem(f"MEP size — {name}", ("mep", f"ADC {i}"))
+        combo.addItem("Trial id", ("trial", None))
+        combo.addItem("Aim error", ("aim", None))
+        combo.blockSignals(False)
+        self.on_placement_metric_changed()
+
+    def on_placement_metric_changed(self, *_):
+        combo = getattr(self, "placement_metric_combo", None)
+        view = getattr(self, "widget_3d_viewer", None)
+        if combo is None or view is None:
+            return
+        data = combo.currentData()
+        if isinstance(data, (tuple, list)) and len(data) == 2:
+            view.set_placement_metric(data[0], data[1])
+
+    def on_placement_options_changed(self, *_):
+        view = getattr(self, "widget_3d_viewer", None)
+        if view is None:
+            return
+        view.set_placement_options(
+            show=self.show_placements_chk.isChecked(),
+            handles=self.show_coil_chk.isChecked(),
+            path=self.show_path_chk.isChecked())
+
+    def update_mapping_results(self, bundle):
+        """Called by the controller after every collected pulse."""
+        if not bundle:
+            return
+        self._mapping_placements = bundle.get("placements", [])
+        channels = bundle.get("channels") or []
+        view = getattr(self, "widget_3d_viewer", None)
+        if view is not None:
+            view.set_mapping_results(self._mapping_placements, channels)
+        scores = bundle.get("scores")
+        if scores:
+            self.update_mesh_coloring(scores)
+
+    def _channel_keys(self):
+        keys = list(self._mapping_scores.keys())
+        keys.sort(key=lambda k: int(k.split()[-1]) if k.split()[-1].isdigit() else 99)
+        return keys
+
+    def _display_name(self, key):
+        try:
+            idx = int(key.split()[-1])
+        except (ValueError, IndexError):
+            return key
+        if 0 <= idx < len(self._emg_display_names):
+            return self._emg_display_names[idx]
+        return key
+
+    def _refresh_results_table(self):
+        table = getattr(self, "results_table", None)
+        if table is None:
+            return
+        keys = self._channel_keys()
+        table.setRowCount(len(keys))
+        for row, key in enumerate(keys):
+            scores = self._mapping_scores.get(key)
+            best, element = (0.0, None) if scores is None or len(scores) == 0 else \
+                (float(np.max(scores)), int(np.argmax(scores)))
+            values = [self._display_name(key),
+                      "—" if element is None else f"{best:.3f}",
+                      "—" if element is None else str(element)]
+            for col, text in enumerate(values):
+                item = table.item(row, col)
+                if item is None:
+                    item = QtWidgets.QTableWidgetItem()
+                    table.setItem(row, col, item)
+                item.setText(text)
+        summary = getattr(self, "results_summary", None)
+        if summary is not None:
+            if not keys:
+                summary.setText("No R² map yet — needs at least three pulses.")
+            else:
+                best_key = max(keys, key=lambda k: float(np.max(self._mapping_scores[k]))
+                               if len(self._mapping_scores[k]) else 0.0)
+                scores = self._mapping_scores[best_key]
+                prefix = (f"{len(self._mapping_placements)} pulses · "
+                          if self._mapping_placements else "")
+                summary.setText(
+                    f"{prefix}best {self._display_name(best_key)} "
+                    f"R² {float(np.max(scores)):.3f} "
+                    f"(element {int(np.argmax(scores))})")
+        table.setMinimumHeight(min(260, 42 + 26 * max(1, len(keys))))
+
+    def _set_selection_info(self, text):
+        box = getattr(self, "selection_info", None)
+        if box is not None:
+            box.setPlainText(text)
+
+    def _format_scores(self, scores):
+        lines = []
+        for key in self._channel_keys():
+            value = (scores or {}).get(key)
+            if value is None:
+                continue
+            lines.append(f"  {self._display_name(key):<6} R² {value:.3f}")
+        return lines
+
+    def on_element_picked(self, info):
+        if info.get("click"):
+            self._selection_pinned = True
+        elif self._selection_pinned:
+            return
+        x, y, z = info.get("xyz", (0.0, 0.0, 0.0))
+        lines = [f"ELEMENT {info.get('element')}",
+                 f"  xyz  ({x:.1f}, {y:.1f}, {z:.1f}) mm"]
+        lines += self._format_scores(info.get("scores")) or ["  no R² yet"]
+        if self._selection_pinned:
+            lines.insert(0, "● pinned")
+        self._set_selection_info("\n".join(lines))
+
+    def on_placement_picked(self, info):
+        if info.get("click"):
+            self._selection_pinned = True
+        elif self._selection_pinned:
+            return
+        rec = info.get("record") or {}
+        pos = rec.get("position") or (0.0, 0.0, 0.0)
+        lines = [f"TRIAL {rec.get('trial')}  ·  pulse {rec.get('pulse_index')}",
+                 f"  xyz  ({pos[0]:.1f}, {pos[1]:.1f}, {pos[2]:.1f}) mm",
+                 f"  aim error  {rec.get('aim_error_mm', 0.0):.1f} mm",
+                 f"  intensity  {rec.get('intensity', 0)} %MSO"]
+        for key, value in (rec.get("mep") or {}).items():
+            if value is not None:
+                lines.append(f"  MEP {self._display_name(key):<6} {value:.2f} mV")
+        if self._selection_pinned:
+            lines.insert(0, "● pinned")
+        self._set_selection_info("\n".join(lines))
+
+    def on_mark_best(self, *_):
+        view = getattr(self, "widget_3d_viewer", None)
+        if view is None:
+            return
+        key = self._selected_score_key()
+        element = view.mark_best_element(key)
+        if element is None:
+            self._set_selection_info("No R² map yet — collect at least three pulses.")
+            return
+        scores = self._mapping_scores.get(key)
+        best = float(np.max(scores)) if scores is not None else float("nan")
+        mesh = view.current_mesh
+        centre = None
+        if mesh is not None and element < mesh.n_cells:
+            centre = mesh.cell_centers().points[element]
+        lines = [f"BEST R² — {self._display_name(key)}",
+                 f"  element {element}",
+                 f"  R² {best:.3f}"]
+        if centre is not None:
+            lines.append(f"  xyz  ({centre[0]:.1f}, {centre[1]:.1f}, {centre[2]:.1f}) mm")
+        self._selection_pinned = True
+        self._set_selection_info("\n".join(lines))
+
+    def _selected_score_key(self):
+        combo = getattr(self, "placement_metric_combo", None)
+        data = combo.currentData() if combo is not None else None
+        if isinstance(data, (tuple, list)) and len(data) == 2 and data[0] == "mep":
+            return data[1]
+        keys = self._channel_keys()
+        return keys[0] if keys else None
+
+    def on_clear_marks(self, *_):
+        view = getattr(self, "widget_3d_viewer", None)
+        if view is not None:
+            view.clear_marks()
+        self._selection_pinned = False
+        self._set_selection_info("Hover the mesh for R² values; click to pin.")
+
+    def on_screenshot(self, *_):
+        view = getattr(self, "widget_3d_viewer", None)
+        if view is None:
+            return
+        start = os.path.expanduser("~")
+        if self.savePathLineEdit.text().strip():
+            start = os.path.dirname(self.savePathLineEdit.text().strip()) or start
+        path = self._file_dialog("Save 3D view screenshot", start,
+                                 "PNG image (*.png)", save=True)
+        if not path:
+            return
+        if not path.lower().endswith(".png"):
+            path += ".png"
+        try:
+            view.screenshot(path)
+            self._set_selection_info(f"Screenshot saved\n  {path}")
+        except Exception as e:
+            self._set_selection_info(f"Screenshot failed: {e}")
+
+    def on_export_results(self, *_):
+        """Write the R² table (element coordinates + scores) and the placement
+        log (coil poses, MEPs, aim errors) next to a chosen base file name."""
+        start = os.path.expanduser("~")
+        if self.savePathLineEdit.text().strip():
+            start = os.path.dirname(self.savePathLineEdit.text().strip()) or start
+        base = self._file_dialog("Export mapping results (CSV)", start,
+                                 "CSV files (*.csv)", save=True)
+        if not base:
+            return
+        base = re.sub(r"\.csv$", "", base, flags=re.IGNORECASE)
+        written = []
+        try:
+            if self._mapping_scores:
+                path = base + "_roi_r2.csv"
+                self._write_roi_csv(path)
+                written.append(path)
+            if self._mapping_placements:
+                path = base + "_placements.csv"
+                self._write_placements_csv(path)
+                written.append(path)
+            readme = base + "_README.txt"
+            self._write_export_readme(readme)
+            written.append(readme)
+            self._set_selection_info("Exported\n" + "\n".join(f"  {p}" for p in written))
+        except Exception as e:
+            self._set_selection_info(f"Export failed: {e}")
+
+    def _write_roi_csv(self, path):
+        import csv
+        view = getattr(self, "widget_3d_viewer", None)
+        mesh = getattr(view, "mesh_roi", None) if view is not None else None
+        centres = mesh.cell_centers().points if mesh is not None else None
+        keys = self._channel_keys()
+        with open(path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["element", "x_mm", "y_mm", "z_mm"]
+                            + [f"r2_{self._display_name(k)}" for k in keys])
+            n = max((len(self._mapping_scores.get(k, [])) for k in keys), default=0)
+            for element in range(n):
+                xyz = centres[element] if centres is not None and element < len(centres) \
+                    else (float("nan"),) * 3
+                row = [element, f"{xyz[0]:.3f}", f"{xyz[1]:.3f}", f"{xyz[2]:.3f}"]
+                row += [f"{float(self._mapping_scores[k][element]):.5f}"
+                        if element < len(self._mapping_scores.get(k, [])) else ""
+                        for k in keys]
+                writer.writerow(row)
+
+    def _write_export_readme(self, path):
+        """Column dictionary next to the exported tables (units + frames)."""
+        names = ", ".join(self._display_name(k) for k in self._channel_keys()) or "—"
+        with open(path, "w") as f:
+            f.write(
+                "NeuroPilot mapping export\n"
+                "========================\n\n"
+                f"Channels: {names}\n"
+                "Coordinates are in mm, SimNIBS head space.\n\n"
+                f"{os.path.basename(path).replace('_README.txt', '_roi_r2.csv')}\n"
+                "  element        ROI triangle index (0-based, same order as the E-field columns)\n"
+                "  x_mm/y_mm/z_mm triangle centroid\n"
+                "  r2_<channel>   regression R^2 per triangle (NaN/empty if not fitted)\n\n"
+                f"{os.path.basename(path).replace('_README.txt', '_placements.csv')}\n"
+                "  trial, pulse_index, target_index  acquisition order / pulse / planned target\n"
+                "  x/y/z_realized  coil centre actually used (mm)\n"
+                "  rota/rotb/rotc_realized  coil orientation, Euler xyz degrees\n"
+                "  x/y/z_target    planned coil centre (mm)\n"
+                "  aim_error_mm    |realized - target| (mm)\n"
+                "  intensity_pctMSO  stimulator output\n"
+                "  pressure        force sensor reading at stimulation\n"
+                "  mep_<channel>_mV peak-to-peak MEP amplitude\n")
+
+    def _write_placements_csv(self, path):
+        import csv
+        keys = self._channel_keys()
+        header = ["trial", "pulse_index", "target_index",
+                  "x_realized", "y_realized", "z_realized",
+                  "rota_realized", "rotb_realized", "rotc_realized",
+                  "x_target", "y_target", "z_target",
+                  "aim_error_mm", "intensity_pctMSO", "pressure"]
+        header += [f"mep_{self._display_name(k)}_mV" for k in keys]
+        with open(path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(header)
+            for rec in self._mapping_placements:
+                pos, rot = rec.get("position"), rec.get("rotation")
+                tpos, trot = rec.get("target_position"), rec.get("target_rotation")
+                row = [rec.get("trial"), rec.get("pulse_index"), rec.get("target_index")]
+                row += [f"{v:.3f}" for v in pos] if pos else ["", "", ""]
+                row += [f"{v:.2f}" for v in rot] if rot else ["", "", ""]
+                row += [f"{v:.3f}" for v in tpos] if tpos else ["", "", ""]
+                row += [f"{rec.get('aim_error_mm', 0.0):.2f}",
+                        rec.get("intensity", ""), rec.get("pressure", "")]
+                mep = rec.get("mep") or {}
+                row += ["" if mep.get(k) is None else f"{mep[k]:.4f}" for k in keys]
+                writer.writerow(row)
 
     def _install_ui_assets(self):
         icons = _control_ui_icons()
@@ -910,12 +1267,14 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
             self.back_btn.setEnabled(False)
 
     def update_mesh_coloring(self, scores_dict):
-        """
-        Called by Controller.
-        scores_dict: {'ADC 0': array, 'ADC 1': array, ...}
-        """
+        """R² maps from the regression (per channel, one value per ROI element).
+
+        Called by the controller; also feeds the results table, the hover
+        readout and the best-element marker."""
+        self._mapping_scores.update({k: np.asarray(v) for k, v in (scores_dict or {}).items()})
         if hasattr(self, 'widget_3d_viewer'):
             self.widget_3d_viewer.apply_scores(scores_dict)
+        self._refresh_results_table()
 
     # set the status of self.robot_led, self.stim_led, self.emg_led
     def set_led_status(self, led_widget, status_val: str, color_val: str):
@@ -1464,6 +1823,8 @@ QSpinBox::down-arrow { image: url(%(down)s); width: 8px; height: 5px; }
         widget = getattr(self, "widget_3d_viewer", None)
         if widget is not None:
             widget.set_channel_display_names(names)
+        self._emg_display_names = list(names)
+        self._rebuild_placement_metric_combo()
 
     def paste_coil_path(self):
         file_path = self.coilspathlineedit.text().strip()

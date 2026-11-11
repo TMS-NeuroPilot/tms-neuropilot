@@ -647,6 +647,7 @@ class PipelineController:
         if self.running_analyses_tasks:
             print("Waiting for final R2 map.")
             await asyncio.gather(*self.running_analyses_tasks)
+            self.push_mapping_results()
 
         if self.simulation:
             self.final_adc1_geodesic_and_markers()
@@ -677,6 +678,52 @@ class PipelineController:
         except Exception as e:
             print("Something wrong with results collection / saving:")
             print(e)
+
+    # ── mapping results for the 3D page ─────────────────────────────────
+    def placement_records(self):
+        """One record per collected pulse, in acquisition order."""
+        rt = self.realized_targets
+        count = len(rt['idx'])
+        records = []
+        for i in range(count):
+            position = [rt['x_realized'][i], rt['y_realized'][i], rt['z_realized'][i]]
+            rotation = [rt['rota_realized'][i], rt['rotb_realized'][i], rt['rotc_realized'][i]]
+            target_position = [rt['x_target'][i], rt['y_target'][i], rt['z_target'][i]]
+            target_rotation = [rt['rota_target'][i], rt['rotb_target'][i], rt['rotc_target'][i]]
+            try:
+                aim = float(np.linalg.norm(np.array(position) - np.array(target_position)))
+            except (TypeError, ValueError):
+                aim = 0.0
+            mep = {ch: (hist[i] if i < len(hist) else None)
+                   for ch, hist in self.mep_history.items()}
+            records.append({
+                "trial": i,
+                "pulse_index": rt['idx'][i],
+                "target_index": rt['idx_pulse'][i],
+                "time": rt['time'][i],
+                "position": position,
+                "rotation": rotation,
+                "target_position": target_position,
+                "target_rotation": target_rotation,
+                "aim_error_mm": aim,
+                "intensity": rt['intensity'][i],
+                "pressure": rt['pressure'][i],
+                "mep": mep,
+            })
+        return records
+
+    def push_mapping_results(self):
+        """Hand the results page the placement log and the current R² maps."""
+        if self.control_panel is None:
+            return
+        try:
+            self.control_panel.update_mapping_results({
+                "placements": self.placement_records(),
+                "channels": list(self.mep_history.keys()),
+                "scores": dict(self.final_scores) if self.final_scores else None,
+            })
+        except Exception as e:
+            print(f"[WARN] mapping results update failed: {e}")
 
     def reset_algorithm(self):
         self.target_reached = False
@@ -1007,6 +1054,9 @@ class PipelineController:
                 if ch not in self.emg_preac_var_history:
                     self.emg_preac_var_history[ch] = []
                 self.emg_preac_var_history[ch].append(val)
+
+            # Live view for the results page: placements + MEPs collected so far.
+            self.push_mapping_results()
 
             # passing data to the GUI for plotting the meps and the emg
             if self.control_panel:

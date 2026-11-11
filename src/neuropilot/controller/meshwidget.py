@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QFrame, QCheckBox, QRadioButton, \
     QButtonGroup
+from PyQt5.QtCore import Qt, pyqtSignal
 import pyvista as pv
 from pyvistaqt import QtInteractor
 import h5py
@@ -12,6 +13,11 @@ HOME_VIEW_DIRECTION = np.array([-0.75, -0.30, 0.58])
 
 
 class MeshWidget(QWidget):
+    # Emitted while hovering/clicking: {"element", "xyz", "scores"} for the
+    # ROI surface, {"index", "record"} for a realized coil placement.
+    element_picked = pyqtSignal(dict)
+    placement_picked = pyqtSignal(dict)
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -34,7 +40,7 @@ class MeshWidget(QWidget):
         self.controls_layout = QHBoxLayout(self.controls_frame)
         self.controls_layout.setContentsMargins(10, 5, 10, 5)
 
-        lbl = QLabel("Color Data:")
+        lbl = QLabel("Mesh colour:")
         lbl.setStyleSheet("font-weight: 600; color: #6B7280; font-size: 12px;")
         self.controls_layout.addWidget(lbl)
 
@@ -160,6 +166,264 @@ class MeshWidget(QWidget):
         # Data-layer channel key ('ADC 0') -> display name from EMG_CHANNELS.
         self.channel_display_names = {}
 
+        # ── mapping-results overlays ─────────────────────────────────────
+        self.placements = []            # realized coil placements (dicts)
+        self.channel_keys = []          # data keys in display order
+        self._scores = {}               # channel key -> R2 per ROI element
+        self._placement_metric = ("mep", None)   # ("mep"|"trial"|"aim", key)
+        self._show_placements = True
+        self._show_coil_handles = True
+        self._show_path = False
+        self._best_element = None
+        self._best_channel = None
+        self._init_picking()
+        self._install_shortcuts()
+
+    # ── picking ──────────────────────────────────────────────────────────
+    def _init_picking(self):
+        from vtkmodules.vtkRenderingCore import vtkCellPicker
+        self._picker = vtkCellPicker()
+        self._picker.SetTolerance(0.01)
+        self._last_pick_at = 0.0
+        self._mouse_down = False
+        self.plotter.setMouseTracking(True)
+        self.plotter.iren.add_observer("MouseMoveEvent", self._on_mouse_move)
+        self.plotter.iren.add_observer("LeftButtonPressEvent", self._on_left_press)
+        self.plotter.iren.add_observer("LeftButtonReleaseEvent", self._on_left_release)
+
+    def _on_left_press(self, obj, event):
+        self._mouse_down = True
+        self._emit_pick(obj, click=True)
+
+    def _on_left_release(self, obj, event):
+        self._mouse_down = False
+
+    def _on_mouse_move(self, obj, event):
+        # Hover picking while dragging the camera is pointless and costly.
+        if self._mouse_down:
+            return
+        self._emit_pick(obj, click=False)
+
+    def _emit_pick(self, iren, click):
+        import time as _time
+        now = _time.monotonic()
+        if not click and now - self._last_pick_at < 0.06:
+            return
+        self._last_pick_at = now
+        x, y = iren.GetEventPosition()
+        name, picker = self._pick_at(x, y)
+        if name == "placements":
+            idx = picker.GetPointId()
+            if 0 <= idx < len(self.placements):
+                self.placement_picked.emit({"index": idx,
+                                            "record": self.placements[idx],
+                                            "click": click})
+        elif name == "main_mesh" and self.current_mesh is self.mesh_roi:
+            cid = picker.GetCellId()
+            if cid is not None and cid >= 0:
+                xyz = tuple(float(v) for v in picker.GetPickPosition())
+                scores = {k: (float(v[cid]) if cid < len(v) else None)
+                          for k, v in self._scores.items()}
+                self.element_picked.emit({"element": int(cid), "xyz": xyz,
+                                          "scores": scores, "click": click})
+
+    def _pick_at(self, x, y):
+        """Pick at window coords; returns (actor name, picker) or (None, None)."""
+        self._picker.Pick(x, y, 0, self.plotter.renderer)
+        actor = self._picker.GetActor()
+        if actor is None:
+            return None, None
+        for name, candidate in self.plotter.actors.items():
+            if candidate is actor:
+                return name, self._picker
+        return None, None
+
+    def _install_shortcuts(self):
+        """B mark best R², H toggle head/ROI, F home view (view has focus)."""
+        from PyQt5.QtGui import QKeySequence
+        from PyQt5.QtWidgets import QShortcut
+        self.setFocusPolicy(Qt.StrongFocus)
+        for keys, slot in (("B", self._shortcut_mark_best),
+                           ("H", self._shortcut_toggle_mesh),
+                           ("F", self._shortcut_home)):
+            shortcut = QShortcut(QKeySequence(keys), self)
+            shortcut.setContext(Qt.WidgetWithChildrenShortcut)
+            shortcut.activated.connect(slot)
+
+    def _score_key(self):
+        if self._best_channel in self._scores:
+            return self._best_channel
+        return next(iter(self._scores), None)
+
+    def _shortcut_mark_best(self):
+        self.mark_best_element(self._score_key())
+
+    def _shortcut_toggle_mesh(self):
+        if self.radio_head.isChecked():
+            self.radio_roi.setChecked(True)
+        else:
+            self.radio_head.setChecked(True)
+
+    def _shortcut_home(self):
+        self._set_home_camera()
+        self.plotter.render()
+
+    # ── mapping results ──────────────────────────────────────────────────
+    def set_mapping_results(self, placements, channel_keys):
+        self.placements = list(placements or [])
+        self.channel_keys = list(channel_keys or [])
+        self._refresh_overlays()
+
+    def set_placement_options(self, show=None, handles=None, path=None):
+        if show is not None:
+            self._show_placements = bool(show)
+        if handles is not None:
+            self._show_coil_handles = bool(handles)
+        if path is not None:
+            self._show_path = bool(path)
+        self._refresh_overlays()
+
+    def set_placement_metric(self, kind, channel=None):
+        self._placement_metric = (kind, channel)
+        self._refresh_overlays()
+
+    def _placement_values(self):
+        """(values, title) for the current placement colour metric."""
+        kind, channel = self._placement_metric
+        values = []
+        for rec in self.placements:
+            if kind == "trial":
+                values.append(float(rec.get("trial", 0)))
+            elif kind == "aim":
+                values.append(float(rec.get("aim_error_mm") or 0.0))
+            else:
+                mep = (rec.get("mep") or {}).get(channel)
+                values.append(float(mep) if mep is not None else 0.0)
+        if kind == "trial":
+            title = "Trial"
+        elif kind == "aim":
+            title = "Aim error [mm]"
+        else:
+            name = self.channel_display_names.get(channel, channel)
+            title = f"MEP {name} [mV]"
+        return values, title
+
+    def _refresh_overlays(self):
+        """Redraw placement spheres/handles/path and the best-element mark."""
+        for name in ("placements", "coil_handles", "placement_path",
+                     "best_element", "best_element_pt"):
+            self.plotter.remove_actor(name)
+
+        on_head = self.current_mesh is self.mesh_head
+        if on_head and self.placements and self._show_placements:
+            self._draw_placements()
+        if self.current_mesh is self.mesh_roi and self._best_element is not None:
+            self._draw_best_element()
+        self.plotter.render()
+
+    def _draw_placements(self):
+        import numpy as np
+        points = np.array([rec["position"] for rec in self.placements
+                           if rec.get("position")], dtype=float)
+        if points.size == 0:
+            return
+        # Lift the markers a few mm off the scalp (radial from the head
+        # centre): the recorded coil points sit on the skin and would
+        # otherwise be half-buried in the (opaque) head surface.
+        if self.mesh_head is not None:
+            centre = np.asarray(self.mesh_head.center)
+            radial = points - centre
+            norm = np.linalg.norm(radial, axis=1, keepdims=True) + 1e-9
+            points = points + radial / norm * 6.0
+        values, title = self._placement_values()
+        values = np.asarray(values, dtype=float)
+        finite = values[np.isfinite(values)]
+        if finite.size:
+            kind = self._placement_metric[0]
+            # Robust upper clip for continuous metrics: a single MEP outlier
+            # would otherwise flatten every other marker into one colour.
+            upper = (float(np.percentile(finite, 95))
+                     if kind in ("mep", "aim") else float(finite.max()))
+            clim = (float(finite.min()), max(upper, float(finite.min()) + 1e-6))
+        else:
+            clim = (0.0, 1.0)
+        self.plotter.add_points(points, scalars=values, cmap="turbo", clim=clim,
+                                render_points_as_spheres=True, point_size=22,
+                                name="placements", show_scalar_bar=False)
+        self.plotter.add_scalar_bar(title=title, n_labels=4)
+
+        if self._show_coil_handles:
+            segments = [self._coil_handle_segment(rec) for rec in self.placements
+                        if rec.get("position") and rec.get("rotation")]
+            segments = [s for s in segments if s is not None]
+            if segments:
+                import numpy as _np
+                vertices, lines = [], []
+                for k, (start, end) in enumerate(segments):
+                    vertices.extend([start, end])
+                    lines.extend([2, 2 * k, 2 * k + 1])
+                poly = pv.PolyData(_np.asarray(vertices), lines=_np.asarray(lines))
+                # Thin sticks read as coil orientation without the bulk of
+                # 500 cylinders (which merge into a grey slab).
+                self.plotter.add_mesh(poly, color="#7C8794", line_width=3,
+                                      opacity=0.85, name="coil_handles")
+
+        if self._show_path and len(points) > 1:
+            self.plotter.add_mesh(pv.lines_from_points(points), color="#D97706",
+                                  line_width=3, name="placement_path")
+
+    @staticmethod
+    def _coil_handle_segment(record):
+        """(start, end) of a short stick along the coil axis, oriented by the
+        recorded rotation (SimNIBS xyz Euler angles)."""
+        import numpy as np
+        from scipy.spatial.transform import Rotation
+        try:
+            pos = np.asarray(record["position"], dtype=float)
+            rot = record.get("rotation") or [0.0, 0.0, 0.0]
+            normal = Rotation.from_euler("xyz", rot, degrees=True).apply([0.0, 0.0, 1.0])
+            return pos + normal * 4.0, pos + normal * 26.0
+        except Exception:
+            return None
+
+    def _draw_best_element(self):
+        import numpy as np
+        cell = self.current_mesh.extract_cells(int(self._best_element))
+        # Tube the triangle outline: a hairline disappears at normal zoom.
+        outline = cell.extract_feature_edges()
+        try:
+            outline = outline.tube(radius=1.0, n_sides=8)
+        except Exception:
+            pass
+        self.plotter.add_mesh(outline, color="#FF2D95", name="best_element")
+        centre = np.asarray(cell.cell_centers().points[0]).reshape(1, 3)
+        self.plotter.add_points(centre, color="#FF2D95", point_size=14,
+                                render_points_as_spheres=True,
+                                name="best_element_pt")
+
+    def mark_best_element(self, channel_key=None):
+        """Outline the highest-R2 element of ``channel_key`` (default: the
+        first channel with scores).  Returns the element index or None."""
+        import numpy as np
+        key = channel_key if channel_key in self._scores else next(iter(self._scores), None)
+        if key is None:
+            return None
+        scores = np.asarray(self._scores[key])
+        if scores.size == 0:
+            return None
+        self._best_element = int(np.argmax(scores))
+        self._best_channel = key
+        self._refresh_overlays()
+        return self._best_element
+
+    def clear_marks(self):
+        self._best_element = None
+        self._best_channel = None
+        self._refresh_overlays()
+
+    def screenshot(self, path):
+        self.plotter.screenshot(path)
+
     def set_channel_display_names(self, names):
         """Map the ADC data keys to the configured EMG channel names so the
         results dropdown reads 'FDI mapping result [R2]' instead of 'Score
@@ -246,6 +510,13 @@ class MeshWidget(QWidget):
                 if fallback_index >= 0:
                     self.scalar_selector.setCurrentIndex(fallback_index)
 
+        # If the new mesh offers results but the restored item is the plain
+        # colour, show the first result instead.
+        if self.scalar_selector.currentIndex() == 0 and self.scalar_selector.count() > 1:
+            self.scalar_selector.blockSignals(True)
+            self.scalar_selector.setCurrentIndex(1)
+            self.scalar_selector.blockSignals(False)
+
         # 5. Redraw the scene based on the (restored) selection
         self.update_scalars(self.scalar_selector.currentIndex())
 
@@ -275,6 +546,7 @@ class MeshWidget(QWidget):
             for channel_name, scores in scores_dict.items():
 
                 # Check dimensions (Cell Data vs Point Data)
+                self._scores[channel_name] = np.asarray(scores)
                 if len(scores) == self.current_mesh.n_cells:
                     # Naming convention: "Score ADC 0"
                     data_name = f"Score {channel_name}"
@@ -314,9 +586,14 @@ class MeshWidget(QWidget):
             # We look for the item that has the same data key as before.
             index = self.scalar_selector.findData(previous_data_key)
 
-            if index >= 0:
+            if index > 0:
                 # Found it! Switch back to it immediately.
                 self.scalar_selector.setCurrentIndex(index)
+            elif previous_data_key is None and self.scalar_selector.count() > 1:
+                # Nothing was selected before (findData(None) matches the
+                # placeholder): show the first R² map instead of leaving the
+                # surface uncoloured.
+                self.scalar_selector.setCurrentIndex(1)
             else:
                 # If we couldn't match the data key (maybe it was Solid Color with no data),
                 # try to match the text label (e.g. "Solid Color (No Data)")
@@ -505,9 +782,11 @@ class MeshWidget(QWidget):
             self.scalar_selector.setCurrentIndex(score_index)
             self.update_scalars(score_index)
             return
-        self.plotter.add_mesh(self.current_mesh, color='#d9e6f2', show_edges=True)
+        self.plotter.add_mesh(self.current_mesh, color='#d9e6f2', show_edges=True,
+                              name="main_mesh")
 
         self._set_home_camera()
+        self._refresh_overlays()
 
     def update_scalars(self, index):
         """Called when user changes dropdown."""
@@ -524,13 +803,12 @@ class MeshWidget(QWidget):
         #self.plotter.add_axes()
 
         if array_name is None:
-            # "Solid Color" mode: force checkbox to be checked and disable it
-            self.edge_checkbox.blockSignals(True)
-            self.edge_checkbox.setChecked(True)
-            self.edge_checkbox.setEnabled(False)
-            self.edge_checkbox.blockSignals(False)
-
-            self.plotter.add_mesh(self.current_mesh, color='#d9e6f2', show_edges=True)
+            # Plain colour: the edge toggle stays available but is not forced
+            # on (1.1M head triangles would render as a black mass).
+            self.edge_checkbox.setEnabled(True)
+            show_lines = self.edge_checkbox.isChecked()
+            self.plotter.add_mesh(self.current_mesh, color='#d9e6f2',
+                                  show_edges=show_lines, name="main_mesh")
         else:
             # Data mode: allow user to toggle edges freely
             self.edge_checkbox.setEnabled(True)
@@ -540,9 +818,12 @@ class MeshWidget(QWidget):
             # the internal array key.
             self.plotter.add_mesh(self.current_mesh, scalars=array_name, cmap="turbo",
                                   show_edges=show_lines, edge_color="black",
-                                  clim=[0.0, 1.0], show_scalar_bar=False)
+                                  clim=[0.0, 1.0], show_scalar_bar=False,
+                                  name="main_mesh")
             self.plotter.add_scalar_bar(title=self.scalar_selector.currentText())
 
         self._set_home_camera()
         self._render_cell_markers()
-        self.plotter.render()
+        # Re-add the mapping overlays (placements on the head, best-element
+        # mark on the ROI) that plotter.clear() removed.
+        self._refresh_overlays()

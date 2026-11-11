@@ -3,6 +3,25 @@
 All notable changes to NeuroPilot are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- Mapping results page split into the 3D view and a results panel.  The
+  panel shows the per-channel best R² and element, a session summary, the
+  placement display controls (colour by MEP / trial / aim error, coil
+  handles, path) and a selection readout.
+- Realized coil placements are drawn on the head as spheres coloured by
+  MEP size, trial id or aim error, with optional coil-direction sticks and
+  path lines; hovering a marker shows the trial, pose, aim error and MEPs.
+- On the ROI surface, hovering reports the element, its coordinates and
+  the R² of every channel; clicking pins the readout.  "Mark best R²"
+  outlines the highest-R² triangle in pink (shortcut B), H toggles
+  head/ROI and F restores the home view.
+- Export from the results page: a PNG screenshot and CSV tables of the R²
+  per ROI triangle (with coordinates) plus the placement log (poses, aim
+  errors, intensities, MEPs), with a README describing every column.
+
 ## [0.1.0] — 2026-11-10
 
 First release of the merged suite.
