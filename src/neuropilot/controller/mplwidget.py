@@ -270,63 +270,47 @@ class EmgNavGraphWidget(MplGraphWidget):
         self.bottom_bar = QFrame()
         self.bottom_bar.setStyleSheet("""
             QFrame {
-                background-color: #f8f9fa;
-                border-top: 1px solid #dcdcdc;
+                background-color: #FFFFFF;
+                border-top: 1px solid #E2E5E9;
             }
-            /* Basic style for QPushButton */
             QPushButton {
-                background-color: #D97706; /* Workstation accent */
-                color: white; /* White text */
-                border: 1px solid #D97706;
-                border-radius: 12px; /* Rounded corners */
-                padding: 5px 20px; /* Vertical and horizontal padding */
-                font-size: 14px; /* Font size */
-                font-weight: bold; /* Bold text */
+                background-color: #FFFFFF;
+                color: #1B1F24;
+                border: 1px solid #D9DDE3;
+                border-radius: 4px;
+                padding: 4px 16px;
+                font-size: 13px;
                 text-align: center;
-                outline: none; /* Remove the focus outline */
-                /* No fixed width: the buttons must grow with the scaled
-                   font or the text clips ("Previous E...", "ext EMG"). */
-
+                outline: none;
             }
-            
-            /* Hover effect for QPushButton */
             QPushButton:hover {
-                background-color: #B45309;
-                border-color: #B45309;
-            
+                border-color: #D97706;
+                color: #B45309;
             }
-            
-            /* Pressed (active) effect for QPushButton */
             QPushButton:pressed {
-                background-color: #92400E;
-                border-color: #92400E;
-            
+                background-color: #FEF3E2;
+                border-color: #D97706;
             }
-            
-            /* Focus effect (when button is focused) */
             QPushButton:focus {
-                outline: none; /* Remove the default focus outline */
+                outline: none;
             }
-            
-            /* Disabled button style */
             QPushButton:disabled {
-                background-color: #F1F3F5; /* Disabled surface */
-                color: #4A6B88; /* Medium blue-grey, consistent with the main stylesheets */
+                background-color: #F4F5F7;
+                color: #A9B4BE;
                 border: 1px solid #E7EAEE;
-            
             }
             QCheckBox {
-                font-size: 12px;
+                font-size: 13px;
                 padding: 4px;
-                spacing: 8px; /* Space between box and text */
-                margin-left: 15px; font-weight: bold; color: #333;
+                spacing: 8px;
+                margin-left: 15px;
+                color: #1B1F24;
             }
-
         """)
 
         # Horizontal layout for the bottom bar
         self.nav_layout = QHBoxLayout(self.bottom_bar)
-        self.nav_layout.setContentsMargins(0, 20, 0, 0)
+        self.nav_layout.setContentsMargins(12, 8, 12, 8)
 
         # Add elements to the bottom bar
         self.chk_include = QCheckBox("Include in Mapping")

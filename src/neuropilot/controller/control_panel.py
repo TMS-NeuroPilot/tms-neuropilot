@@ -207,6 +207,30 @@ class MainWindow(QtWidgets.QMainWindow):
         self.online_efield_btn.toggled.connect(self.on_efield_mode_changed)
         self.offline_efield_btn.toggled.connect(self.on_efield_mode_changed)
 
+        # Status LEDs live in the tab bar's top-right corner (right of the
+        # tab strip) instead of on the Control page.
+        corner = QtWidgets.QWidget(self.tabWidget)
+        corner.setObjectName("tab_corner")
+        corner.setStyleSheet("QWidget#tab_corner { background: transparent; }")
+        corner_layout = QtWidgets.QHBoxLayout(corner)
+        corner_layout.setContentsMargins(0, 0, 12, 0)
+        corner_layout.setSpacing(14)
+        for attr, caption in (("led_stim", "Stimulator"),
+                              ("led_emg", "EMG"),
+                              ("led_robot", "Robot")):
+            pair = QtWidgets.QHBoxLayout()
+            pair.setSpacing(6)
+            led = QtWidgets.QLabel(corner)
+            led.setProperty("led", True)
+            led.setFixedSize(10, 10)
+            setattr(self, attr, led)
+            cap = QtWidgets.QLabel(caption, corner)
+            cap.setProperty("role", "cap")
+            pair.addWidget(led)
+            pair.addWidget(cap)
+            corner_layout.addLayout(pair)
+        self.tabWidget.setCornerWidget(corner, QtCore.Qt.TopRightCorner)
+
         # Default coil model: the MCF-B65 CCD shipped with SimNIBS (the same
         # model the precomputed E-field library was computed with). Goes
         # through paste_coil_path so validation and the FEM manager update
@@ -256,6 +280,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.pulseShapeComboBox.currentTextChanged.connect(self.on_pulse_shape_changed)
         self.fitFunctionComboBox.currentTextChanged.connect(self.on_fit_function_changed)
+        for combo in (self.pulseShapeComboBox, self.fitFunctionComboBox):
+            combo.setMaxVisibleItems(12)
 
 
         #4th Tab
@@ -286,6 +312,20 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.n_repetitions_spinBox, self.spinBox2, self.spinBox3):
             _sb.valueChanged.connect(self._mark_project_dirty)
         self._update_project_label()
+
+        # File summaries next to the project paths (updated on change, with
+        # a short debounce; heavy mesh reads happen in a worker thread).
+        self._info_cache = {}
+        self._info_timer = QtCore.QTimer(self)
+        self._info_timer.setSingleShot(True)
+        self._info_timer.setInterval(250)
+        self._info_timer.timeout.connect(self._update_file_infos)
+        for _le in (self.loadmeshlabel, self.loadroilabel, self.target_order_LineEdit,
+                    self.loadplacementlabel, self.load_e_matrix_label,
+                    self.savePathLineEdit, self.coilspathlineedit,
+                    self.emg_config_label):
+            _le.textChanged.connect(lambda *_: self._info_timer.start())
+        self._update_file_infos()
 
         # Restore the last session's project fields. The values are only
         # stashed here — they are applied in set_controller(), once the
@@ -321,6 +361,110 @@ class MainWindow(QtWidgets.QMainWindow):
         finally:
             self._project_loading = False
         self._pending_session = None
+
+    # ── Project file summaries ─────────────────────────────────────────────
+    def _update_file_infos(self):
+        """Show a short summary next to each configured project file."""
+        def set_info(name, text):
+            lbl = getattr(self, name, None)
+            if lbl is not None:
+                lbl.setText(text or "")
+
+        def cached(path, key, computer):
+            entry = self._info_cache.get((path, key))
+            if entry is not None:
+                return entry
+            try:
+                entry = computer(path)
+            except Exception as e:
+                entry = f"unreadable ({type(e).__name__})"
+            self._info_cache[(path, key)] = entry
+            return entry
+
+        def h5_shape(fn, dataset, fmt):
+            import h5py
+            with h5py.File(fn, "r") as f:
+                ids = dataset(f)
+                return fmt(ids)
+
+        # head mesh: a SimNIBS .msh read is slow -> worker thread
+        mesh_fn = self.loadmeshlabel.text().strip()
+        if mesh_fn.lower().endswith(".msh") and os.path.isfile(mesh_fn):
+            pending = self._info_cache.get((mesh_fn, "mesh_pending"))
+            done = self._info_cache.get((mesh_fn, "mesh"))
+            if done is not None:
+                set_info("info_mesh", done)
+            elif pending is None:
+                self._info_cache[(mesh_fn, "mesh_pending")] = True
+                def _mesh_worker():
+                    try:
+                        from simnibs import mesh_io
+                        m = mesh_io.read_msh(mesh_fn)
+                        n_tet = int((m.elm.elm_type == 4).sum())
+                        n_tri = int((m.elm.elm_type == 2).sum())
+                        text = f"{n_tet:,} tets · {n_tri:,} tris"
+                    except Exception as e:
+                        text = f"unreadable ({type(e).__name__})"
+                    self._info_cache[(mesh_fn, "mesh")] = text
+                    QtCore.QTimer.singleShot(0, lambda: set_info("info_mesh", text))
+                import threading
+                threading.Thread(target=_mesh_worker, daemon=True).start()
+        else:
+            set_info("info_mesh", "")
+
+        roi_fn = self.loadroilabel.text().strip()
+        set_info("info_roi", cached(roi_fn, "roi", lambda fn: h5_shape(
+            fn, lambda f: f["mesh/elm/triangle_number_list"].shape[0],
+            lambda n: f"{n:,} triangles")) if roi_fn and os.path.isfile(roi_fn) else "")
+
+        to_fn = self.target_order_LineEdit.text().strip()
+        set_info("info_target_order", cached(to_fn, "to", lambda fn: (
+            lambda lines: f"{len([l for l in lines if l.strip()]):,} placements")(
+            open(fn).read().splitlines())) if to_fn and os.path.isfile(to_fn) else "")
+
+        pl_fn = self.loadplacementlabel.text().strip()
+        def placements_info(fn):
+            import h5py
+            with h5py.File(fn, "r") as f:
+                if "centers" in f:
+                    n = f["centers"].shape[0]
+                elif "matsimnibs" in f:
+                    n = f["matsimnibs"].shape[-1]
+                else:
+                    n = len(f.keys())
+            return f"{n:,} placements"
+        set_info("info_placements", cached(pl_fn, "pl", placements_info)
+                 if pl_fn and os.path.isfile(pl_fn) else "")
+
+        e_fn = self.load_e_matrix_label.text().strip()
+        def efield_info(fn):
+            import h5py
+            with h5py.File(fn, "r") as f:
+                if "E_mag" in f:
+                    a, b = f["E_mag"].shape
+                    return f"{a:,} × {b:,} (placements × ROI elems)"
+                return "no E_mag dataset"
+        set_info("info_efield", cached(e_fn, "e", efield_info)
+                 if e_fn and os.path.isfile(e_fn) else "")
+
+        coil_fn = self.coilspathlineedit.text().strip()
+        set_info("info_coil", (os.path.basename(coil_fn)) if coil_fn and os.path.isfile(coil_fn) else "")
+
+        emg_fn = self.emg_config_label.text().strip()
+        def emg_info(fn):
+            with open(fn) as f:
+                data = yaml.safe_load(f) or {}
+            sources = data.get("sources", data) if isinstance(data, dict) else data
+            return f"{len(sources)} sources" if isinstance(sources, list) else ""
+        set_info("info_emg", cached(emg_fn, "emg", emg_info)
+                 if emg_fn and os.path.isfile(emg_fn) else "")
+
+        res_fn = self.savePathLineEdit.text().strip()
+        if res_fn and os.path.isfile(res_fn):
+            kb = max(1, os.path.getsize(res_fn) // 1024)
+            set_info("info_results", f"exists · {kb} KB")
+        elif res_fn:
+            set_info("info_results", "will be created")
 
     # ── Project file state ─────────────────────────────────────────────────
     def _mark_project_dirty(self, *_):
@@ -888,8 +1032,10 @@ class MainWindow(QtWidgets.QMainWindow):
         pixmap = QPixmap()
         if not pixmap.loadFromData(jpeg_bytes, "JPEG"):
             return
+        # Fill the panel completely (crop the overflow) so no dark bands
+        # appear above/below the frame.
         scaled = pixmap.scaled(label.width(), label.height(),
-                               Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                               Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
         label.setPixmap(scaled)
 
     def update_system_status(self, system=None, status=None, message=None):

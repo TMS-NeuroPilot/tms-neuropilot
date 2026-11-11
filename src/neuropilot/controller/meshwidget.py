@@ -24,12 +24,14 @@ class MeshWidget(QWidget):
         self.controls_frame = QFrame()
         # Minimum height; the layout grows the bar with the (scaled) fonts.
         self.controls_frame.setMinimumHeight(40)
-        self.controls_frame.setStyleSheet("background-color: #f0f0f0; border-bottom: 1px solid #ccc;")
+        self.controls_frame.setStyleSheet(
+            "QFrame { background-color: #FFFFFF; border: none; "
+            "border-bottom: 1px solid #E2E5E9; }")
         self.controls_layout = QHBoxLayout(self.controls_frame)
         self.controls_layout.setContentsMargins(10, 5, 10, 5)
 
         lbl = QLabel("Color Data:")
-        lbl.setStyleSheet("font-weight: bold; color: #333;")
+        lbl.setStyleSheet("font-weight: 600; color: #6B7280; font-size: 12px;")
         self.controls_layout.addWidget(lbl)
 
         self.scalar_selector = QComboBox()
@@ -105,7 +107,7 @@ class MeshWidget(QWidget):
         self.edge_checkbox.setChecked(False)  # Set to False by default
         # Pixel-based font: the app default font scales with the X screen DPI
         # and renders ~2x on high-DPI screens, larger than the rest of the panel.
-        self.edge_checkbox.setStyleSheet("margin-left: 15px; font-weight: bold; color: #333; font-size: 13px;")
+        self.edge_checkbox.setStyleSheet("margin-left: 15px; color: #1B1F24; font-size: 13px;")
         self.edge_checkbox.stateChanged.connect(self.refresh_current_view)
         self.controls_layout.addWidget(self.edge_checkbox)
 
@@ -115,8 +117,8 @@ class MeshWidget(QWidget):
         self.radio_roi = QRadioButton("Mesh ROI")
         self.radio_head.setChecked(True)
         # Pixel-based fonts (see edge_checkbox above)
-        self.radio_head.setStyleSheet("margin-left: 15px; font-weight: bold; color: #333; font-size: 13px;")
-        self.radio_roi.setStyleSheet("margin-left: 10px; font-weight: bold; color: #333; font-size: 13px;")
+        self.radio_head.setStyleSheet("margin-left: 15px; color: #1B1F24; font-size: 13px;")
+        self.radio_roi.setStyleSheet("margin-left: 10px; color: #1B1F24; font-size: 13px;")
 
         self.radio_group.addButton(self.radio_head)
         self.radio_group.addButton(self.radio_roi)
@@ -126,8 +128,6 @@ class MeshWidget(QWidget):
 
         self.radio_head.toggled.connect(self.toggle_mesh_view)
         self.radio_roi.toggled.connect(self.toggle_mesh_view)
-
-        self.controls_layout.addStretch()
 
         self.controls_layout.addStretch()
         self.layout.addWidget(self.controls_frame)
