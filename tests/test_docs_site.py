@@ -161,6 +161,14 @@ def test_no_documentation_file_is_git_ignored():
     assert not ignored, f"documentation files are git-ignored:\n{ignored}"
 
 
+def test_no_renderer_placeholders_are_left_in_the_html(built):
+    """Inline code inside a link label used to leave NUL placeholders."""
+    out, _ = built
+    for path in out.rglob("*.html"):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        assert "\x00" not in text, f"unrendered placeholder in {path}"
+
+
 def test_no_personal_paths_or_binaries_leak_into_the_site(built):
     out, _ = built
     for path in out.rglob("*.html"):

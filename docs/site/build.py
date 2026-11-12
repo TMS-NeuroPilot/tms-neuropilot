@@ -116,6 +116,14 @@ def inline(text: str, ctx: dict, with_links: bool = True) -> str:
     text = _BOLD.sub(r"<strong>\1</strong>", text)
     text = _ITALIC.sub(r"<em>\1</em>", text)
     text = re.sub(r"\x00(\d+)\x00", lambda m: stash[int(m.group(1))], text)
+    # A stashed link can contain a stashed code span (a label like
+    # [`KEY`](page.md)); re.sub does not rescan its replacement, so keep
+    # resolving until no placeholder is left.
+    for _ in range(len(stash) + 1):
+        if "\x00" not in text:
+            break
+        text = re.sub(r"\x00(\d+)\x00",
+                      lambda m: stash[int(m.group(1))], text)
     return text
 
 
@@ -450,7 +458,8 @@ def build_nav(sections: list[dict], current: str, root: str) -> str:
 
 
 def build_toc(headings: list[tuple[int, str, str]]) -> str:
-    items = [f'<li class="l{level}"><a href="#{anchor}">{html.escape(text)}</a></li>'
+    items = [f'<li class="l{level}"><a href="#{anchor}">'
+             f'{html.escape(plain_text(text))}</a></li>'
              for level, text, anchor in headings if level in (2, 3)]
     if not items:
         return '<p class="toc-title">On this page</p><p class="toc-empty">—</p>'
