@@ -63,11 +63,21 @@ class Remote:
     async def connect(self):
         """Connect to the relay and keep the connection alive.
 
-        ``sio.wait()`` runs as a background task so this coroutine returns
-        after the connection is established (the client reconnects on its
-        own if the relay goes away).
+        The controller can start before the relay (for example when the
+        operator presses Start relay on the Connections page), so the initial
+        connection is retried until the relay is reachable. ``sio.wait()``
+        then runs as a background task; reconnects after a relay restart are
+        handled by Socket.IO.
         """
-        await self.sio.connect(self.url)
+        while True:
+            try:
+                await self.sio.connect(self.url)
+                break
+            except Exception as e:
+                if not self._warned_disconnected:
+                    print(f"[REMOTE] waiting for relay at {self.url}: {e}")
+                    self._warned_disconnected = True
+                await asyncio.sleep(2)
         asyncio.create_task(self.sio.wait())
 
     async def send_message(self, topic, data=None):

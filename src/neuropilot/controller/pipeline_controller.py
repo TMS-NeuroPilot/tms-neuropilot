@@ -176,6 +176,7 @@ import matplotlib.pyplot as plt
 from enum import Enum, auto
 from dotenv import load_dotenv
 from .systems.emg import EMGComputer
+from .systems.relay import RelaySystem
 from .systems.virtual_emg import VirtualEMG
 from .systems.stimulator import Stimulator
 from .systems.virtual_stimulator import VirtualStimulator
@@ -219,7 +220,7 @@ class Step(Enum):
 
 class PipelineController:
     def __init__(self, remote, simulation,control_panel = None, manual=False,
-                 training=False):
+                 training=False, manage_relay=False):
         if training and simulation:
             raise ValueError(
                 "training mode uses the real stimulator; simulation must be off")
@@ -232,6 +233,13 @@ class PipelineController:
 
         ## Initializing systems
         self.systems = []
+
+        # The relay is the hub every peer uses. In real/manual/training mode
+        # NeuroPilot can own it; in simulation the supervisor owns it.
+        self.relay = RelaySystem(update_control_panel_func,
+                                 manage=manage_relay,
+                                 simulation=simulation)
+        self.systems.append(self.relay)
 
         # Training mode: real stimulator and navigation, virtual EMG, and the
         # operator moves the coil (no robot). It is manual mode with a
@@ -277,7 +285,9 @@ class PipelineController:
             all_error_recoveries = {s : s.ERROR_RECOVERIES for s in self.systems}
             self.control_panel.initialize(all_error_recoveries)
 
-        # Launch the systems
+        # Launch the systems. Start the relay first: the peer systems and the
+        # Remote connection need its port.
+        self.relay.try_connect()
         self.stimulator.try_connect()
         self.emg_computer.try_connect()
 

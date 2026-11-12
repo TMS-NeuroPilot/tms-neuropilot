@@ -18,6 +18,9 @@ def build_window(qapp, gui_env, monkeypatch):
     monkeypatch.setattr(cp, "_session_cache_path", lambda: str(cache))
 
     win = cp.MainWindow(simulation=True)
+    # The GUI fixtures do not run the relay card; readiness is exercised by
+    # the controller and relay tests directly.
+    win.relay_ready = True
     win._config_store = ConfigStore(gui_env / ".env")
     win._lab_profile = LabProfile(gui_env / "lab.yaml")
     win.resize(1244, 960)

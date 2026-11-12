@@ -10,7 +10,6 @@ terminal, and terminates everything on exit.
 import asyncio
 import os
 import sys
-from pathlib import Path
 
 from . import config
 
@@ -174,44 +173,24 @@ def controller_with_dialog():
     return [Component("controller", "neuropilot.controller", [], wait_ready=None)]
 
 
-def _real_relay_component():
-    """The production relay from a tms-robot-control checkout."""
-    relay_py = Path(config.TMS_ROBOT_CONTROL_PATH) / "relay_server.py"
-    component = Component("relay", "", [str(relay_py), str(config.RELAY_PORT)],
-                          wait_ready="port",
-                          cwd=str(Path(config.TMS_ROBOT_CONTROL_PATH)))
-    component.argv = lambda: [sys.executable, str(relay_py),
-                              str(config.RELAY_PORT)]
-    return component
-
-
 def real_stack(with_relay=False):
-    components = []
-    if with_relay:
-        components.append(_real_relay_component())
-    components.append(Component("controller", "neuropilot.controller",
-                                ["--real"], wait_ready=None))
-    return components
+    args = ["--real"] + (["--manage-relay"] if with_relay else [])
+    return [Component("controller", "neuropilot.controller", args,
+                      wait_ready=None)]
 
 
 def manual_stack(with_relay=False):
     """Manual mode: real hardware, no robot (the operator moves the coil)."""
-    components = []
-    if with_relay:
-        components.append(_real_relay_component())
-    components.append(Component("controller", "neuropilot.controller",
-                                ["--manual"], wait_ready=None))
-    return components
+    args = ["--manual"] + (["--manage-relay"] if with_relay else [])
+    return [Component("controller", "neuropilot.controller", args,
+                      wait_ready=None)]
 
 
 def training_stack(with_relay=False):
     """Training: real stimulator and navigation, virtual EMG, no robot."""
-    components = []
-    if with_relay:
-        components.append(_real_relay_component())
-    components.append(Component("controller", "neuropilot.controller",
-                                ["--training"], wait_ready=None))
-    return components
+    args = ["--training"] + (["--manage-relay"] if with_relay else [])
+    return [Component("controller", "neuropilot.controller", args,
+                      wait_ready=None)]
 
 
 def real_controller():

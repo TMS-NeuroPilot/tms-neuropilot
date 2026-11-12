@@ -400,7 +400,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._corner_pairs = {}
         for attr, caption in (("led_stim", "Stimulator"),
                               ("led_emg", "EMG"),
-                              ("led_robot", "Robot")):
+                              ("led_robot", "Robot"),
+                              ("led_relay", "Relay")):
             pair = QtWidgets.QHBoxLayout()
             pair.setSpacing(6)
             led = QtWidgets.QLabel(corner)
@@ -455,6 +456,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.robot_ready = False
         self.stim_ready = False
         self.emg_ready = False
+        self.relay_ready = False
+        self._setup_relay_card()
 
         # 2. Disable execution buttons by default on startup
         self.start_btn.setEnabled(False)
@@ -783,6 +786,81 @@ class MainWindow(QtWidgets.QMainWindow):
             if current in names:
                 combo.setCurrentText(current)
             combo.blockSignals(False)
+
+    # ── Config tab ─────────────────────────────────────────────────────
+    def _setup_relay_card(self):
+        """Add the relay card to the Connections page."""
+        tab = getattr(self, "tab1", None)
+        layout = tab.layout() if tab is not None else None
+        if layout is None or hasattr(self, "relayStatusLabel"):
+            return
+
+        row = QtWidgets.QHBoxLayout()
+        row.setSpacing(10)
+
+        card = QtWidgets.QGroupBox("Relay")
+        card.setObjectName("groupBox_relay")
+        card.setProperty("card", True)
+        self.groupBox_relay = card
+        card_v = QtWidgets.QVBoxLayout(card)
+        card_v.setContentsMargins(0, 6, 0, 0)
+        card_v.setSpacing(8)
+
+        def add_pair(caption, attr, right=False):
+            line = QtWidgets.QHBoxLayout()
+            line.setSpacing(8)
+            cap = QtWidgets.QLabel(caption)
+            cap.setProperty("role", "cap")
+            cap.setMinimumWidth(90)
+            val = QtWidgets.QLabel("")
+            val.setObjectName(attr)
+            if right:
+                val.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            line.addWidget(cap)
+            line.addWidget(val, 1)
+            card_v.addLayout(line)
+            setattr(self, attr, val)
+
+        add_pair("Status", "relayStatusLabel", right=True)
+        add_pair("Message", "relayMessageLabel")
+        add_pair("Last update", "relayLastUpdateLabel", right=True)
+
+        button_row = QtWidgets.QHBoxLayout()
+        button_row.addStretch(1)
+        button = QtWidgets.QPushButton("Reconnect")
+        button.setObjectName("relayRecoverButton")
+        button.setProperty("role", "transport")
+        button.setEnabled(False)
+        button_row.addWidget(button)
+        card_v.addLayout(button_row)
+        self.relayRecoverButton = button
+
+        details = QtWidgets.QGroupBox("Details")
+        details.setObjectName("groupBox_relay_info")
+        details.setProperty("card", True)
+        self.groupBox_relay_info = details
+        details_v = QtWidgets.QVBoxLayout(details)
+        details_v.setContentsMargins(0, 6, 0, 0)
+        details_v.setSpacing(8)
+        grid = QtWidgets.QGridLayout()
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(6)
+        for index in range(1, 6):
+            cap = QtWidgets.QLabel("")
+            cap.setObjectName(f"relay_info_cap_{index}")
+            cap.setProperty("role", "cap")
+            val = QtWidgets.QLabel("")
+            val.setObjectName(f"relay_info_val_{index}")
+            setattr(self, f"relay_info_cap_{index}", cap)
+            setattr(self, f"relay_info_val_{index}", val)
+            grid.addWidget(cap, index - 1, 0)
+            grid.addWidget(val, index - 1, 1)
+        grid.setColumnStretch(1, 1)
+        details_v.addLayout(grid)
+
+        row.addWidget(card, 1)
+        row.addWidget(details, 1)
+        layout.insertLayout(0, row)
 
     # ── Config tab ─────────────────────────────────────────────────────
     def _setup_config_tab(self):
@@ -2449,7 +2527,8 @@ class MainWindow(QtWidgets.QMainWindow):
         robot_ok = ((self.controller is not None and getattr(self.controller, "manual", False))
                     or self.robot_ready)
 
-        ready = robot_ok and self.stim_ready and self.emg_ready and fem_ok
+        ready = (self.relay_ready and robot_ok and self.stim_ready
+                 and self.emg_ready and fem_ok)
         for button in (self.start_btn, self.skiptarget, self.back_btn,
                        self.move_coil_up):
             button.setEnabled(ready)
@@ -2738,7 +2817,18 @@ class MainWindow(QtWidgets.QMainWindow):
                 if group is not None:
                     group.setTitle(f"{base} — {description}")
 
-            if "robot" in name:
+            if "relay" in name:
+                self._bind_system(
+                        system=system,
+                        status_label=getattr(self, "relayStatusLabel", None),
+                        message_label=getattr(self, "relayMessageLabel", None),
+                        recover_button=getattr(self, "relayRecoverButton", None),
+                        last_update_label=getattr(self, "relayLastUpdateLabel", None),
+                        led_label=getattr(self, "led_relay", None)
+                )
+                _set_group_title("groupBox_relay", "Relay")
+
+            elif "robot" in name:
                 self._bind_system(
                         system=system,
                         status_label=getattr(self, "robotStatusLabel", None),
@@ -2829,7 +2919,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     # Maps a system name fragment to its details card widget prefix.
     INFO_PREFIXES = (("stim", "stim_info"), ("emg", "emg_info"),
-                     ("robot", "robot_info"))
+                     ("robot", "robot_info"), ("relay", "relay_info"))
 
     def _update_details_view(self, system, details):
         """Fill one system's details card: label/value rows in order, unused
@@ -2889,6 +2979,13 @@ class MainWindow(QtWidgets.QMainWindow):
             self.set_led_status(led_widget, "on", "green")
             if message_label:
                 message_label.setText("")
+            # A relay that NeuroPilot owns can be restarted even while healthy.
+            if ("relay" in getattr(system, "NAME", "").lower()
+                    and recover_button is not None
+                    and getattr(system, "owned", False)):
+                recover_button.setText("Restart relay")
+                recover_button.setEnabled(True)
+                self.pending_recovery[system] = "Restart relay"
 
         elif status == SystemStatus.ERROR:
             status_label.setStyleSheet(f"color: {theme.get('danger', '#B50E0E')}")
@@ -2932,7 +3029,9 @@ class MainWindow(QtWidgets.QMainWindow):
         name = getattr(system, "NAME", "").lower()
         is_system_ok = (status == SystemStatus.OK)
 
-        if "robot" in name:
+        if "relay" in name:
+            self.relay_ready = is_system_ok
+        elif "robot" in name:
             self.robot_ready = is_system_ok
         elif "stimulator" in name:
             self.stim_ready = is_system_ok

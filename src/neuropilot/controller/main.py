@@ -66,7 +66,7 @@ def get_command_line_arguments():
     return host, port
 
 async def main(enable_health_check_and_control_panel, simulation, manual=False,
-               training=False):
+               training=False, manage_relay=False):
     """Build all components and keep the event loop alive.
 
     Creates the relay ``Remote`` (simulated or real variant, depending on
@@ -101,7 +101,8 @@ async def main(enable_health_check_and_control_panel, simulation, manual=False,
     # active via `control_panel is not None`.
     controller = PipelineController(remote=remote,
                                     control_panel=app.window2 if enable_health_check_and_control_panel else None,simulation=simulation,
-                                    manual=manual, training=training)
+                                    manual=manual, training=training,
+                                    manage_relay=manage_relay)
     controller.register_remote_handlers()
     if enable_health_check_and_control_panel:
         app.window2.set_controller(controller)
@@ -150,6 +151,9 @@ def run(argv=None):
                        help='start in training mode: real stimulator and '
                             'navigation, virtual EMG, no robot '
                             '(skip the mode dialog)')
+    parser.add_argument('--manage-relay', action='store_true',
+                        help='start and own the production relay from '
+                             'TMS_ROBOT_CONTROL_PATH')
     args = parser.parse_args(argv)
 
     app = QApplication(sys.argv)
@@ -169,6 +173,7 @@ def run(argv=None):
         is_simulation = args.sim
         is_manual = args.manual
         is_training = args.training
+        manage_relay = args.manage_relay
         mode = ('training' if is_training else
                 ('manual' if is_manual else
                  ('simulation' if is_simulation else 'real')))
@@ -182,6 +187,7 @@ def run(argv=None):
             is_simulation = dialog.is_simulation
             is_manual = dialog.is_manual
             is_training = dialog.is_training
+            manage_relay = False
             print(f"Is Simulation: {is_simulation}"
                   + (" (manual)" if is_manual else "")
                   + (" (training)" if is_training else ""))
@@ -196,10 +202,10 @@ def run(argv=None):
     try:
         if enable_health_check_and_control_panel:
             qasync.run(main(enable_health_check_and_control_panel, is_simulation,
-                            is_manual, is_training))
+                            is_manual, is_training, manage_relay))
         else:
             asyncio.run(main(enable_health_check_and_control_panel, is_simulation,
-                             is_manual, is_training))
+                             is_manual, is_training, manage_relay))
     except asyncio.exceptions.CancelledError:
         print("KeyboardInterrupt: application exiting")
         cleanup()
