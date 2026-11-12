@@ -126,7 +126,7 @@ to pynibs functions.
 | ISI | inter-stimulus interval |
 | FEM | finite element method |
 | ROI | region of interest |
-| SMB | Server Message Block (the CED share) |
+| SMB | Server Message Block (the EMG share) |
 | GLFW | Graphics Library Framework (MuJoCo's window) |
 | VTK | Visualization Toolkit (the 3-D view) |
 

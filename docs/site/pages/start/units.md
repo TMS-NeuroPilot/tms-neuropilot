@@ -44,8 +44,9 @@ SimNIBS head space  ── registration ──►  neuronavigation space
 | **Coil local frame** | origin at the stimulation point, handle along **−y** | coil model, tool chain, IK target |
 
 !!! danger "Safety — the tool point is the stimulation point"
-    The robot's tool centre point (`coil_tcp_site` for the Omron) is the coil's
-    stimulation point, not the flange and not the handle. If you change the coil
+    The robot's tool centre point (its end-effector site — `coil_tcp_site` in the
+    shipped model) is the coil's stimulation point, not the flange and not the
+    handle. If you change the coil
     mount, re-measure the tool point before the next real session. A tool-point
     error moves the focus by exactly that error.
 

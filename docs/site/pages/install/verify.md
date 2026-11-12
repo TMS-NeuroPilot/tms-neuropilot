@@ -43,7 +43,7 @@ pip install -e . --no-deps
 
 ```bash
 python -m neuropilot.sim_robot.robots --list
-python -m neuropilot.sim_robot.robots --check omron
+python -m neuropilot.sim_robot.robots --check omron   # or the key from --list
 ```
 
 `--check` validates that the MuJoCo model, the URDF and the IK chain exist and

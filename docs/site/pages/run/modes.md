@@ -17,13 +17,18 @@ three roles — robot, neuronavigation and stimulator.
 |---|---|---|---|
 | Command | `neuropilot sim` | `neuropilot real` | `neuropilot manual` |
 | Relay | `sim_relay` (started) | production `relay_server.py` | production `relay_server.py` |
-| Neuronavigation | virtual (`sim_nav`) | InVesalius + NDI | InVesalius + NDI |
-| Robot | virtual MuJoCo (`sim_robot`) | Omron via `tms-robot-control` | **none** — operator moves the coil |
-| Stimulator | virtual | MagVenture via `magicpy` | MagVenture via `magicpy` |
-| EMG | virtual | CED 1401 share | CED 1401 share |
+| Neuronavigation | virtual (`sim_nav`) | InVesalius + your tracker | InVesalius + your tracker |
+| Robot | virtual MuJoCo (`sim_robot`) | your robot via `tms-robot-control` | **none** — operator moves the coil |
+| Stimulator | virtual | your stimulator via `magicpy` | your stimulator via `magicpy` |
+| EMG | virtual | your EMG PC's share | your EMG PC's share |
 | Hardware needed | none | all of it | stimulator, EMG, tracking |
 | E-field modes | both | both | both |
 | Typical use | training, development, demos | the experiment | quick tests, coil-handling studies |
+
+The hardware entries name the integration point, not a required device: the
+robot driver in `tms-robot-control`, the stimulator driver `magicpy`, and the
+SMB share of your EMG acquisition. Any device that speaks those interfaces
+works the same way.
 
 ## Simulation
 

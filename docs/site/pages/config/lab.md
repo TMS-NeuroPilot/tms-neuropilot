@@ -42,7 +42,7 @@ Values are stored as strings; the GUI converts them when it reads them.
 | `TMS_ROBOT_CONTROL_PATH` | empty | `tms-robot-control` checkout |
 | `STIMULATOR_PORT` | `/dev/ttyS1` | stimulator serial port |
 | `STIMULATOR_TTL_PORT` | `/dev/parport0` | stimulator TTL port |
-| `EMG_COMPUTER_IP` | `192.168.1.2` | CED PC address |
+| `EMG_COMPUTER_IP` | `192.168.1.2` | EMG acquisition PC address |
 | `EMG_COMPUTER_USERNAME` | `neuro` | SMB user |
 | `EMG_COMPUTER_PASSWORD` | `<set in .env>` | SMB password |
 | `ONLINE_FEM_SOLVER` | `pardiso` | FEM solver |

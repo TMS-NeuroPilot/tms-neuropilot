@@ -208,12 +208,12 @@ def run_modes():
             "EMG          virtual"], OK_SOFT, OK),
         ("Real", "neuropilot real", [
             "relay        production", "navigation   InVesalius",
-            "robot        Omron", "stimulator   MagVenture",
-            "EMG          CED 1401"], BLUE_SOFT, BLUE),
+            "robot        your robot", "stimulator   your stimulator",
+            "EMG          your EMG PC"], BLUE_SOFT, BLUE),
         ("Manual", "neuropilot manual", [
             "relay        production", "navigation   InVesalius",
-            "robot        — operator —", "stimulator   MagVenture",
-            "EMG          CED 1401"], ACCENT_SOFT, ACCENT),
+            "robot        — operator —", "stimulator   your stimulator",
+            "EMG          your EMG PC"], ACCENT_SOFT, ACCENT),
     ]
     b = [multiline(480, 30, ["Three run modes, one controller"], 17, "700")]
     for i, (title, command, lines, fill, stroke) in enumerate(cols):

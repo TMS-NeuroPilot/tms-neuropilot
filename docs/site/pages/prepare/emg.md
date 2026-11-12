@@ -1,7 +1,7 @@
 # EMG channels and MEP windows
 
 The controller does not record EMG itself in a real session; it reads what the
-CED/Signal acquisition wrote and extracts the MEP. Two things must therefore
+EMG acquisition wrote and extracts the MEP (CED/Signal in the reference setup). Two things must therefore
 agree: the **names and count of the channels**, and the **window** in which the
 response is searched.
 

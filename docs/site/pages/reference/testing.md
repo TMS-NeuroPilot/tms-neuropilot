@@ -115,7 +115,7 @@ It also writes `search-index.json`, `sitemap.xml`, `robots.txt` and a 404 page.
 
 - Robot motion quality and force control are not tested — they need the
   physical arm.
-- The real stimulator and the CED share are mocked; the protocols are tested,
+- The real stimulator and the EMG share are mocked; the protocols are tested,
   the devices are not.
 - The online FEM is tested around the solver, not for numerical accuracy.
 - Screenshot *content* is fingerprinted, not compared pixel by pixel across

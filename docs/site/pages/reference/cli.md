@@ -78,7 +78,7 @@ Same relay behaviour as `real`.
 
 ```bash
 python -m neuropilot.sim_robot.robots --list
-python -m neuropilot.sim_robot.robots --check omron
+python -m neuropilot.sim_robot.robots --check omron   # or the key from --list
 ```
 
 `--check` validates the MuJoCo model, the URDF, the base body, the tool site and
@@ -153,7 +153,7 @@ neuropilot real --launch-relay     # lab, with the production relay
 neuropilot manual                  # lab, no robot
 
 # check
-python -m neuropilot.sim_robot.robots --check omron
+python -m neuropilot.sim_robot.robots --check omron   # or the key from --list
 pytest -m "not gui" -q
 python docs/site/build.py --check
 

@@ -107,7 +107,7 @@ What you will eventually edit:
 | `ROOT_FOLDER` | results should not live in `~/.neuropilot` |
 | `RELAY_HOST`, `RELAY_PORT` | the relay runs on another machine or port 5000 is taken |
 | `STIMULATOR_PORT`, `STIMULATOR_TTL_PORT` | the real stimulator is on different devices |
-| `EMG_COMPUTER_IP`, `EMG_COMPUTER_USERNAME`, `EMG_COMPUTER_PASSWORD` | the CED PC has a different address or share account |
+| `EMG_COMPUTER_IP`, `EMG_COMPUTER_USERNAME`, `EMG_COMPUTER_PASSWORD` | the EMG PC has a different address or share account |
 | `ONLINE_FEM_SOLVER`, `ONLINE_FEM_ANISOTROPY` | the solver should use `amg` or anisotropic conductivity |
 | `TMS_ROBOT_CONTROL_PATH` | `neuropilot real --launch-relay` should start the production relay |
 

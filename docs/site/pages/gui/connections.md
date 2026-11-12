@@ -14,8 +14,8 @@ is gated on this page being green.
 
 | Card | Backend (simulation) | Backend (real) |
 |---|---|---|
-| **Stimulator** | virtual stimulator | MagVenture via `magicpy` on `STIMULATOR_PORT` |
-| **EMG** | virtual EMG computer | CED 1401 share (`EMG_COMPUTER_IP`) |
+| **Stimulator** | virtual stimulator | your stimulator via `magicpy` on `STIMULATOR_PORT` |
+| **EMG** | virtual EMG computer | your EMG PC's share (`EMG_COMPUTER_IP`) |
 | **Robot** | virtual MuJoCo robot | `tms-robot-control` over the relay |
 
 In manual mode the robot card is absent.

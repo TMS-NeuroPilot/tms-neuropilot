@@ -15,8 +15,8 @@ from every peer and that the settings below point at the right devices.
 | **Control PC** | controller + relay | a display, the `pipeline` environment, a writable data folder |
 | **Neuronavigation PC** | InVesalius (group fork) | `--remote-host` pointed at the relay; the coil tracked |
 | **Robot controller** | `tms-robot-control` | the driver for your arm; a working force sensor |
-| **Stimulator** | MagVenture + `magicpy` | a serial port and a TTL line on the control PC |
-| **EMG acquisition** | CED 1401 + Signal | an SMB share the control PC can read |
+| **Stimulator** | your stimulator + its driver (`magicpy` for MagVenture) | a serial port and a TTL line on the control PC |
+| **EMG acquisition** | acquisition software writing to a share (CED/Signal is one example) | an SMB share the control PC can read |
 
 The relay is the only network service NeuroPilot itself requires. Everything
 else is either a local device or a file share.
@@ -143,8 +143,9 @@ In InVesalius, press *Connect to robot* only after `main_loop.py` is running.
 
 ## 6. Stimulator
 
-The MagVenture is driven over a serial port and triggered over a TTL line, both
-on the control PC.
+The stimulator is driven over a serial port and triggered over a TTL line, both
+on the control PC. The shipped driver, `magicpy`, targets MagVenture; another
+stimulator needs its own driver behind the same interface.
 
 ```bash
 sudo usermod -aG dialout,lp "$USER"    # log out and back in afterwards
@@ -164,8 +165,9 @@ adapter enumerates differently across reboots.
 
 ## 7. EMG acquisition
 
-The CED 1401 PC writes Signal files to a folder it shares over SMB. The
-controller reads those files; it does not record EMG itself.
+The EMG acquisition PC writes its files to a folder it shares over SMB (CED /
+Signal in the reference setup). The controller reads those files; it does not
+record EMG itself.
 
 | Setting | Meaning | Default |
 |---|---|---|

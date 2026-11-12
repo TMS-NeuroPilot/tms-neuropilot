@@ -24,8 +24,8 @@
 | `python-dotenv`, `pyyaml` | configuration | pip |
 | `mujoco`, `pybullet`, `ikpy` | the virtual robot | pip |
 | **SimNIBS 4.5** | the online E-field solver and `.msh` meshes | SimNIBS wheel + MKL/MUMPS |
-| `magicpy` | driving a MagVenture stimulator | pip (vendor package) |
-| `smbprotocol` | reading the EMG files from the CED PC | pip |
+| `magicpy` | driving the stimulator (MagVenture) | pip (vendor package) |
+| `smbprotocol` | reading the EMG files from the acquisition PC | pip |
 | InVesalius | real-mode neuronavigation | separate conda env |
 | `tms-robot-control` | real-mode robot driver + production relay | separate GitLab checkout |
 

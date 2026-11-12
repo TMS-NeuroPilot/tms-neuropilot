@@ -20,7 +20,7 @@ page that explains it.
 | Symptom | Cause | Fix |
 |---|---|---|
 | one component dies at start | traceback in its prefixed log | read the last lines; the supervisor stops the stack |
-| `component died: [('robot', 1)]` | robot model/asset problem | `python -m neuropilot.sim_robot.robots --check omron` |
+| `component died: [('robot', 1)]` | robot model/asset problem | `python -m neuropilot.sim_robot.robots --check <robot-key>` |
 | controller starts but nothing connects | relay not up or wrong port | check `[relay]` line and `RELAY_PORT` |
 | `WARNING: nav not ready after 60s` | slow import or crash | check the `[nav]` log; raise `READINESS_TIMEOUT_S` |
 | simulated robot does not move | target outside reach or IK failed | watch the log; check the placement |
