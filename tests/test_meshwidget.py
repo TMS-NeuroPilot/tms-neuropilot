@@ -129,6 +129,12 @@ def test_legend_values_follow_the_metric(view):
     assert MeshWidget._format_legend_value(1.0, "FDI mapping result (R2)") == "1.00"
 
 
+def test_scene_clear_restores_the_lightkit(view):
+    view.plotter.clear()
+    view._ensure_lightkit()
+    assert len(view.plotter.renderer.GetLights()) >= 3
+
+
 def test_pulse_count_reaches_the_corner_label(view, qapp):
     view.set_pulse_count(7)
     qapp.processEvents()

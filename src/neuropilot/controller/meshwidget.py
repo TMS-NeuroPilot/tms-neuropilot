@@ -237,10 +237,7 @@ class MeshWidget(QWidget):
         self.layout.addWidget(self.plotter)
         # Three-point kit lighting keeps folds and coil-like curvature
         # readable when the surface is a single colour with edge lines.
-        try:
-            self.plotter.enable_lightkit()
-        except (AttributeError, RuntimeError):
-            pass
+        self._ensure_lightkit()
 
         # <--- ADD THIS: PERFORMANCE SETTINGS --->
         # <--- start --->
@@ -648,6 +645,17 @@ class MeshWidget(QWidget):
                 margin: 0px;
             }}
         """)
+
+    def _ensure_lightkit(self):
+        """Recreate the renderer lights after plotter.clear().
+
+        ``clear()`` removes every light, and without an explicit light the
+        plain-colour surface renders as a flat silhouette.
+        """
+        try:
+            self.plotter.enable_lightkit()
+        except (AttributeError, RuntimeError):
+            pass
 
     def _style_scalar_bar(self):
         theme = getattr(self, "_theme", None)
@@ -1157,6 +1165,7 @@ class MeshWidget(QWidget):
         self.plotter.clear()
         self.plotter.scalar_bars.clear()
         self._legend.clear_legend()
+        self._ensure_lightkit()
         self.plotter.add_axes()
 
         # Check if we have data to show automatically
@@ -1188,6 +1197,7 @@ class MeshWidget(QWidget):
         self.plotter.clear()
         self.plotter.scalar_bars.clear()
         self._legend.clear_legend()
+        self._ensure_lightkit()
         self.plotter.add_axes()
         if self.current_mesh is None:
             self._render_cell_markers()

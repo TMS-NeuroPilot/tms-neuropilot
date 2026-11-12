@@ -145,7 +145,7 @@ QGroupBox { background: transparent; }
 
 QTabWidget { background: %(card)s; }
 QTabWidget::pane { border: 0; background: %(canvas)s; }
-QTabBar { background: %(card)s; }
+QTabBar { background: %(card)s; border-bottom: 1px solid %(line)s; }
 QTabBar::tab {
     background: transparent; color: %(muted)s;
     padding: 11px 18px; margin: 0; border: 0;
