@@ -73,14 +73,16 @@ def box(x, y, w, h, lines, fill=FILL, stroke=LINE, size=13, weight="600",
     return body
 
 
-def arrow(x1, y1, x2, y2, dashed=False, color=MUTED, width=1.6, curve=None):
+def arrow(x1, y1, x2, y2, dashed=False, color=MUTED, width=1.6, curve=None,
+          head=True):
     dash = ' stroke-dasharray="6 5"' if dashed else ""
+    marker = ' marker-end="url(#arrow)"' if head else ""
     if curve:
         path = f"M {x1} {y1} Q {curve[0]} {curve[1]} {x2} {y2}"
     else:
         path = f"M {x1} {y1} L {x2} {y2}"
     return (f'<path d="{path}" fill="none" stroke="{color}" stroke-width="{width}"'
-            f'{dash} marker-end="url(#arrow)"/>')
+            f'{dash}{marker}/>')
 
 
 def label(x, y, value, size=11, fill=MUTED, anchor="middle"):
@@ -296,20 +298,24 @@ def config_precedence():
     b = [multiline(480, 30, ["Which value wins"], 17, "700")]
     for i, (title, sub, fill, stroke) in enumerate(layers):
         y = 62 + i * 70
-        b.append(box(90, y, 380, 56, [title, sub], fill, stroke, 13))
-        if i:
-            b.append(arrow(280, y - 12, 280, y - 2))
-    b.append(text(90, 350, "highest priority", 11, "600", MUTED, "start"))
-    b.append(arrow(90, 330, 90, 66))
-    b.append(text(82, 200, "precedence", 11, "600", MUTED, "middle")
-             .replace('text-anchor="middle"', 'text-anchor="middle" transform="rotate(-90 82 200)"'))
-    # session data
+        b.append(box(100, y, 370, 56, [title, sub], fill, stroke, 13))
+
+    # The precedence arrow sits clear of the boxes, not on their edge.
+    b.append(arrow(44, 330, 44, 66))
+    b.append(text(44, 350, "highest priority", 11, "600", MUTED, "start"))
+    b.append(text(24, 200, "precedence", 11, "600", MUTED, "middle")
+             .replace('text-anchor="middle"',
+                      'text-anchor="middle" transform="rotate(-90 24 200)"'))
+
+    # Session data: study and project feed the live controls.  A bus on the
+    # right merges both into one arrow, instead of two arrows to nowhere.
     b.append(box(560, 78, 330, 56, ["Study profile", "protocol defaults"], PAPER, LINE, 13))
     b.append(box(560, 154, 330, 56, ["Project file", "one subject"], PAPER, LINE, 13))
-    b.append(arrow(892, 106, 940, 106))
-    b.append(arrow(892, 182, 940, 182))
     b.append(box(560, 250, 330, 62, ["Live session controls"], OK_SOFT, OK, 13))
-    b.append(arrow(725, 210, 725, 248))
+    b.append(arrow(890, 106, 920, 106, head=False))
+    b.append(arrow(890, 182, 920, 182, head=False))
+    b.append(arrow(920, 106, 920, 281, head=False))
+    b.append(arrow(920, 281, 892, 281))
     b.append(note(725, 336, "Applied by the GUI, not an override layer."))
     return svg(960, 360, "".join(b), "Configuration precedence")
 
