@@ -50,7 +50,7 @@ realised pose  →  OnlineFEMManager  →  one field vector  →  regression
 
 - The CSV records `e_field_mode = online` for those pulses.
 
-## Surrogate
+## Interpolated
 
 The third source interpolates the field instead of solving it. The method —
 an a-priori simulation of the pose range around the target, then SE(3)
@@ -59,24 +59,34 @@ interpolation of the field for the realised coil pose — was introduced by
 code in the
 [EfieldInterpolation](https://github.com/fMRIat/EfieldInterpolation)
 repository (Michael Woletz and Sarah Grosshagauer). Interpolation answers in
-well under a millisecond per pulse; the a-priori simulation is the
+a fraction of a millisecond per pulse; the a-priori simulation is the
 dense-library run described in
 [E-field library](prepare/efield-library.md).
 
+The mode is the **Interpolated** radio on the Project page. It needs:
+
+- the dense library (`surrogate_library_path` in the project), and
+- the ROI surface (`mesh_RIO_path`) — the library is verified against it
+  before use: the generator stores an `roi_hash` over the ROI centroid
+  sequence, and a mismatch means the field columns would not match the map.
+
+The library loads in the background (a few seconds); pulses are held until it
+is ready. At pulse time `SurrogateManager` scales the library field
+(generated at 1 A/µs) by the applied amplitude — the same one-row-per-pulse
+contract as the other sources, so modes can be mixed within a session.
+
+The outside policy is **skip and exclude**: a pose outside the trained grid is
+recorded with an all-NaN field row — the pulse indices stay aligned — and the
+regression drops it exactly like a pulse without a field. The log says so once
+per excursion. There is no interpolation outside the domain, and no fallback
+to the online solver.
+
 NeuroPilot implements the estimator independently of that repository
-(`EFieldSurrogate`): PCA of the library fields plus inverse-distance
-interpolation over nearby scalp positions and coil rotations, with an
-explicit domain guard. `scripts/03_validate_efield_surrogate.py` measures the
+(`EFieldSurrogate`). `scripts/03_validate_efield_surrogate.py` measures the
 accuracy on held-out placements, `scripts/04_export_efield_vtk_series.py`
 writes FEM-versus-surrogate time series for ParaView. On the ernie phantom
 (20 mm / 4 mm library) a new position is reproduced to ~1.5 % field error and
 ~5° direction error.
-
-The surrogate follows the same one-row-per-pulse contract as the other
-sources. The outside policy is **skip and exclude**: a pose outside the
-trained grid is recorded with an all-NaN field row — the pulse indices stay
-aligned — and the regression drops it exactly like a pulse without a field.
-Falling back to the online solver for those pulses is the alternative.
 
 ## The hint under the radios
 
@@ -89,6 +99,9 @@ The one line below the E-field buttons is the mode's state machine:
 | `Warming up the online solver (about a minute) — pulses wait until it is ready.` | online mode, solver loading |
 | `Online solver ready.` | online mode, solving per pulse |
 | `Online solver unavailable — switch to Precomputed.` | SimNIBS/petsc4py not importable |
+| `Loading the interpolated E-field library (a few seconds) — pulses wait until it is ready.` | interpolated mode, library loading |
+| `Interpolated library ready (897 placements, guard 4.0 mm / 15°).` | interpolated mode ready |
+| `Interpolated library unavailable — check the library and ROI paths / the log.` | the load failed (missing file, ROI mismatch) |
 
 ## Switching mid-run
 
@@ -108,7 +121,10 @@ What happens on a switch:
   and the pulse is **held** until the solver is ready; the log says
   `Online solver ready, stimulation resumes.` Switching back releases the pulse
   immediately.
-- **Online → Precomputed:** immediate; no solver state is needed.
+- **Precomputed/Online → Interpolated:** the library starts loading (a few
+  seconds); pulses are held the same way. A pose outside the trained grid is
+  not held — it is recorded without a field and left out of the map.
+- **Online/Interpolated → Precomputed:** immediate; no solver state is needed.
 
 !!! warning "Warm the solver before the subject is positioned"
     The first switch to online costs about a minute during which no pulse can

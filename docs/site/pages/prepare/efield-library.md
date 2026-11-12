@@ -91,7 +91,8 @@ for the ParaView comparison; several GB and a few hours are normal. The
 original a-priori step uses APSim (the auxiliary dipole method) and stores the
 field at the target; this library is computed with the OnlineFEM solver and
 keeps every ROI triangle, which is what the per-element interpolation and the
-R² map need:
+R² map need. It is loaded through the **Interpolated** E-field mode
+(`surrogate_library_path` in the project):
 
 ```bash
 python scripts/02_create_roi_efield_library.py \

@@ -22,6 +22,9 @@ target_order_fn: /data/NP001/coil_path/selected_travel_sorted.txt
 # Precomputed E-field library. Not needed for the online mode.
 e_field_path: /data/NP001/efield/e.hdf5
 
+# Dense library for the Interpolated mode. Needs the ROI surface above.
+surrogate_library_path: /data/NP001/efield/e_surrogate.hdf5
+
 # EMG channel sources and the results table.
 emg_config_fn: /data/NP001/emg_channels.yaml
 results_fn: /data/NP001/results/NP001_M1_left.csv
@@ -36,7 +39,7 @@ minium_isi: 4
 default_speed: 40
 tuning_speed: 10
 
-# Travels with the subject: Precomputed or Online.
+# Travels with the subject: Precomputed, Online or Interpolated.
 efield_mode: Precomputed
 ```
 
@@ -51,6 +54,7 @@ efield_mode: Precomputed
 | `targets_file` | path | none | placements HDF5 with `matsimnibs` |
 | `target_order_fn` | path | none | target-order text file; all placements when absent |
 | `e_field_path` | path | none | precomputed E-field library (`E_mag`); unused online |
+| `surrogate_library_path` | path | none | dense library for the Interpolated mode (`E_mag` + `roi_hash`); needs `mesh_RIO_path` |
 | `emg_config_fn` | path | none | channel-source YAML |
 | `results_fn` | path | none | CSV written when the session finishes |
 | `fit_fun` | string | `Linear` | one of the nine fit shapes; see [Analysis and fits](results/analysis.md) |
@@ -61,7 +65,7 @@ efield_mode: Precomputed
 | `minium_isi` | int | `4` | minimum inter-stimulus interval, seconds |
 | `default_speed` | int | `40` | robot speed while travelling, % |
 | `tuning_speed` | int | `10` | robot speed near the head, % |
-| `efield_mode` | string | absent | `Precomputed` or `Online`; carried with the subject |
+| `efield_mode` | string | absent | `Precomputed`, `Online` or `Interpolated`; carried with the subject |
 
 !!! warning "Two spellings are historical"
     `mesh_RIO_path` (capital RIO) and `minium_isi` (missing "m") are the keys

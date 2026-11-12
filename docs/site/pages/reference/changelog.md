@@ -32,11 +32,12 @@ suite is used.
   extent (+ margin) automatically; `--n-placements 0` keeps the full grid;
   node-based dA/dt makes a solve ~4× faster; the output carries provenance
   attributes (mesh, ROI, coil, target/radius source, grid settings).
-- **E-field surrogate**: `EFieldSurrogate` implements the interpolation of
-  Grosshagauer et al. (2025) — code: EfieldInterpolation — on NeuroPilot's
-  dense libraries, with an explicit domain guard: outside pulses are skipped
-  and excluded as NaN rows. Ships with a validation script and a ParaView
-  time-series export.
+- **Interpolated E-field mode**: the surrogate of Grosshagauer et al. (2025)
+  (code: EfieldInterpolation) is the third E-field mode — dense library plus
+  ROI verification (`roi_hash`), background load, per-pulse interpolation,
+  and a domain guard whose outside policy is skip-and-exclude (NaN rows).
+  Ships with the auto-centred library generator, a validation script and a
+  ParaView time-series export.
 - The per-pulse regression drops NaN rows (a skipped surrogate pulse) exactly
   like missing ones.
 

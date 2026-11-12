@@ -48,10 +48,12 @@ session.
 |---|---|
 | **Precomputed E-Field** | use the library loaded in the project |
 | **Online E-Field** | solve the field per pulse with SimNIBS |
+| **Interpolated** | interpolate the field from the dense library (`surrogate_library_path`), with a domain guard |
 | hint line | what the mode is doing now (see [E-field modes](run/efield-modes.md)) |
 
 Start is disabled until a mode is selected. The mode is switchable during a run;
-pulses are held while the online solver warms up.
+pulses are held while the online solver warms up or the interpolated library
+loads.
 
 ## Robot card
 

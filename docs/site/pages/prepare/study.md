@@ -10,7 +10,7 @@ a small YAML edited on **Config › Study**.
 |---|---|---|
 | `fit_fun` | `Linear` | regression shape used for the R² map |
 | `map_elms` | `1` | subsampling: analyse every n-th ROI element |
-| `efield_mode` | `Precomputed` | default E-field mode for the session |
+| `efield_mode` | `Precomputed` | default E-field mode for the session: `Precomputed`, `Online` or `Interpolated` |
 | `pulse_shape` | `Biphasic` | stimulator waveform |
 | `n_repetitions` | `1` | pulses per target |
 | `min_isi` | `4` | minimum inter-stimulus interval, seconds |
