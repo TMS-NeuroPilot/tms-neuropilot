@@ -2681,6 +2681,23 @@ class MainWindow(QtWidgets.QMainWindow):
                 else:
                     set_info("info_mesh",
                              self._info_cache.get((mesh_fn, "mesh", sig), ""))
+            elif (mesh_fn.lower().endswith((".hdf5", ".h5"))
+                    and os.path.isfile(mesh_fn)):
+                # Light HDF5 header read: show the triangle count while the
+                # full mesh (and its display decimation) is still loading.
+                done = self._info_cache.get((mesh_fn, "mesh", sig))
+                if done is not None:
+                    set_info("info_mesh", done)
+                else:
+                    try:
+                        import h5py
+                        with h5py.File(mesh_fn, "r") as f:
+                            n_tri = f["mesh/elm/triangle_number_list"].shape[0]
+                        text = f"{n_tri:,} triangles"
+                    except Exception as e:
+                        text = f"unreadable ({type(e).__name__})"
+                    self._info_cache[(mesh_fn, "mesh", sig)] = text
+                    set_info("info_mesh", text)
             else:
                 set_info("info_mesh", "")
 

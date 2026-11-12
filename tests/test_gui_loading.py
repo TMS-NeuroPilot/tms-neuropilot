@@ -11,6 +11,12 @@ import pytest
 pytest.importorskip("PyQt5.QtWidgets")
 
 
+def test_head_hdf5_summary_is_shown(window, roi_hdf5):
+    window.loadmeshlabel.setText(str(roi_hdf5))
+    window._update_file_infos()
+    assert window.info_mesh.text() == "4 triangles"
+
+
 def test_e_field_load_does_not_block_the_window(window, controller, monkeypatch,
                                                 e_matrix_hdf5):
     import neuropilot.controller.control_panel as cp
