@@ -8,8 +8,12 @@ The library is the ``e.hdf5`` written by
 The estimator compresses the fields with PCA (default 20 components) and
 interpolates the coefficients over the coil pose: inverse-distance weighting
 over nearby scalp positions, and over nearby coil rotations at each position.
-This is an independent implementation of the interpolation idea used by
-EfieldInterpolation; it deliberately does not import that GPL package.
+The interpolation approach follows Grosshagauer et al. (2025), "Reducing
+target E-field variability in repetitive TMS through online motion
+compensation", Brain Stimulation, doi:10.1016/j.brs.2025.102990 — code by
+Michael Woletz and Sarah Grosshagauer in
+https://github.com/fMRIat/EfieldInterpolation. This implementation is
+independent of that GPLv3 repository and does not import it.
 
 Every query is checked against the sampled domain *before* interpolation.
 ``max_position_distance_mm`` and ``max_rotation_distance_deg`` default to the

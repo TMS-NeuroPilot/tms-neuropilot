@@ -1,8 +1,10 @@
 # E-field modes
 
-Every pulse needs an E-field. NeuroPilot gets it two ways today, and the mode
-can change during a session without breaking the regression. A third mode (a
-surrogate interpolator) is in preparation; see the end of this page.
+Every pulse needs an E-field. NeuroPilot can draw it from three sources, and
+the mode can change during a session without breaking the regression. The
+third source — a surrogate interpolator
+([Grosshagauer et al., 2025](https://doi.org/10.1016/j.brs.2025.102990)) — is
+described at the end of this page.
 
 <figure>
   <img src="assets/diagrams/efield-modes.svg" alt="The precomputed and online E-field paths, both ending in one per-pulse row appended to the regression.">
@@ -48,21 +50,33 @@ realised pose  →  OnlineFEMManager  →  one field vector  →  regression
 
 - The CSV records `e_field_mode = online` for those pulses.
 
-## Surrogate (in preparation)
+## Surrogate
 
-A third mode is being prepared: a PCA + pose-interpolation surrogate trained
-on a dense E-field library ([E-field library](prepare/efield-library.md)). It
-answers in well under a millisecond per pulse and carries an explicit domain
-guard.
+The third source interpolates the field instead of solving it. The method —
+an a-priori simulation of the pose range around the target, then SE(3)
+interpolation of the field for the realised coil pose — was introduced by
+[Grosshagauer et al., 2025](https://doi.org/10.1016/j.brs.2025.102990), with
+code in the
+[EfieldInterpolation](https://github.com/fMRIat/EfieldInterpolation)
+repository (Michael Woletz and Sarah Grosshagauer). Interpolation answers in
+well under a millisecond per pulse; the a-priori simulation is the
+dense-library run described in
+[E-field library](prepare/efield-library.md).
 
-The planned outside policy is **skip and exclude**: a coil pose outside the
-trained grid is recorded with an all-NaN field row — so the pulse indices stay
+NeuroPilot implements the estimator independently of that repository
+(`EFieldSurrogate`): PCA of the library fields plus inverse-distance
+interpolation over nearby scalp positions and coil rotations, with an
+explicit domain guard. `scripts/03_validate_efield_surrogate.py` measures the
+accuracy on held-out placements, `scripts/04_export_efield_vtk_series.py`
+writes FEM-versus-surrogate time series for ParaView. On the ernie phantom
+(20 mm / 4 mm library) a new position is reproduced to ~1.5 % field error and
+~5° direction error.
+
+The surrogate follows the same one-row-per-pulse contract as the other
+sources. The outside policy is **skip and exclude**: a pose outside the
+trained grid is recorded with an all-NaN field row — the pulse indices stay
 aligned — and the regression drops it exactly like a pulse without a field.
-Falling back to the online solver for those pulses is the alternative once the
-mode is wired in.
-
-The estimator (`EFieldSurrogate`), its validation script and the ParaView
-time-series export already exist; the GUI wiring does not.
+Falling back to the online solver for those pulses is the alternative.
 
 ## The hint under the radios
 

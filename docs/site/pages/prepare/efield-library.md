@@ -4,8 +4,9 @@ The E-field library is the precomputed half of the mapping: for every coil
 placement, the electric field it produces at every triangle of the ROI. The
 controller reads one row per pulse, so a pulse is always associated with the
 field of the pose that delivered it. The same file is the training data for
-the surrogate E-field estimator and the source for the ParaView field
-comparisons.
+the surrogate E-field estimator — the interpolation method of
+[Grosshagauer et al., 2025](https://doi.org/10.1016/j.brs.2025.102990) — and
+the source for the ParaView field comparisons.
 
 ## What the file contains
 
@@ -83,8 +84,14 @@ placements. This is the file the *Precomputed* E-field mode loads.
 
 **Surrogate library** (dense grid): no subsampling, 4 mm spacing and 15°
 rotations, covering the ROI plus the motion margin. This is the training data
-for the E-field surrogate and for the ParaView comparison; several GB and a
-few hours are normal:
+for the E-field surrogate — the interpolation method of
+[Grosshagauer et al., 2025](https://doi.org/10.1016/j.brs.2025.102990)
+([EfieldInterpolation](https://github.com/fMRIat/EfieldInterpolation)) — and
+for the ParaView comparison; several GB and a few hours are normal. The
+original a-priori step uses APSim (the auxiliary dipole method) and stores the
+field at the target; this library is computed with the OnlineFEM solver and
+keeps every ROI triangle, which is what the per-element interpolation and the
+R² map need:
 
 ```bash
 python scripts/02_create_roi_efield_library.py \
