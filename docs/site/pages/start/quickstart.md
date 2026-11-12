@@ -8,7 +8,7 @@ in the `pipeline` environment. Budget ten minutes.
     The full stack running in one terminal — relay, virtual neuronavigation,
     virtual robot and the controller — and one mapping session in which the
     controller has driven the robot, fired the stimulator, analysed the EMG and
-    painted an R² map on a cortical surface.
+    rendered an R² map on a cortical surface mesh.
 
 ## 1. Open the environment
 

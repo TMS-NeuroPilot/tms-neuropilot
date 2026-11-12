@@ -26,7 +26,7 @@ mapping is running; saving is always allowed.
 | Row | File | Required | What breaks without it |
 |---|---|---|---|
 | **Head mesh** | SimNIBS `.msh` or HDF5 | no | no 3-D anatomy; the online solver cannot run |
-| **ROI surface** | HDF5 `geo.hdf5` | for a map | no R² map, no mesh to paint |
+| **ROI surface** | HDF5 `geo.hdf5` | for a map | no R² map, no surface to colour |
 | **Target order** | text, one index per line | no | every placement is visited, in file order |
 | **Coil placements** | HDF5 `matsimnibs` | yes | no target poses |
 | **E-Field library** | HDF5 `E_mag` | precomputed mode | Start stays disabled |

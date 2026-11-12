@@ -1,7 +1,8 @@
 # Analysis and fits
 
-This page explains what happens between "the MEP arrived" and "the cortex is
-painted": the regression matrix, the fit, the R² map and the guards around them.
+This page explains what happens between "the MEP arrived" and "the map is on
+screen": the regression matrix, the fit, how R² is computed and the guards
+around them.
 
 ## From pulses to a matrix
 

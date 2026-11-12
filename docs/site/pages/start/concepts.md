@@ -38,7 +38,7 @@ delivered — a data-driven localisation of the stimulated site.
 6. **Associate the field** — the E-field of *that* coil pose is taken from the
    precomputed library or solved online.
 7. **Analyse** — the pulse is appended to the regression; R² is recomputed and
-   the cortical map is repainted.
+   the cortical map is redrawn.
 
 The loop repeats until the target list is exhausted or the operator presses
 **Finish**. [The mapping loop](run/mapping-loop.md) documents the state machine

@@ -1,6 +1,8 @@
 # Cortical results page
 
-The 3-D view paints the regression result on the subject's cortex. This page
+The 3-D view shows the regression result as a colour map on the ROI surface
+mesh — the R² value of each triangle is mapped to a colour, not painted onto
+the anatomy. This page
 documents the viewport, the four cards next to it and the export.
 
 <figure>
@@ -26,7 +28,7 @@ The surface selector above the viewport switches between the head mesh and the
 ROI. The scalar selector chooses the colour array: tissue labels on the head,
 `Score <channel>` on the ROI.
 
-!!! note "Nothing is painted before three pulses"
+!!! note "No map is drawn before three pulses"
     The readout says *"No R² map yet — needs at least three pulses."* until the
     regression has enough samples. That is a threshold, not a bug.
 

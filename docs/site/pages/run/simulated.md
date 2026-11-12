@@ -13,7 +13,7 @@ project is loaded.
    *"Precomputed library — ready immediately."* and **Start** becomes enabled.
 3. Set **Amplitude** and **Repetitions**. For a first session the defaults are
    fine; `n_repetitions: 1` keeps it short.
-4. **Cortical results** — the ROI mesh is displayed. Nothing is painted yet.
+4. **Cortical results** — the ROI mesh is displayed. No map is shown yet.
 
 !!! note "Start is grey"
     Start is enabled only when the robot (or manual mode), the stimulator, the
@@ -50,7 +50,7 @@ The controller now runs the seven steps for this target:
 
 - The **Control** page shows the current target, the pulse count and the log.
 - The **MEP results** page draws the live trace and the peak-to-peak trend.
-- The **Cortical results** page repaints the map after each analysis task.
+- The **Cortical results** page redraws the map after each analysis task.
 
 You can:
 

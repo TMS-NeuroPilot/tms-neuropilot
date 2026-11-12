@@ -17,7 +17,7 @@ in simulation, alongside NeuroPilot's own virtual twins of both. It tells the
 neuronavigation where the next coil target is, waits until the robot has the
 coil on that target, fires the stimulator, records the EMG response, computes
 the E-field the pulse actually delivered, and folds the result into a
-regression whose R² is painted over the subject's cortex.
+regression whose R² is shown as a colour map on the subject's cortical surface mesh.
 
 The same controller and the same relay topics run against the real lab or the
 virtual twin, so a new user can learn the workflow, and a developer can change
