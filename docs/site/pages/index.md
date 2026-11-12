@@ -11,15 +11,17 @@ cortical R² map that grows while the session runs.</p>
 </div>
 </div>
 
-NeuroPilot runs one TMS mapping experiment from a single window. It tells the
+NeuroPilot orchestrates a TMS mapping experiment from its controller window,
+working alongside the neuronavigation (InVesalius) and the robot driver — or,
+in simulation, alongside NeuroPilot's own virtual twins of both. It tells the
 neuronavigation where the next coil target is, waits until the robot has the
 coil on that target, fires the stimulator, records the EMG response, computes
 the E-field the pulse actually delivered, and folds the result into a
 regression whose R² is painted over the subject's cortex.
 
-The same window runs against the real lab or against a complete virtual twin —
-relay, neuronavigation and a MuJoCo robot — so a new user can learn the
-workflow, and a developer can change it, without touching hardware.
+The same controller and the same relay topics run against the real lab or the
+virtual twin, so a new user can learn the workflow, and a developer can change
+it, without touching hardware.
 
 <div class="cards" markdown="0">
   <a class="card" href="start/quickstart.html">
@@ -56,7 +58,7 @@ workflow, and a developer can change it, without touching hardware.
   <img src="assets/diagrams/architecture.svg" alt="The four NeuroPilot processes — controller, relay, neuronavigation and robot — and the hardware they replace or drive.">
   <figcaption>One controller process drives three peers over a Socket.IO relay.
   In simulation the peers are NeuroPilot's own virtual twin; in a real session
-  they are InVesalius and the robot controller.</figcaption>
+  they are InVesalius, the robot driver and the production relay.</figcaption>
 </figure>
 
 The controller is the conductor. Every coil target is created as a marker in the
