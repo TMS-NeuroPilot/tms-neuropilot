@@ -149,11 +149,16 @@ class EFieldSurrogate:
         What ``compute_e_field`` does for a pose outside the domain.
     idw_power : float
         Inverse-distance exponent, default 2.
+    clip_nonnegative : bool
+        Clip the PCA reconstruction to non-negative values. Use this for
+        magnitude libraries; leave it False for vector components, whose
+        negative signs are meaningful.
     """
 
     def __init__(self, n_components=20, max_position_distance_mm=None,
                  max_rotation_distance_deg=None, position_search_mm=None,
-                 rotation_search_deg=None, on_outside="warn", idw_power=2.0):
+                 rotation_search_deg=None, on_outside="warn", idw_power=2.0,
+                 clip_nonnegative=False):
         if on_outside not in ("warn", "nan", "raise"):
             raise ValueError("on_outside must be 'warn', 'nan' or 'raise'")
         if idw_power <= 0:
@@ -170,6 +175,7 @@ class EFieldSurrogate:
         self.rotation_search_deg = rotation_search_deg
         self.on_outside = on_outside
         self.idw_power = float(idw_power)
+        self.clip_nonnegative = bool(clip_nonnegative)
         self._fitted = False
 
     # ── construction ──────────────────────────────────────────────
@@ -340,9 +346,10 @@ class EFieldSurrogate:
 
         coefficients = np.average(np.asarray(coefficients), axis=0,
                                   weights=np.asarray(weights))
-        e_mag = self._mean + coefficients @ self._components
-        # PCA can undershoot at elements near zero; magnitudes are non-negative.
-        return np.clip(e_mag, 0.0, None)
+        field = self._mean + coefficients @ self._components
+        if self.clip_nonnegative:
+            return np.clip(field, 0.0, None)
+        return field
 
     @staticmethod
     def _pose_matrix(matsimnibs):

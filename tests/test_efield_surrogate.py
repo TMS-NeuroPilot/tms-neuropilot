@@ -66,6 +66,17 @@ def test_guard_defaults_match_the_sampling(surrogate):
     assert surrogate.rotation_search_deg == pytest.approx(22.5)
 
 
+def test_signed_features_are_not_clipped(library):
+    """A vector-component surrogate must keep negative values."""
+    e_mag, mats = library
+    signed = e_mag.copy()
+    signed[:, 3] -= 1.0
+    surrogate = EFieldSurrogate.from_arrays(signed, mats, n_components=5)
+    field, _ = surrogate.compute_e_field(mats[0])
+    assert field[3] < 0.0
+    np.testing.assert_allclose(field, signed[0], rtol=1e-6, atol=1e-9)
+
+
 def test_between_samples_is_inside_and_accurate(surrogate):
     # Cell centre (2, 2) and half a rotation step: both are inside.
     expected = _field(2.0, 2.0, 7.5)

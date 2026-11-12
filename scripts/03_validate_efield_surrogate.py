@@ -54,6 +54,7 @@ def main():
         max_rotation_distance_deg=args.max_rotation_deg,
         position_search_mm=args.position_search_mm,
         rotation_search_deg=args.rotation_search_deg,
+        clip_nonnegative=True,
     )
     full = EFieldSurrogate.from_arrays(e_mag, mats, **overrides)
     print(f"  k={full.n_components}  guard {full.max_position_distance_mm:.2f} mm / "
