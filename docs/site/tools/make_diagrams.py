@@ -103,7 +103,7 @@ def architecture():
                                      "from_*  →  to_*"],
                  ACCENT_SOFT, ACCENT, 14))
     # controller
-    b.append(box(40, 150, 220, 120, ["Controller", "PyQt5 + asyncio",
+    b.append(box(40, 150, 220, 120, ["Controller GUI", "PyQt5 + asyncio",
                                      "state machine · analysis",
                                      "online FEM"], BLUE_SOFT, BLUE, 14))
     # nav
@@ -115,7 +115,7 @@ def architecture():
     # devices (direct links, no relay)
     b.append(box(40, 330, 220, 66, ["Stimulator", "serial + TTL"],
                  FILL, LINE, 12, "500"))
-    b.append(box(320, 330, 220, 66, ["EMG computer", "CED 1401 · SMB"],
+    b.append(box(320, 330, 220, 66, ["EMG computer", "e.g. CED 1401 · SMB"],
                  FILL, LINE, 12, "500"))
 
     # relay links (solid)
