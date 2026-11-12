@@ -1,0 +1,17 @@
+coil_path: /home/ole/miniforge3/envs/pipeline/lib/python3.11/site-packages/simnibs/resources/coil_models/Drakaki_BrainStim_2022/MagVenture_MCF-B65_new.ccd
+default_speed: 40
+e_field_path: ernie/efield/e.hdf5
+emg_config_fn: example_emg_channels.yaml
+fit_fun: Linear
+map_elms: 1
+mesh_RIO_path: ernie/mesh/roi/midlayer_m1s1pmd/geo.hdf5
+mesh_head_path: ernie/mesh/m2m_ernie/ernie.msh
+minium_isi: 4
+n_repetitions: 1
+project_name: test
+results_fn: ernie/coil_path/pip.csv
+stimulator_amplitude: 20
+stimulator_waveform: Biphasic
+target_order_fn: ernie/coil_path/ernie_coil_algo_D-Optimal(RBF).txt
+targets_file: ernie/efield/search_positions.hdf5
+tuning_speed: 10
