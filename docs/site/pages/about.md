@@ -28,12 +28,13 @@ operator and the stimulator's own safety limits.
 |---|---|
 | **Ole Numssen** | Maintainer and project lead (MPI CBS / ScaDS.AI) |
 | **Abdullah Yaseen** | The controller and the simulators — virtual robot, virtual neuronavigation, simulated relay (Ernst Abbe University of Applied Sciences Jena) |
-| **Samuel Berggren** | The cobot interface and state machine |
-| **Andrew Meng** | The cobot interface and state machine (University of Michigan) |
-| **Benjamin Kalloch** | The first version |
+| **Samuel Berggren** | The cobot interface, movement and state machine |
+| **Andrew Meng** | The cobot interface, movement and state machine (University of Michigan) |
+| **Benjamin Kalloch** | The first version; cobot movement and state machine |
 | **Konstantin Weise** | A lot, including the coil holder and the force sensor (HTWK Leipzig / MPI CBS) |
 | **Thomas R. Knösche** | Group leadership and supervision (MPI CBS / TU Ilmenau) |
-| **Renan H. Matsuda** | InVesalius integration (Aalto University / Santos Dumont Institute, Brazil) |
+| **Carla Martin** | InVesalius integration |
+| **Renan H. Matsuda** | InVesalius integration help (Aalto University / Santos Dumont Institute, Brazil) |
 
 Contacts and affiliations are kept in
 [`CONTRIBUTORS.md`](https://gitlab.gwdg.de/tms-localization/papers/neuropilot/-/blob/main/CONTRIBUTORS.md)
