@@ -36,7 +36,6 @@ ASSETS = ROOT / "assets"
 SITE_NAME = "NeuroPilot"
 SITE_TAGLINE = "Guided online TMS mapping with online field optimisation"
 REPO_URL = "https://gitlab.gwdg.de/tms-localization/papers/neuropilot"
-EDIT_URL = REPO_URL + "/-/edit/main/docs/site/pages/"
 SITE_URL = "https://neuropilot-94ad2d.pages.gwdg.de/"
 
 _LINK = re.compile(r"\[([^\]]+)\]\(([^)\s]+)(?:\s+\"([^\"]*)\")?\)")
@@ -410,8 +409,6 @@ def _template(body: str, page: dict, nav_html: str, toc_html: str,
 {pager}
     </nav>
     <footer class="page-foot">
-      <a href="{EDIT_URL}{page['path']}" target="_blank" rel="noopener">Edit this page</a>
-      <span>·</span>
       <a href="{REPO_URL}/-/issues" target="_blank" rel="noopener">Report a problem</a>
       <span>·</span>
       <a href="{ctx['root']}search.html">Search all pages</a>

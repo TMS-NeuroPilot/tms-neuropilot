@@ -1,37 +1,59 @@
 # Quick start
 
 This page takes you from a fresh clone to a running simulated mapping session.
-It needs no hardware, no subject data and no network beyond the packages already
-in the `pipeline` environment. Budget ten minutes.
+It needs no hardware and no subject data. With the `pipeline` environment
+already in place it takes about ten minutes; creating that environment the first
+time takes longer.
 
 !!! abstract "What you will have at the end"
-    The full stack running in one terminal — relay, virtual neuronavigation,
-    virtual robot and the controller — and one mapping session in which the
-    controller has driven the robot, fired the stimulator, analysed the EMG and
-    rendered an R² map on a cortical surface mesh.
+    The simulated stack running in one terminal (relay, virtual
+    neuronavigation, virtual robot and the controller) and one mapping session
+    in which the controller has driven the robot, fired the stimulator,
+    analysed the EMG and rendered an R² map on a cortical surface mesh.
 
-## 1. Open the environment
+    A real session uses InVesalius for the neuronavigation and
+    `tms-robot-control` for the robot; this page stays with their virtual
+    twins.
+
+## 1. Get the code
 
 ```bash
-# from the repository root
-conda activate pipeline
-python --version          # must be 3.11.x
+git clone https://gitlab.gwdg.de/tms-localization/papers/neuropilot.git
+cd neuropilot
 ```
 
-The suite is developed and tested in the `pipeline` conda environment (Python
-3.11). If you do not have it yet, follow [Install the suite](install/install.md)
-first — it also installs SimNIBS, which the online E-field mode needs.
+## 2. Create the environment
 
-## 2. Install the suite in editable mode
+```bash
+conda create -n pipeline python=3.11 -y
+conda activate pipeline
+python --version          # must be 3.11.x
+conda install -c conda-forge -y pyqt qasync pyvista vtk h5py scipy numpy \
+    pyyaml requests python-socketio aiohttp python-dotenv
+pip install mujoco pybullet ikpy smbprotocol pynibs
+```
+
+These are the packages the GUI, the 3-D view, the relay, the analysis and the
+virtual robot need. If the `pipeline` environment already exists, activate it
+and skip the create/install lines.
+
+SimNIBS is not needed for this walkthrough, which uses the precomputed E-field
+mode. It is needed for the online solver and for displaying a SimNIBS `.msh`
+head mesh; [Install the suite](install/install.md) has the recipe.
+
+InVesalius is not part of this environment: it is a separate application for
+real and manual sessions, covered in [Install the suite](install/install.md)
+under *InVesalius*.
+
+## 3. Install NeuroPilot
 
 ```bash
 pip install -e . --no-deps
 ```
 
 `--no-deps` is deliberate: the heavy dependencies (PyQt5, pyvista, pynibs,
-MuJoCo, SimNIBS) come from conda and are already in the environment. The
-package itself installs the `neuropilot` command and the `neuropilot` package
-under `src/`.
+MuJoCo) are already installed in the environment. The package itself installs
+the `neuropilot` command and the package under `src/`.
 
 Check that the command is on the path:
 
@@ -43,7 +65,7 @@ neuropilot --help
 usage: neuropilot [-h] {sim,relay,controller,real,manual} ...
 ```
 
-## 3. Create the bootstrap configuration
+## 4. Create the bootstrap configuration
 
 ```bash
 cp .env.example .env
@@ -63,7 +85,7 @@ leave it untouched. The full key list is in the
     ROOT_FOLDER=/tmp/neuropilot_test neuropilot sim
     ```
 
-## 4. Start the simulated stack
+## 5. Start the simulated stack
 
 ```bash
 neuropilot sim
@@ -93,7 +115,7 @@ one terminal, one Ctrl+C to stop everything.
     Expect 20–40 s before the controller window appears; later starts are
     faster. The readiness budget is `READINESS_TIMEOUT_S` (default 60 s).
 
-## 5. Load a mapping project
+## 6. Load a mapping project
 
 The controller needs a project: the subject mesh, the coil placements, the
 E-field library, the EMG sources and the output paths. Two ways to get one:
@@ -111,7 +133,7 @@ E-field library, the EMG sources and the output paths. Two ways to get one:
     It prints the project path (default `/tmp/np_demo/NP001/NP001.yaml`). In
     the controller, open the **Project** page, click **Load**, and select it.
 
-    This is the real example head, so the geometry is meaningful — but it is
+    This is the real example head, so the geometry is meaningful, but it is
     still a tutorial dataset, not a study subject.
 
 === "Your own subject"
@@ -131,12 +153,12 @@ results** page has a mesh to draw on.
   directory.</figcaption>
 </figure>
 
-## 6. Connect, choose the E-field mode, run
+## 7. Connect, choose the E-field mode, run
 
 1. Open the **Connections** page and press **Reconnect** if a card is still
    grey. In simulation all four systems turn green within a second or two.
 2. Open the **Control** page and choose **Precomputed E-Field**. Start is
-   disabled until a mode is chosen — that is the intended gate, not a bug.
+   disabled until a mode is chosen; that is the intended gate, not a bug.
 3. Set the amplitude and repetitions for the demo (the defaults are fine).
 4. Press **Start**. The controller creates a marker in the neuronavigation, the
    robot moves the coil to it, the stimulator fires, and the MEP appears on
@@ -150,7 +172,7 @@ results** page has a mesh to draw on.
   E-field mode and transport. Right: the robot view and the session log.</figcaption>
 </figure>
 
-## 7. Finish and stop
+## 8. Finish and stop
 
 - **Finish** ends the mapping and writes the results CSV.
 - Ctrl+C in the terminal where `neuropilot sim` runs stops all four components.
@@ -177,7 +199,7 @@ The full symptom → cause → fix table is in
 
 ## Next
 
-- [Key concepts](start/concepts.md) — the vocabulary used by every other page.
-- [A simulated session](run/simulated.md) — the same walkthrough with more
+- [Key concepts](start/concepts.md): the vocabulary used by every other page.
+- [A simulated session](run/simulated.md): the same walkthrough with more
   detail, including what each step does on the wire.
-- [Real session checklist](run/real.md) — when you are ready for hardware.
+- [Real session checklist](run/real.md): when you are ready for hardware.

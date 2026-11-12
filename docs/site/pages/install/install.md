@@ -1,7 +1,9 @@
 # Install the suite
 
 This page installs NeuroPilot into a conda environment and configures it. It
-assumes the machine already has conda (miniforge or miniconda).
+assumes the machine already has conda (miniforge or miniconda). InVesalius, the
+neuronavigation application for real sessions, has its own environment; its
+installation is at the end of this page.
 
 ## 1. Get the code
 
@@ -65,7 +67,7 @@ conda install -c conda-forge python-mumps
 !!! warning "MKL sonames"
     The `petsc4py` wheel links older MKL sonames (`libmkl*.so.2`). If the
     simulation import fails with a missing `libmkl_*.so.2`, copy those files
-    from a working SimNIBS environment into `$CONDA_PREFIX/lib` — this is a
+    from a working SimNIBS environment into `$CONDA_PREFIX/lib`; this is a
     packaging quirk, not a NeuroPilot problem. A separate `simnibs` conda
     environment (the official installer) also works; NeuroPilot only needs
     `simnibs` importable in `pipeline` for the online solver.
@@ -128,6 +130,51 @@ NEUROPILOT_UI_SCALE=1.25
 The colour theme is chosen in **Config › Lab › Theme** and stored in the lab
 profile; see [Themes and display](gui/themes.md).
 
+## InVesalius (real and manual modes only)
+
+The simulator does not need InVesalius. Real and manual sessions use it for
+neuronavigation, and it runs in its own conda environment. Use the group's fork:
+stock upstream InVesalius does not publish the relay topics or the tracker
+handling that NeuroPilot expects.
+
+```bash
+git clone https://gitlab.gwdg.de/tms-localization/cobot/invesalius-mpi.git
+cd invesalius-mpi
+conda create -n invesalius python=3.12 -y
+conda activate invesalius
+conda install -c conda-forge -y wxpython=4.2.2 numpy scipy pillow matplotlib \
+    scikit-image nibabel pyserial psutil vtk==9.4.2 cython h5py imageio \
+    pypubsub gdcm pyacvd
+pip install "python-socketio[client]" pypolaris
+pip install -e . --no-deps
+```
+
+Two details that cause most failed installs:
+
+- **Python 3.12.** InVesalius declares `requires-python = "==3.12.*"`; 3.13 is
+  not supported.
+- **wxPython from conda.** wxPython is a large C++ extension. The conda package
+  is already built; without it pip compiles wxPython from source and the
+  install takes much longer.
+
+`--no-deps` keeps pip from resolving the full dependency set, and from
+rebuilding wxPython; the navigation runtime is already in the environment. The
+two pip packages before it are runtime additions that the fork imports but does
+not list in `requirements.txt`: the relay client (`python-socketio`) and the
+NDI tracker binding (`pypolaris`).
+
+`torch`, the backend for the deep-learning segmentation tools, is not needed
+for navigation; install it separately if you use those tools.
+
+Start it pointed at the relay:
+
+```bash
+python app.py --remote-host http://localhost:5000
+```
+
+Replace `localhost` with the relay host when the two programs run on different
+machines.
+
 ## Updating
 
 ```bash
@@ -148,6 +195,6 @@ update.
 
 ## Next
 
-- [Hardware setup](install/hardware.md) — only needed for real hardware.
-- [Verify the installation](install/verify.md) — prove that everything works.
-- [Quick start](start/quickstart.md) — run the simulator.
+- [Hardware setup](install/hardware.md): only needed for real hardware.
+- [Verify the installation](install/verify.md): prove that everything works.
+- [Quick start](start/quickstart.md): run the simulator.

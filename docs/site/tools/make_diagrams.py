@@ -146,8 +146,10 @@ def architecture():
 def mapping_loop():
     steps = ["INIT", "SEND\nMARKER", "START\nTRACKING", "WAIT FOR\nTARGET",
              "FIRE\nSTIM", "COLLECT\nDATA", "ANALYSE", "COMPLETE"]
-    b = [multiline(480, 30, ["One pulse = one pass through the loop"], 17, "700")]
-    x, y, w, h, gap = 24, 70, 104, 70, 15
+    width, height = 1000, 250
+    b = [multiline(width // 2, 24, ["One pulse = one pass through the loop"],
+                   17, "700")]
+    x, y, w, h, gap = 24, 70, 104, 70, 17
     centres = []
     for i, step in enumerate(steps):
         fill, stroke = (ACCENT_SOFT, ACCENT) if step == "COMPLETE" else (FILL, LINE)
@@ -156,17 +158,25 @@ def mapping_loop():
         if i:
             b.append(arrow(centres[i - 1][0] + w / 2 + 2, y + h / 2,
                            centres[i][0] - w / 2 - 2, y + h / 2))
-    last = centres[-1][0]
-    b.append(arrow(last, y, last, y - 22))
-    b.append(multiline(480, y - 36, ["next target / next repetition"], 11, "500", MUTED))
-    # skip
-    b.append(arrow(centres[2][0], y + h, centres[2][0], y + h + 34, dashed=True))
-    b.append(arrow(centres[2][0], y + h + 38, last, y + h + 38, dashed=True))
-    b.append(label(470, y + h + 58, "SKIP / Next  →  COMPLETE (abandon this target)"))
+    first, last = centres[0][0], centres[-1][0]
+    # loop back from COMPLETE to INIT, above the row
+    loop_y = y - 18
+    b.append(arrow(last, y, last, loop_y, head=False))
+    b.append(arrow(last, loop_y, first, loop_y, head=False))
+    b.append(arrow(first, loop_y, first, y))
+    b.append(label(width / 2, loop_y - 6, "next target / next repetition"))
+    # skip from START TRACKING to COMPLETE, below the row
+    skip_y = y + h + 38
+    b.append(arrow(centres[2][0], y + h, centres[2][0], skip_y,
+                   dashed=True, head=False))
+    b.append(arrow(centres[2][0], skip_y, last, skip_y, dashed=True, head=False))
+    b.append(arrow(last, skip_y, last, y + h + 2, dashed=True))
+    b.append(label(width / 2, skip_y + 20,
+                   "SKIP / Next  →  COMPLETE (abandon this target)"))
     # gates
-    b.append(note(480, y + h + 92,
+    b.append(note(width / 2, skip_y + 54,
                   "WAIT FOR TARGET needs coil-at-target + force + minimum interval."))
-    return svg(960, 250, "".join(b), "The mapping loop")
+    return svg(width, height, "".join(b), "The mapping loop")
 
 
 def subject_pipeline():

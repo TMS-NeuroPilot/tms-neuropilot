@@ -1,7 +1,7 @@
 <div class="hero" markdown="0">
 <h1>NeuroPilot</h1>
-<p class="lead">Guided, robot-assisted TMS mapping with a per-pulse electric field and a
-cortical R² map that grows while the session runs.</p>
+<p class="lead">Running optimized TMS mapping experiments with per-pulse electric fields,
+online analysis, InVesalius neuronavigation and a complete virtual twin.</p>
 <div class="badges">
   <span class="badge accent">Python 3.11</span>
   <span class="badge">PyQt5 + asyncio</span>
@@ -11,17 +11,29 @@ cortical R² map that grows while the session runs.</p>
 </div>
 </div>
 
-NeuroPilot orchestrates a TMS mapping experiment from its controller window,
-working alongside the neuronavigation (InVesalius) and the robot driver — or,
-in simulation, alongside NeuroPilot's own virtual twins of both. It tells the
-neuronavigation where the next coil target is, waits until the robot has the
-coil on that target, fires the stimulator, records the EMG response, computes
-the E-field the pulse actually delivered, and folds the result into a
-regression whose R² is shown as a colour map on the subject's cortical surface mesh.
+NeuroPilot guides the experimenter through a mapping experiment: the coil is
+held by hand (manual mode) or by a TMS robot (real mode, via
+[tms-robot-control](https://gitlab.gwdg.de/tms-localization/cobot/tms-robot-control)),
+while the software collects the EMG responses and runs element-wise mapping
+analyses online.
+That enables high-resolution structure-function mapping
+([Numssen et al., 2021](https://doi.org/10.1016/j.neuroimage.2021.118654);
+[Weise et al., 2023](https://doi.org/10.1038/s41596-022-00776-6)).
 
-The same controller and the same relay topics run against the real lab or the
-virtual twin, so a new user can learn the workflow, and a developer can change
-it, without touching hardware.
+It integrates with [InVesalius](https://invesalius.github.io/) neuronavigation to
+guide the coil across many placements, controls the stimulator, and uses
+[SimNIBS](https://simnibs.github.io/simnibs/) for online E-field calculations.
+Experiments can use different optimization schemes, for example
+[FPS](https://en.wikipedia.org/wiki/Farthest-first_traversal) or
+[D-optimal](https://en.wikipedia.org/wiki/Optimal_design), and the analysis
+runs online; single trials can be excluded by hand and the full data set
+exported. The software is open source and adapts easily to local hardware,
+outcome metrics and new optimization schemes.
+
+A full virtual-twin mode allows extensive testing of new optimization schemes
+under realistic conditions (noise, individual morphology, experimental demands
+and session duration) to dry-run robotic experiments or to train experimenters
+on simulated MEPs and realistic tracking.
 
 <div class="cards" markdown="0">
   <a class="card" href="start/quickstart.html">
@@ -55,26 +67,25 @@ it, without touching hardware.
 ## What it does
 
 <figure>
-  <img src="assets/diagrams/architecture.svg" alt="The four NeuroPilot processes — controller, relay, neuronavigation and robot — and the hardware they replace or drive.">
+  <img src="assets/diagrams/architecture.svg" alt="The four NeuroPilot processes (controller, relay, neuronavigation and robot) and the hardware they replace or drive.">
   <figcaption>One controller process drives three peers over a Socket.IO relay.
   In simulation the peers are NeuroPilot's own virtual twin; in a real session
   they are InVesalius, the robot driver and the production relay.</figcaption>
 </figure>
 
-The controller is the conductor. Every coil target is created as a marker in the
-neuronavigation; the robot moves the coil to it; the stimulator fires; the EMG
-is cut into a window around the pulse and reduced to a peak-to-peak amplitude;
-and that amplitude is regressed against the E-field of the same pulse. Because
-the E-field is known per pulse — from a precomputed library or from a SimNIBS
-solve that runs while the coil moves — the map does not have to assume a
-uniform field.
+A mapping session is a loop over pulses:
 
-<div class="status-grid" markdown="0">
-  <div class="status"><span class="k">Mapping loop</span><span class="v">7 steps</span></div>
-  <div class="status"><span class="k">E-field modes</span><span class="v">2, switchable live</span></div>
-  <div class="status"><span class="k">Fit functions</span><span class="v">9</span></div>
-  <div class="status"><span class="k">Colour themes</span><span class="v">5 (3 light, 2 dark)</span></div>
-</div>
+1. The controller takes the next target from the target order.
+2. It creates that target as a marker in the neuronavigation.
+3. The robot, or the operator in manual mode, moves the coil there.
+4. The stimulator fires.
+5. The EMG is cut into a window around the pulse and reduced to a peak-to-peak MEP.
+6. The E-field for that pulse is read from the precomputed library or solved
+   online for the realised coil pose.
+7. The MEP is regressed against that E-field, and the R² map is updated.
+
+Because the field is the one the pulse actually delivered, the map does not
+assume that every pulse hit the same spot.
 
 ## Run the simulator in three commands
 
@@ -84,15 +95,14 @@ pip install -e . --no-deps          # once, from the repository root
 neuropilot sim                      # relay → nav + robot → controller
 ```
 
-The supervisor waits for each component's readiness probe before starting the
-next, prefixes every log line with its role, and shuts the whole stack down on
-Ctrl+C. When the window opens, load the bundled `ernie` example project and
-press **Start mapping**.
+When the NeuroPilot GUI has loaded, load the `ernie` example project and press
+**Start**.
 
 !!! tip "No hardware, no risk"
     The simulated stack is the recommended way to learn the interface. It runs
     the same controller code, the same relay protocol and the same state
-    machine as a real session — only the three peers are virtual.
+    machine as a real session; only the relay, neuronavigation and robot are
+    virtual twins.
 
 ## How to read this site
 
@@ -108,10 +118,4 @@ press **Start mapping**.
   and study profiles.
 - **Reference** holds the architecture, relay protocol, CLI, tests and
   troubleshooting.
-- **About** covers who builds it, where the suite came from, the license and
-  how to cite it.
-
-!!! note "This documentation lives with the code"
-    Every page is a Markdown file under `docs/site/pages/` in the repository
-    and is published by CI on each push to `main`. The *Edit this page* link at
-    the bottom of every page opens the source.
+- **About** covers who builds it, the components, the license and how to cite it.

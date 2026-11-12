@@ -26,7 +26,7 @@
 | **SimNIBS 4.5** | the online E-field solver and `.msh` meshes | SimNIBS wheel + MKL/MUMPS |
 | `magicpy` | driving the stimulator (MagVenture) | pip (vendor package) |
 | `smbprotocol` | reading the EMG files from the acquisition PC | pip |
-| InVesalius | real-mode neuronavigation | separate conda env |
+| [InVesalius](install/install.md) | real-mode neuronavigation | separate conda env |
 | `tms-robot-control` | real-mode robot driver + production relay | separate GitLab checkout |
 
 `pynibs` and `magicpy` are lab packages; if `pip install pynibs` cannot find
@@ -52,7 +52,7 @@ short: the TMS robot, the neuronavigation camera and PCs, the stimulator, the
 EMG amplifier and a network that connects them. None of it is needed to install
 or explore the software.
 
-!!! danger "Safety — research software, not a medical device"
+!!! danger "Safety: research software, not a medical device"
     NeuroPilot has no medical approval. Real stimulation requires ethics
     approval, a trained operator, the stimulator's own safety limits and the
     subject's written consent. Do not use it to make clinical decisions.
