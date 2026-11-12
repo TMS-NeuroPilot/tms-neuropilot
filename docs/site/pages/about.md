@@ -4,39 +4,40 @@ NeuroPilot is research software from the **Brain Networks** and **Neural Data
 Science and Statistical Computing** groups at the Max Planck Institute for
 Human Cognitive and Brain Sciences (*MPI CBS*) and the Center for Scalable Data
 Analytics and Artificial Intelligence (*ScaDS.AI*), Leipzig, Germany. It runs
-optimized TMS mapping experiments based on per-pulse electric fields, allows
-for robot integration and ships a complete virtual twin to test and debug
-workflows without hardware and subjects.
+optimized TMS mapping experiments based on per-pulse electric fields and
+integrates with InVesalius neuronavigation to guide TMS placements across many
+pulses. It performs online mapping analyses, supports robot integration, and
+ships a complete virtual twin to test and debug workflows without hardware or
+subjects.
 
 It is not a medical device. Real stimulation needs ethics approval, a trained
 operator and the stimulator's own safety limits.
 
 ## What it is for
 
-- **Reproducible coil placement.** The robot holds the coil on a tracked
-  target instead of an operator holding it by hand.
-- **A field, not a nominal target.** Every pulse is regressed against the
-  E-field it actually delivered — from a precomputed library or from a SimNIBS
-  solve for the realised pose.
-- **A map while the session runs.** The per-element R² is shown on the cortical
-  surface mesh as the pulses accumulate.
-- **A twin for everything else.** Relay, neuronavigation and robot have virtual
-  counterparts that speak the same topics, so a new user can learn the
-  workflow and a developer can change it without hardware or a subject.
+- Run E-field-optimized mapping experiments with online analysis
+- Simulate mapping results for different optimization functions
+- Switch between precomputed E-fields and online E-field calculation
+- Put new optimization schemes to the test with a realistic virtual twin
+- Switch mapping parameters live, such as the fit function
+- Exclude single-trial responses during a run
+- Train mapping experimenters in realistic settings with simulated MEPs
+- Add new hardware setups, optimization schemes or fit functions thanks to the
+  modular design
 
 ## Contributors
 
-| Contributor | Role |
-|---|---|
-| **Ole Numssen** | Maintainer and project lead (MPI CBS / ScaDS.AI) |
+| Contributor | Role                                                                                                                                         |
+|---|----------------------------------------------------------------------------------------------------------------------------------------------|
+| **Ole Numssen** | Maintainer and project lead (MPI CBS / ScaDS.AI)                                                                                             |
 | **Abdullah Yaseen** | The controller and the simulators — virtual robot, virtual neuronavigation, simulated relay (Ernst Abbe University of Applied Sciences Jena) |
-| **Samuel Berggren** | The cobot interface, movement and state machine |
-| **Andrew Meng** | The cobot interface, movement and state machine (University of Michigan) |
-| **Benjamin Kalloch** | The first version; cobot movement and state machine |
-| **Konstantin Weise** | A lot, including the coil holder and the force sensor (HTWK Leipzig / MPI CBS) |
-| **Thomas R. Knösche** | Group leadership and supervision (MPI CBS / TU Ilmenau) |
-| **Carla Martin** | InVesalius integration |
-| **Renan H. Matsuda** | InVesalius integration help (Aalto University / Santos Dumont Institute, Brazil) |
+| **Samuel Berggren** | The cobot interface, movement and state machine                                                                                              |
+| **Andrew Meng** | The cobot interface and movement state machine; the Ernie printable head (University of Michigan)                                                |
+| **Benjamin Kalloch** | The first version; cobot movement and state machine                                                                                          |
+| **Konstantin Weise** | A lot, including the coil holder and the force sensor (HTWK Leipzig / MPI CBS)                                                               |
+| **Thomas R. Knösche** | Group leadership and supervision (MPI CBS / TU Ilmenau)                                                                                      |
+| **Carla Martin** | InVesalius integration                                                                                                                       |
+| **Renan H. Matsuda** | InVesalius integration help (Aalto University / Santos Dumont Institute, Brazil)                                                             |
 
 Contacts and affiliations are kept in
 [`CONTRIBUTORS.md`](https://gitlab.gwdg.de/tms-localization/papers/neuropilot/-/blob/main/CONTRIBUTORS.md)
