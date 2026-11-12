@@ -29,8 +29,11 @@ default:
   interruptible: true
   before_script:
     - PYTHON=$(bash scripts/ci-python.sh)
-    - echo "Interpreter: $PYTHON ($($PYTHON --version 2>&1))"
-    - $PYTHON -c "import pytest" || { echo "pytest is not installed in $PYTHON -- point PYTHON at the pipeline env"; exit 1; }
+    # Quoted: an unquoted "Interpreter: ..." is a YAML mapping, which makes the
+    # whole pipeline invalid (GitLab then runs no job at all).
+    - 'echo "Interpreter: $PYTHON ($($PYTHON --version 2>&1))"'
+    - '$PYTHON -c "import pytest" || { echo "pytest is not installed in $PYTHON -- point PYTHON at the pipeline env"; exit 1; }'
+
 
 # Cheap and dependency-free: catches a syntax error even on a runner where the
 # heavy imports are unavailable.
@@ -45,7 +48,10 @@ check:syntax:
 # a failure means a broken link, an orphan page or a missing nav entry.
 check:docs:
   stage: check
+  # The site builder is standard-library only: no pytest, no conda env.
+  before_script: []
   script:
+    - PYTHON=$(bash scripts/ci-python.sh)
     - $PYTHON docs/site/build.py --check
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -69,7 +75,13 @@ test:
 # `public` artifact are what GitLab expects; the build needs no network.
 pages:
   stage: deploy
+  # Deploy the docs independently of the heavy test stage: a runner without
+  # the `pipeline` env can still publish the site.  `build.py` already fails
+  # on broken links, so the artifact is checked by construction.
+  needs: []
+  before_script: []
   script:
+    - PYTHON=$(bash scripts/ci-python.sh)
     - $PYTHON docs/site/build.py --out public
   artifacts:
     paths:
