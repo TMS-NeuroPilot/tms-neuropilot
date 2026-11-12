@@ -108,6 +108,8 @@ press **Start mapping**.
   and study profiles.
 - **Reference** holds the architecture, relay protocol, CLI, tests and
   troubleshooting.
+- **About** covers who builds it, where the suite came from, the license and
+  how to cite it.
 
 !!! note "This documentation lives with the code"
     Every page is a Markdown file under `docs/site/pages/` in the repository

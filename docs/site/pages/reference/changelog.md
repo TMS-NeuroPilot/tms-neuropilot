@@ -9,7 +9,7 @@ suite is used.
 
 ### Documentation
 
-- This site: 42 pages covering installation, subject data, every GUI page,
+- This site: 43 pages covering installation, subject data, every GUI page,
   every configuration key, the workflows and the reference material. Built by a
   dependency-free generator (`docs/site/build.py`) and published by GitLab Pages
   on every push to `main`.

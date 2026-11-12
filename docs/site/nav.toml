@@ -90,3 +90,9 @@ pages = [
   ["Glossary", "reference/glossary.md", "The terms used across the code, the literature and this site."],
   ["Changelog", "reference/changelog.md", "What changed, release by release, and what is still open."],
 ]
+
+[[sections]]
+title = "About"
+pages = [
+  ["About the project", "about.md", "Who builds NeuroPilot, where it comes from, how it is built and how to cite it."],
+]
