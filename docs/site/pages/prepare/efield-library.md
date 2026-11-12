@@ -3,7 +3,9 @@
 The E-field library is the precomputed half of the mapping: for every coil
 placement, the electric field it produces at every triangle of the ROI. The
 controller reads one row per pulse, so a pulse is always associated with the
-field of the pose that delivered it.
+field of the pose that delivered it. The same file is the training data for
+the surrogate E-field estimator and the source for the ParaView field
+comparisons.
 
 ## What the file contains
 
@@ -21,30 +23,37 @@ The controller **requires** `E_mag` with shape `(placements, elements)`. Extra
 datasets are ignored by the regression but useful for inspection.
 
 !!! note "Large files"
-    A 500-placement search on 15 000 ROI triangles is about 350 MB as float64
-    (`500 × 15 000 × 8` bytes for `E_mag` alone). Keep one library per subject
-    and ROI; do not commit them to the repository.
+    A 500-placement library with all four datasets is roughly 350 MB as
+    float64; a dense surrogate library (some thousands of placements) is
+    several GB. Keep one library per subject and ROI. `data/` is git-ignored,
+    so generated libraries never reach the repository.
 
 ## Building it
+
+The script centres the search automatically: without `--target` it uses the
+ROI centroid, and without `--search-radius` it derives the radius from the ROI
+extent (the largest distance from the target to an ROI triangle centre) plus a
+10 mm motion margin. Both can be set explicitly when a session needs something
+else.
 
 ```bash
 python scripts/02_create_roi_efield_library.py \
     --mesh-msh  data/<subj>/mesh/m2m_<subj>/<subj>.msh \
-    --roi-hdf5  data/<subj>/mesh/roi/midlayer_m1s1pmd/geo.hdf5 \
+    --roi-hdf5  data/<subj>/mesh/m2m_<subj>/<subj>.hdf5 \
     --roi-idx   midlayer_m1s1pmd \
     --coil      /path/to/MagVenture_MCF-B65.ccd \
-    --target    -37.0 -21.0 58.0 \
     --out       data/<subj>/efield/e.hdf5
 ```
 
 | Flag | Default | Meaning |
 |---|---|---|
 | `--mesh-msh` | required | SimNIBS FEM mesh |
-| `--roi-hdf5`, `--roi-idx` | required, `midlayer_m1s1pmd` | ROI surface and its display name |
+| `--roi-hdf5`, `--roi-idx` | required, `midlayer_m1s1pmd` | pynibs mesh HDF5 with `roi_surface/<idx>` |
 | `--coil` | required | coil model `.ccd` |
-| `--target` | required | search centre, mm, SimNIBS space |
-| `--n-placements` | 500 | how many placements to keep |
-| `--search-radius` | 20.0 | mm around the target |
+| `--target` | ROI centroid | search centre, mm, SimNIBS space |
+| `--search-radius` | ROI extent + `--margin` | mm around the target |
+| `--margin` | 10.0 | extra radius for the automatic search radius, mm |
+| `--n-placements` | 500 | placements to keep; `0` keeps the full grid |
 | `--search-angle` | 180.0 | handle rotation range, degrees |
 | `--angle-resolution` | 7.5 | step of the rotation search, degrees |
 | `--spatial-resolution` | 3.0 | step of the position search, mm |
@@ -52,13 +61,51 @@ python scripts/02_create_roi_efield_library.py \
 | `--target-radius` | 1.0 | target tolerance, mm |
 | `--anisotropy` | `scalar` | `scalar` or `vn` (needs a DTI tensor) |
 | `--solver` | `pardiso` | FEM solver |
+| `--dadt-at` | `nodes` | `nodes` (fast) or `elements` (reference) |
 | `--didt` | `1e6` | dI/dt used to scale the field, A/s |
 | `--out` | `e.hdf5` | output path |
 
-The script runs one FEM solve per placement. On a workstation expect **minutes
-to hours** depending on mesh size, placement count and solver. It prints
-progress per placement and flushes on purpose; run it with `PYTHONUNBUFFERED=1`
-if you redirect the output.
+The script runs one FEM solve per placement. With the default node-based
+dA/dt a solve takes ~2–3 s on the ernie mesh (the `elements` reference path
+~4× longer). Expect minutes for a 500-placement library and hours for a dense
+surrogate grid. Progress is printed per placement and flushed on purpose; run
+with `PYTHONUNBUFFERED=1` when redirecting the output.
+
+The output records how it was produced: `target_source`, `roi_radius_mm`,
+`search_radius_mm`, `margin_mm`, the grid resolutions, plus the mesh, ROI,
+coil and solver settings. A library can always be traced back to the run that
+produced it.
+
+### Recipes
+
+**Precomputed library** (the default): a 3 mm / 7.5° grid subsampled to 500
+placements. This is the file the *Precomputed* E-field mode loads.
+
+**Surrogate library** (dense grid): no subsampling, 4 mm spacing and 15°
+rotations, covering the ROI plus the motion margin. This is the training data
+for the E-field surrogate and for the ParaView comparison; several GB and a
+few hours are normal:
+
+```bash
+python scripts/02_create_roi_efield_library.py \
+    ... --spatial-resolution 4 --angle-resolution 15 --n-placements 0
+```
+
+Validate it on held-out placements (field error, target error, domain guard):
+
+```bash
+python scripts/03_validate_efield_surrogate.py \
+    --library data/<subj>/efield/e_surrogate.hdf5 --target-element 13980
+```
+
+and export FEM-versus-surrogate time series for ParaView:
+
+```bash
+python scripts/04_export_efield_vtk_series.py \
+    --library data/<subj>/efield/e_surrogate.hdf5 \
+    --roi-hdf5 data/<subj>/mesh/m2m_<subj>/<subj>.hdf5 \
+    --out-dir efield_vtk --n-steps 40
+```
 
 !!! tip "Reduce before you solve"
     The field patterns of neighbouring placements are highly correlated. A

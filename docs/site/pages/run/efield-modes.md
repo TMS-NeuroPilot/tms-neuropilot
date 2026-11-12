@@ -1,7 +1,8 @@
 # E-field modes
 
-Every pulse needs an E-field. NeuroPilot can get it two ways, and the mode can
-change during a session without breaking the regression.
+Every pulse needs an E-field. NeuroPilot gets it two ways today, and the mode
+can change during a session without breaking the regression. A third mode (a
+surrogate interpolator) is in preparation; see the end of this page.
 
 <figure>
   <img src="assets/diagrams/efield-modes.svg" alt="The precomputed and online E-field paths, both ending in one per-pulse row appended to the regression.">
@@ -46,6 +47,22 @@ realised pose  →  OnlineFEMManager  →  one field vector  →  regression
 | Anisotropy | `scalar` or `vector` (needs a DTI tensor in the mesh) | `scalar` |
 
 - The CSV records `e_field_mode = online` for those pulses.
+
+## Surrogate (in preparation)
+
+A third mode is being prepared: a PCA + pose-interpolation surrogate trained
+on a dense E-field library ([E-field library](prepare/efield-library.md)). It
+answers in well under a millisecond per pulse and carries an explicit domain
+guard.
+
+The planned outside policy is **skip and exclude**: a coil pose outside the
+trained grid is recorded with an all-NaN field row — so the pulse indices stay
+aligned — and the regression drops it exactly like a pulse without a field.
+Falling back to the online solver for those pulses is the alternative once the
+mode is wired in.
+
+The estimator (`EFieldSurrogate`), its validation script and the ParaView
+time-series export already exist; the GUI wiring does not.
 
 ## The hint under the radios
 

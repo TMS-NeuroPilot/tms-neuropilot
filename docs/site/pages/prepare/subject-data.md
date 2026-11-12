@@ -147,7 +147,7 @@ print("ROI triangles", n_elements)
 | Script | Purpose |
 |---|---|
 | `scripts/01_create_head_model.py` | run `charm`, produce `m2m_<subj>/<subj>.msh` |
-| `scripts/02_create_roi_efield_library.py` | place the coil over the target, solve the FEM for every placement, write `e.hdf5` |
+| `scripts/02_create_roi_efield_library.py` | centre the search on the ROI automatically, solve the FEM for every placement, write `e.hdf5` |
 | `scripts/03_create_optimized_sequences.py` | choose a subset/order of placements (random, FPS, D-optimal) |
 | `scripts/sort_coil_placements.py` | reorder placements for minimal robot travel |
 | `scripts/make_tissue_stls.py`, `msh2vtk_surf.py` | surface extraction, for inspection |
