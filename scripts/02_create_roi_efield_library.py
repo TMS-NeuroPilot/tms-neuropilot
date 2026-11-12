@@ -14,6 +14,10 @@ factorization, one right-hand side per placement) and saved per midlayer ROI
 triangle: ``E`` (n, n_tri, 3), ``E_mag``/``E_norm``/``E_tan`` (n, n_tri).
 No layer interpolation, theta or gradient quantities are computed.
 
+By default the coil dA/dt is evaluated at mesh nodes (``--dadt-at nodes``):
+823k points instead of 5.75M element centres, about 4x faster with a ~0.02%
+field difference. Use ``--dadt-at elements`` for the reference path.
+
 Example:
     python scripts/02_create_roi_efield_library.py \
         --mesh-msh data/ernie/mesh/m2m_ernie/ernie.msh \
@@ -65,6 +69,11 @@ parser.add_argument("--solver", default="pardiso",
                          "'pardiso' requires the pardiso package)")
 parser.add_argument("--didt", type=float, default=1e6,
                     help="Coil current rate of change (A/s); 1e6 A/s = 1 A/us")
+parser.add_argument("--dadt-at", choices=("nodes", "elements"), default="nodes",
+                    help="Where to evaluate the coil dA/dt: 'nodes' (default) "
+                         "evaluates at the 823k mesh nodes and averages to "
+                         "elements, ~4x faster than 'elements' (5.75M element "
+                         "centres) with a ~0.02%% field difference")
 args = parser.parse_args()
 
 # Solver options must be set before SimNIBS is imported.
@@ -160,6 +169,7 @@ roi_simnibs[-1].triangles_normals = triangles_normals
 # Prepare the OnlineFEM solver (one factorization, one RHS per placement)
 # ============================================================================
 print("Preparing OnlineFEM ...")
+print(f"  dA/dt evaluated at: {args.dadt_at}")
 ofem = OnlineFEM(
     mesh=mesh_simn,
     method="TMS",
@@ -168,7 +178,7 @@ ofem = OnlineFEM(
     anisotropy_type=args.anisotropy,
     solver_options=args.solver,
     fn_logger=None,
-    useElements=True,
+    useElements=(args.dadt_at == "elements"),
     dataType=[1],
 )
 
@@ -200,5 +210,9 @@ with h5py.File(args.out, "w") as h5:
     h5.create_dataset("/E_tan", data=E_tan)
     h5.create_dataset("/matsimnibs", data=np.array(pos_matrices))
     h5.create_dataset("/target", data=target)
+    h5.attrs["dadt_at"] = args.dadt_at
+    h5.attrs["solver"] = args.solver
+    h5.attrs["mesh_msh"] = os.path.abspath(args.mesh_msh)
+    h5.attrs["roi_idx"] = args.roi_idx
 print(f"Saved {args.out} (E_mag shape {E_mag.shape})")
 print("Done.")
