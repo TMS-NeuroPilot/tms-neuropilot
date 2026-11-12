@@ -87,9 +87,10 @@ appears in the table like any other.
 The pre-activation period (before the pulse) is displayed on the MEP page but is
 not used by the regression.
 
-## The virtual EMG (simulation)
+## The virtual EMG (simulation and training)
 
-In simulation the "EMG" is generated from the E-field and the channel sources:
+In simulation and training the "EMG" is generated from the E-field and the
+channel sources:
 the virtual amplifier adds noise and a recruitment curve on top of the field at
 the channel's source element. The settings are `.env` keys, read when the
 controller starts:
@@ -110,7 +111,7 @@ starts and saturates. All five keys are in the
 [`.env` reference](config/env.md). The same values are editable on
 [Config › Simulation](gui/config.md).
 
-Consequences for a simulated session:
+Consequences for a simulated or training session:
 
 - the MEP depends on the coil pose, so the map is not flat noise;
 - `EMG_CHANNELS` still decides how many channels exist;

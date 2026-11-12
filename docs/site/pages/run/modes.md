@@ -1,39 +1,35 @@
 # Run modes
 
-NeuroPilot has three run modes. They share the controller, the state machine,
-the relay protocol and the analysis; they differ only in who plays the other
-three roles: robot, neuronavigation and stimulator.
+NeuroPilot has four run modes. They share the controller, the state machine,
+the relay protocol and the analysis; they differ only in who provides the
+robot, the neuronavigation, the stimulator and the EMG.
 
 <figure>
-  <img src="assets/diagrams/run-modes.svg" alt="The three run modes and the processes each one starts.">
+  <img src="assets/diagrams/run-modes.svg" alt="The four run modes and the processes each one starts.">
   <figcaption>Simulation replaces all peers with NeuroPilot's virtual twin.
   Real mode uses the lab hardware. Manual mode keeps the hardware but removes
-  the robot.</figcaption>
+  the robot. Training keeps real stimulation and navigation but replaces the
+  EMG with the virtual model and removes the robot.</figcaption>
 </figure>
 
 ## Comparison
 
-| | `sim` | `real` | `manual` |
-|---|---|---|---|
-| Command | `neuropilot sim` | `neuropilot real` | `neuropilot manual` |
-| Relay | `sim_relay` (started) | production `relay_server.py` | production `relay_server.py` |
-| Neuronavigation | virtual (`sim_nav`) | InVesalius + your tracker | InVesalius + your tracker |
-| Robot | virtual MuJoCo (`sim_robot`) | your robot via `tms-robot-control` | **none**: operator moves the coil |
-| Stimulator | virtual | your stimulator via `magicpy` | your stimulator via `magicpy` |
-| EMG | virtual | your EMG PC's share | your EMG PC's share |
-| Hardware needed | none | all of it | stimulator, EMG, tracking |
-| E-field modes | both | both | both |
-| Typical use | training, development, demos | the experiment | quick tests, coil-handling studies |
+| | `sim` | `real` | `manual` | `training` |
+|---|---|---|---|---|
+| Command | `neuropilot sim` | `neuropilot real` | `neuropilot manual` | `neuropilot training` |
+| Relay | `sim_relay` (started) | production `relay_server.py` | production `relay_server.py` | production `relay_server.py` |
+| Neuronavigation | virtual (`sim_nav`) | InVesalius + your tracker | InVesalius + your tracker | InVesalius + your tracker |
+| Robot | virtual MuJoCo (`sim_robot`) | your robot via `tms-robot-control` | **none**: operator moves the coil | **none**: operator moves the coil |
+| Stimulator | virtual | your stimulator via `magicpy` | your stimulator via `magicpy` | your stimulator via `magicpy` |
+| EMG | virtual | your EMG PC's share | your EMG PC's share | virtual, driven by the E-field |
+| Hardware needed | none | all of it | stimulator, EMG, tracking | stimulator, tracking |
+| E-field modes | both | both | both | both |
+| Typical use | development, demos | the experiment | quick tests, coil-handling studies | operator training with real pulses |
 
 The hardware entries name the integration point, not a required device: the
 robot driver in `tms-robot-control`, the stimulator driver `magicpy`, and the
 SMB share of your EMG acquisition. Any device that speaks those interfaces
 works the same way.
-
-!!! note "Mixed backends are not a mode"
-    The mode selects the stimulator and the EMG together. Real TMS with
-    simulated MEPs is described in [Use cases](start/use-cases.md), including
-    what is still missing.
 
 ## Simulation
 
@@ -104,14 +100,46 @@ Start gate no longer waits for a robot.
 Use it when the robot is unavailable, when the coil must be handled by a person,
 or to isolate a robot problem from the rest of the pipeline.
 
+## Training
+
+```bash
+neuropilot training
+```
+
+Real stimulator and real InVesalius, but a virtual EMG. The operator holds the
+coil, InVesalius tracks it, the controller waits for *Coil at target*, and the
+stimulator fires. The MEP trace is generated from the E-field at the configured
+channel sources instead of being recorded.
+
+Start the production relay and InVesalius, then the controller:
+
+```bash
+python relay_server.py 5000
+python app.py --remote-host http://localhost:5000
+neuropilot training
+```
+
+No robot driver and no EMG PC are needed. `--launch-relay` starts the production
+relay from `TMS_ROBOT_CONTROL_PATH` as in real mode.
+
+The channel sources are project data. The [Config › Simulation](gui/config.md)
+page shows the configured channel names and the sources file; edit the mapping
+in the Project tab. The precomputed E-field mode uses the library row for the
+target. The online mode uses the field computed from the realised coil pose,
+as in a real experiment.
+
+Use training with the printable Ernie head or any other phantom. The
+[Use cases](start/use-cases.md) page covers the phantom, registration and
+stimulator caveats.
+
 ## Choosing without arguments
 
 ```bash
 neuropilot
 ```
 
-opens a small dialog with the three modes. The chosen mode is what the
-controller starts in; it is a launcher, not a setting.
+opens a small dialog with the four modes. The chosen mode is what the controller
+starts in; it is a launcher, not a setting.
 
 ## What is identical
 
@@ -119,13 +147,14 @@ controller starts in; it is a launcher, not a setting.
 - the relay topics and payloads (byte-identical to the production components),
 - the seven-step mapping loop,
 - the E-field modes, the regression and the exports,
-- the results CSV columns (robot-only fields are empty in manual mode).
+- the results CSV columns (robot-only fields are empty in manual and training).
 
 That is deliberate: a session rehearsed in the simulator exercises the same
 controller code that runs on the day.
 
 ## Next
 
+- [Use cases](start/use-cases.md)
 - [A simulated session](run/simulated.md)
 - [Real session checklist](run/real.md)
 - [Manual mode](run/manual.md)

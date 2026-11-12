@@ -149,3 +149,25 @@ def test_aim_error_warning_in_precomputed_mode():
     ctrl._log_step = lines.append
     # the warning lives in collect_data_step; the helper is what it calls
     assert ctrl._aim_error([[10, 0, 0], [0, 0, 0]], [[0, 0, 0], [0, 0, 0]]) == 10.0
+
+
+def test_training_uses_real_stimulation_and_virtual_emg(build):
+    ctrl = build(simulation=False, training=True)
+    assert ctrl.training is True
+    assert ctrl.manual is True
+    assert ctrl.robot is None
+    assert isinstance(ctrl.stimulator, Stimulator)
+    assert isinstance(ctrl.emg_computer, VirtualEMG)
+    assert ctrl.simulation is False
+
+
+def test_training_cannot_also_be_simulated(build):
+    with pytest.raises(ValueError, match="training mode"):
+        build(simulation=True, training=True)
+
+
+def test_training_stack_starts_the_controller_in_training_mode():
+    from neuropilot import supervisor
+    components = supervisor.training_stack()
+    assert [c.module for c in components] == ["neuropilot.controller"]
+    assert components[0].args == ["--training"]

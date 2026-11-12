@@ -82,16 +82,17 @@ to constrain four parameters.
     MEP. Treat the map as a localisation aid and report it with the pulse count,
     the fit function and the E-field mode.
 
-## What the three modes change
+## What the modes change
 
-The quantities above are identical in all three run modes. Only who provides
-the peers changes:
+The quantities above are identical in all run modes. Only who provides the
+peers changes:
 
 | Mode | Neuronavigation | Robot | Stimulator | EMG |
 |---|---|---|---|---|
 | `sim` | virtual (`sim_nav`) | virtual MuJoCo (`sim_robot`) | virtual | virtual |
 | `real` | InVesalius | your robot via `tms-robot-control` | your stimulator via `magicpy` | your EMG PC's share |
-| `manual` | InVesalius | none — the operator moves the coil | your stimulator | your EMG PC |
+| `manual` | InVesalius | none: the operator moves the coil | your stimulator | your EMG PC |
+| `training` | InVesalius | none: the operator moves the coil | your stimulator | virtual, driven by the E-field |
 
 [Run modes](run/modes.md) compares them in full.
 

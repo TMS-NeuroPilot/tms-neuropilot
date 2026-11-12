@@ -1,7 +1,7 @@
 # Command line
 
 ```text
-neuropilot {sim,relay,controller,real,manual}
+neuropilot {sim,relay,controller,real,manual,training}
 ```
 
 Run `neuropilot` with no arguments to get a small mode-selection dialog.
@@ -41,10 +41,11 @@ Starts only the controller.
 neuropilot controller --sim       # simulation (peers must already run)
 neuropilot controller --real      # real hardware
 neuropilot controller --manual    # real hardware, no robot
+neuropilot controller --training  # real TMS, virtual EMG, no robot
 neuropilot controller             # asks for the mode in a dialog
 ```
 
-`--sim`, `--real` and `--manual` are mutually exclusive.
+`--sim`, `--real`, `--manual` and `--training` are mutually exclusive.
 
 ## `neuropilot real`
 
@@ -73,6 +74,19 @@ neuropilot manual --launch-relay
 ```
 
 Same relay behaviour as `real`.
+
+## `neuropilot training`
+
+Real stimulator and InVesalius, virtual EMG, no robot. The operator holds the
+coil and the MEP trace is generated from the E-field.
+
+```bash
+neuropilot training
+neuropilot training --launch-relay
+```
+
+Same relay behaviour as `real`. Start InVesalius before the controller; no
+robot driver or EMG PC is needed. The channel sources come from the project.
 
 ## Robot registry
 

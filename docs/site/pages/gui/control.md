@@ -84,7 +84,7 @@ here too. The same lines are printed to the terminal.
 In simulation the lower right shows the MuJoCo scene: the arm, the head model
 and the coil. It is a rendering of the robot's joint state, not a measurement.
 
-In real and manual modes there is no robot scene.
+In real, manual and training modes there is no robot scene.
 
 ## Button gating
 

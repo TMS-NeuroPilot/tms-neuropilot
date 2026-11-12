@@ -10,7 +10,7 @@ is gated on this page being green.
   message and the connection details the system publishes.</figcaption>
 </figure>
 
-## The three cards
+## The cards
 
 | Card | Backend (simulation) | Backend (real) |
 |---|---|---|
@@ -18,7 +18,8 @@ is gated on this page being green.
 | **EMG** | virtual EMG computer | your EMG PC's share (`EMG_COMPUTER_IP`) |
 | **Robot** | virtual MuJoCo robot | `tms-robot-control` over the relay |
 
-In manual mode the robot card is absent.
+In manual and training modes the robot card is absent. In training the
+stimulator card is real and the EMG card is the virtual EMG.
 
 ## What a card shows
 
@@ -56,7 +57,7 @@ The health loop runs at about 1 Hz. A card can lag a second behind reality; the
 
 Start is enabled only when:
 
-- the **robot** is ready (or the session is in manual mode),
+- the **robot** is ready (or the session is in manual or training mode),
 - the **stimulator** is ready,
 - the **EMG** is ready,
 - the **E-field mode** has what it needs (library loaded, or online solver ready).
@@ -84,6 +85,15 @@ current error; the message says what failed and the fix is on the hardware side
 If the robot card is red with a connection message, check that `main_loop.py` is
 running and that the robot's Modbus/listen services are enabled. See
 [Hardware setup](install/hardware.md).
+
+## Training order
+
+1. Relay.
+2. InVesalius (with the remote-control server).
+3. `neuropilot training`.
+
+No robot driver and no EMG PC are needed. The stimulator card is the real
+device; the EMG card is the E-field-driven virtual EMG.
 
 !!! tip "Force sensor"
     `Awaiting valid pressure data` comes from the robot side when the force

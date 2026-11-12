@@ -73,6 +73,10 @@ placement; the operator's job is to reach it within tolerance.
 - Isolating a fault: if the session runs in manual mode, the controller, relay,
   InVesalius and stimulator are fine.
 
+!!! note "Training"
+    Training mode is manual positioning with a real stimulator and a virtual
+    EMG. See [Run modes](run/modes.md) and [Use cases](start/use-cases.md).
+
 ## Next
 
 - [E-field modes](run/efield-modes.md)

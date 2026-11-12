@@ -135,9 +135,10 @@ class MainWindow(QtWidgets.QMainWindow):
     # Finished R² maps from the analysis worker thread.
     scores_ready = QtCore.pyqtSignal(dict)
 
-    def __init__(self, simulation):
+    def __init__(self, simulation, training=False):
         super().__init__()
         self.simulation = simulation
+        self.training = training
         self._closing = False
 
         # ui is inside the "gui" folder
@@ -1165,11 +1166,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def on_sim_save(self):
         """Write the simulated-MEP knobs to .env."""
-        manual = bool(self.controller is not None
-                      and getattr(self.controller, "manual", False))
-        if not self.simulation or manual:
+        if not (self.simulation or self.training):
             self.cfg_sim_status.setText(
-                "Simulation settings are only used in simulation mode.")
+                "Simulation settings are only used in simulation and training modes.")
             return
         if self.cfg_sim_upper.value() <= self.cfg_sim_mt.value():
             self.cfg_sim_status.setText(
@@ -1354,7 +1353,10 @@ class MainWindow(QtWidgets.QMainWindow):
         """Show the active mode and grey out the settings it does not use."""
         manual = bool(self.controller is not None and getattr(self.controller, "manual", False))
         simulated = bool(self.simulation) and not manual
-        mode = "Manual" if manual else ("Simulated" if simulated else "Real")
+        training = bool(getattr(self, "training", False))
+        virtual_emg = simulated or training
+        mode = ("Training" if training else
+                ("Manual" if manual else ("Simulated" if simulated else "Real")))
         badge = getattr(self, "cfg_mode_badge", None)
         if badge is None:
             return
@@ -1366,6 +1368,8 @@ class MainWindow(QtWidgets.QMainWindow):
                      theme.get("ok", "#1B7F3B")),
             "Manual": (theme.get("hover", "#EEF0F2"),
                        theme.get("soft", "#3C444D")),
+            "Training": (theme.get("accent_soft", "#FEF3E2"),
+                         theme.get("accent_dark", "#B45309")),
         }[mode]
         badge.setText(mode)
         badge.setStyleSheet(
@@ -1377,6 +1381,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cfg_tms_path.setEnabled(not simulated)
         if simulated:
             self.cfg_robot_hint.setText("Virtual twin model used by `neuropilot sim`.")
+        elif training:
+            self.cfg_robot_hint.setText(
+                "Training mode: the operator moves the coil; no robot is used.")
         elif manual:
             self.cfg_robot_hint.setText("Manual mode: no robot is used.")
         else:
@@ -1386,30 +1393,36 @@ class MainWindow(QtWidgets.QMainWindow):
         # Stimulator serial ports: hardware only.
         for widget in (self.cfg_stim_port, self.cfg_stim_ttl):
             widget.setEnabled(not simulated)
-        self.cfg_stim_hint.setText("Simulation uses the virtual stimulator."
-                                   if simulated else "Serial + TTL ports of the MagVenture.")
+        self.cfg_stim_hint.setText(
+            "Simulation uses the virtual stimulator."
+            if simulated else
+            ("Training fires the real stimulator." if training else
+             "Serial + TTL ports of the MagVenture."))
 
         # EMG computer credentials: hardware only.
         for widget in (self.cfg_emg_ip, self.cfg_emg_user, self.cfg_emg_password):
-            widget.setEnabled(not simulated)
+            widget.setEnabled(not virtual_emg)
         self.cfg_emg_hint.setText(
-            "Simulated EMG: the channel names label the plots and the results."
-            if simulated else
-            "SMB share on the EMG computer (Digitimer D360 -> CED 1401).")
+            "Training EMG: a synthetic trace driven by the E-field."
+            if training else
+            ("Simulated EMG: the channel names label the plots and the results."
+             if simulated else
+             "SMB share on the EMG computer (Digitimer D360 -> CED 1401)."))
 
-        # Simulation page: the MEP model only exists in simulation mode.
+        # Simulation page: used by both the virtual twin and training mode.
         for attr in ("cfg_sim_noise", "cfg_sim_trial", "cfg_sim_mt",
                      "cfg_sim_upper", "cfg_sim_scale", "cfg_sim_save_btn"):
             widget = getattr(self, attr, None)
             if widget is not None:
-                widget.setEnabled(simulated)
+                widget.setEnabled(virtual_emg)
         hint = getattr(self, "cfg_sim_hint", None)
         if hint is not None:
             hint.setText(
-                "Read when the controller starts; restart to apply."
-                if simulated else
-                "Simulation mode only; these values are ignored in real and "
-                "manual modes.")
+                "Used by the virtual EMG in simulation and training modes; "
+                "restart to apply."
+                if virtual_emg else
+                "Simulation and training only; these values are ignored in "
+                "real and manual modes.")
 
     # ── Mapping results panel ───────────────────────────────────────────
     def _setup_mapping_panel(self):

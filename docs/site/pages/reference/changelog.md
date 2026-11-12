@@ -9,7 +9,7 @@ suite is used.
 
 ### Documentation
 
-- This site: 43 pages covering installation, subject data, every GUI page,
+- This site: 44 pages covering installation, subject data, every GUI page,
   every configuration key, the workflows and the reference material. Built by a
   dependency-free generator (`docs/site/build.py`) and published by GitLab Pages
   on every push to `main`.
@@ -27,6 +27,10 @@ suite is used.
 
 ### Earlier unreleased work
 
+- **Training mode**: `neuropilot training` runs the real stimulator and
+  InVesalius with a virtual EMG and no robot; the operator holds the coil.
+- **Config › Simulation**: the five `VIRTUAL_MEP_*` keys, with the MEP source
+  summary linked to the project.
 - **Robot registry** — one `RobotSpec` per robot; `--list` / `--check`; the
   Config › Lab selector stores the key and reports unknown values.
 - **Five colour themes** — Workstation Light, Lab Paper, Instrument Blue,

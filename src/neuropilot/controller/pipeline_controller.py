@@ -211,7 +211,11 @@ class Step(Enum):
     SKIP = auto()
 
 class PipelineController:
-    def __init__(self, remote, simulation,control_panel = None, manual=False):
+    def __init__(self, remote, simulation,control_panel = None, manual=False,
+                 training=False):
+        if training and simulation:
+            raise ValueError(
+                "training mode uses the real stimulator; simulation must be off")
         self.datetime_str = ""
         self.start_of_experiment = None
         self.control_panel = control_panel
@@ -222,11 +226,16 @@ class PipelineController:
         ## Initializing systems
         self.systems = []
 
+        # Training mode: real stimulator and navigation, virtual EMG, and the
+        # operator moves the coil (no robot). It is manual mode with a
+        # simulated MEP trace.
+        self.training = training
+
         # Manual mode: real stimulator/EMG/navigation but no robot — the
         # operator moves the coil by hand guided by Invesalius.
-        self.manual = manual
+        self.manual = manual or training
 
-        if not manual:
+        if not self.manual:
             self.robot = Robot(update_control_panel_func, self.remote)
             self.systems.append(self.robot)
             self.simulation = simulation
@@ -243,7 +252,10 @@ class PipelineController:
                 self.control_panel.set_robot_manual()
 
         if not simulation:
-            self.emg_computer = EMGComputer(update_control_panel_func)
+            if training:
+                self.emg_computer = VirtualEMG(update_control_panel_func)
+            else:
+                self.emg_computer = EMGComputer(update_control_panel_func)
             self.systems.append(self.emg_computer)
             self.stimulator = Stimulator(update_control_panel_func)
             self.systems.append(self.stimulator)

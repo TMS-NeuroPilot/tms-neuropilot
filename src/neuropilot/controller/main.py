@@ -65,7 +65,8 @@ def get_command_line_arguments():
 
     return host, port
 
-async def main(enable_health_check_and_control_panel, simulation, manual=False):
+async def main(enable_health_check_and_control_panel, simulation, manual=False,
+               training=False):
     """Build all components and keep the event loop alive.
 
     Creates the relay ``Remote`` (simulated or real variant, depending on
@@ -92,7 +93,7 @@ async def main(enable_health_check_and_control_panel, simulation, manual=False):
     if enable_health_check_and_control_panel:
         # The control panel is shown by the PipelineController once it is
         # ready, not here.
-        app.window2 = MainWindow(simulation=simulation)
+        app.window2 = MainWindow(simulation=simulation, training=training)
         # Otherwise the window becomes transparent frozen while the controller initializes
         await asyncio.sleep(0.1)
 
@@ -100,7 +101,7 @@ async def main(enable_health_check_and_control_panel, simulation, manual=False):
     # active via `control_panel is not None`.
     controller = PipelineController(remote=remote,
                                     control_panel=app.window2 if enable_health_check_and_control_panel else None,simulation=simulation,
-                                    manual=manual)
+                                    manual=manual, training=training)
     controller.register_remote_handlers()
     if enable_health_check_and_control_panel:
         app.window2.set_controller(controller)
@@ -145,6 +146,10 @@ def run(argv=None):
     group.add_argument('--manual', action='store_true',
                        help='start in manual mode: real hardware, no robot '
                             '(skip the mode dialog)')
+    group.add_argument('--training', action='store_true',
+                       help='start in training mode: real stimulator and '
+                            'navigation, virtual EMG, no robot '
+                            '(skip the mode dialog)')
     args = parser.parse_args(argv)
 
     app = QApplication(sys.argv)
@@ -160,10 +165,14 @@ def run(argv=None):
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
 
-    if args.sim or args.real or args.manual:
+    if args.sim or args.real or args.manual or args.training:
         is_simulation = args.sim
         is_manual = args.manual
-        print(f"Mode: {'manual' if is_manual else ('simulation' if is_simulation else 'real')}")
+        is_training = args.training
+        mode = ('training' if is_training else
+                ('manual' if is_manual else
+                 ('simulation' if is_simulation else 'real')))
+        print(f"Mode: {mode}")
     else:
         # Create and show our custom dialog
         dialog = windowmode.ModeSelectionDialog()
@@ -172,7 +181,10 @@ def run(argv=None):
         if dialog.exec_() == QDialog.Accepted:
             is_simulation = dialog.is_simulation
             is_manual = dialog.is_manual
-            print(f"Is Simulation: {is_simulation}" + (" (manual)" if is_manual else ""))
+            is_training = dialog.is_training
+            print(f"Is Simulation: {is_simulation}"
+                  + (" (manual)" if is_manual else "")
+                  + (" (training)" if is_training else ""))
         else:
             print("User closed the dialog without selecting.")
             return 0
@@ -183,9 +195,11 @@ def run(argv=None):
     enable_health_check_and_control_panel = os.getenv('ENABLE_HEALTH_CHECK_AND_CONTROL_PANEL', 'false').lower() == 'true'
     try:
         if enable_health_check_and_control_panel:
-            qasync.run(main(enable_health_check_and_control_panel,is_simulation,is_manual))
+            qasync.run(main(enable_health_check_and_control_panel, is_simulation,
+                            is_manual, is_training))
         else:
-            asyncio.run(main(enable_health_check_and_control_panel,is_simulation,is_manual))
+            asyncio.run(main(enable_health_check_and_control_panel, is_simulation,
+                             is_manual, is_training))
     except asyncio.exceptions.CancelledError:
         print("KeyboardInterrupt: application exiting")
         cleanup()

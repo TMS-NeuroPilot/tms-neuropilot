@@ -24,7 +24,7 @@ page documents the controls.
 
 | Field | Key | Applies |
 |---|---|---|
-| **Mode** | — | read-only badge: Simulated / Real / Manual |
+| **Mode** | — | read-only badge: Simulated / Real / Manual / Training |
 | **Relay host + port** | `RELAY_HOST`, `RELAY_PORT` | after restart |
 | **Data folder** | `ROOT_FOLDER` | after restart |
 | **UI scale** | `NEUROPILOT_UI_SCALE` | after restart |
@@ -83,8 +83,8 @@ These are used only when the online E-field mode is selected.
 
 ## Simulation
 
-The Simulation page tunes the virtual EMG. It is used in simulation mode only;
-the fields are disabled in real and manual modes. The controller reads the
+The Simulation page tunes the virtual EMG. It is used in simulation and
+training modes; the fields are disabled in real and manual modes. The controller reads the
 values when it starts, and **Save simulation settings** writes `.env`, so
 restart to apply.
 

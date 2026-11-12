@@ -130,10 +130,10 @@ NEUROPILOT_UI_SCALE=1.25
 The colour theme is chosen in **Config › Lab › Theme** and stored in the lab
 profile; see [Themes and display](gui/themes.md).
 
-## InVesalius (real and manual modes only)
+## InVesalius (real, manual and training modes)
 
-The simulator does not need InVesalius. Real and manual sessions use it for
-neuronavigation, and it runs in its own conda environment. Use the group's fork:
+The simulator does not need InVesalius. Real, manual and training sessions use
+it for neuronavigation, and it runs in its own conda environment. Use the group's fork:
 stock upstream InVesalius does not publish the relay topics or the tracker
 handling that NeuroPilot expects.
 

@@ -112,7 +112,7 @@ When the NeuroPilot GUI has loaded, load the `ernie` example project and press
   hardware wiring.
 - **Prepare a session** is the data side: mesh, ROI, E-field library,
   placements, EMG channels and the project file.
-- **Run a session** walks through the three run modes and the mapping loop.
+- **Run a session** walks through the four run modes and the mapping loop.
 - **GUI reference** documents every page, card and button.
 - **Configuration** is the complete key reference for `.env`, the lab profile
   and study profiles.

@@ -13,7 +13,8 @@ Created on Tue Apr  7 14:05:32 2026
 """
 
 import sys
-from PyQt5.QtWidgets import QApplication, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
+from PyQt5.QtWidgets import (QApplication, QDialog, QVBoxLayout, QGridLayout,
+                             QLabel, QPushButton)
 from PyQt5.QtCore import Qt
 
 
@@ -28,7 +29,7 @@ class ModeSelectionDialog(QDialog):
         self.setWindowTitle("Experiment Setup")
         # to remove the '?' button
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
-        self.setFixedSize(640, 220)
+        self.setFixedSize(700, 310)
         # Set a clean white background for the dialog
         self.setStyleSheet("QDialog { background-color: #ffffff; }")
 
@@ -57,13 +58,14 @@ class ModeSelectionDialog(QDialog):
         """)
 
         # 4. Buttons Layout
-        btn_layout = QHBoxLayout()
+        btn_layout = QGridLayout()
         btn_layout.setSpacing(15)
 
         # Create Buttons with Emojis for quick visual scanning
         self.btn_sim = QPushButton("🖥️  Simulation")
         self.btn_real = QPushButton("⚙️  Real Hardware")
         self.btn_manual = QPushButton("🖐️  Manual (no robot)")
+        self.btn_training = QPushButton("🎓  Training (real TMS)")
 
         # Base button style with smooth transitions
         base_btn_style = """
@@ -102,15 +104,25 @@ class ModeSelectionDialog(QDialog):
             QPushButton:focus { background-color: #e67e22; }
         """)
 
+        # Training Button Style (Purple theme)
+        self.btn_training.setStyleSheet(base_btn_style + """
+            QPushButton { background-color: #8e44ad; }
+            QPushButton:hover { background-color: #732d91; }
+            QPushButton:pressed { background-color: #5e2277; }
+            QPushButton:focus { background-color: #8e44ad; }
+        """)
+
         # 5. Connections
         self.btn_sim.clicked.connect(self.select_simulation)
         self.btn_real.clicked.connect(self.select_real)
         self.btn_manual.clicked.connect(self.select_manual)
+        self.btn_training.clicked.connect(self.select_training)
 
         # 6. Assemble
-        btn_layout.addWidget(self.btn_sim)
-        btn_layout.addWidget(self.btn_real)
-        btn_layout.addWidget(self.btn_manual)
+        btn_layout.addWidget(self.btn_sim, 0, 0)
+        btn_layout.addWidget(self.btn_real, 0, 1)
+        btn_layout.addWidget(self.btn_manual, 1, 0)
+        btn_layout.addWidget(self.btn_training, 1, 1)
 
         layout.addWidget(title)
         layout.addWidget(subtitle)
@@ -130,13 +142,21 @@ class ModeSelectionDialog(QDialog):
         self.mode = "manual"
         self.accept()
 
+    def select_training(self):
+        self.mode = "training"
+        self.accept()
+
     @property
     def is_simulation(self):
-        return self.mode != "manual" and self.mode != "real"
+        return self.mode == "simulation"
 
     @property
     def is_manual(self):
         return self.mode == "manual"
+
+    @property
+    def is_training(self):
+        return self.mode == "training"
 
 
 # --- Main Application Logic ---

@@ -454,3 +454,26 @@ def test_simulation_source_summary_points_to_the_project(window):
     assert "sources.yaml" in text
     assert window.cfg_sim_sources.toolTip() == "/tmp/sources.yaml"
     assert window.cfg_sim_project_btn.text() == "Edit in Project"
+
+
+def test_mode_badge_training(window, controller, monkeypatch):
+    monkeypatch.setattr(window, "training", True)
+    monkeypatch.setattr(window, "simulation", False)
+    controller.manual = True
+    window.set_controller(controller)
+    window._apply_config_mode()
+    assert window.cfg_mode_badge.text() == "Training"
+    assert window.cfg_sim_noise.isEnabled()
+    assert window.cfg_stim_port.isEnabled()
+    assert not window.cfg_emg_ip.isEnabled()
+    assert "Training" in window.cfg_emg_hint.text()
+
+
+def test_simulation_save_is_allowed_in_training(window, tmp_path, monkeypatch):
+    monkeypatch.setattr(window, "training", True)
+    monkeypatch.setattr(window, "simulation", False)
+    env = tmp_path / ".env"
+    window._config_store = ConfigStore(env)
+    window.cfg_sim_noise.setValue(0.02)
+    window.on_sim_save()
+    assert "VIRTUAL_MEP_NOISE_MV=0.02" in env.read_text()

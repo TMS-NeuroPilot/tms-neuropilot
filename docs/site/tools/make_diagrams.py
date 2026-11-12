@@ -29,6 +29,8 @@ BLUE = "#1D4ED8"
 BLUE_SOFT = "#E8EEFC"
 DANGER = "#B91C1C"
 DANGER_SOFT = "#FDF3F3"
+TRAIN = "#7E22CE"
+TRAIN_SOFT = "#F3E8FF"
 
 FONT = ("font-family=\"Inter, 'Segoe UI', 'DejaVu Sans', system-ui, sans-serif\"")
 
@@ -224,20 +226,25 @@ def run_modes():
             "EMG          your EMG PC"], BLUE_SOFT, BLUE),
         ("Manual", "neuropilot manual", [
             "relay        production", "navigation   InVesalius",
-            "robot        — operator —", "stimulator   your stimulator",
+            "robot        operator moves coil", "stimulator   your stimulator",
             "EMG          your EMG PC"], ACCENT_SOFT, ACCENT),
+        ("Training", "neuropilot training", [
+            "relay        production", "navigation   InVesalius",
+            "robot        operator moves coil", "stimulator   your stimulator",
+            "EMG          virtual (E-field)"], TRAIN_SOFT, TRAIN),
     ]
-    b = [multiline(480, 30, ["Three run modes, one controller"], 17, "700")]
+    b = [multiline(480, 30, ["Four run modes, one controller"], 17, "700")]
     for i, (title, command, lines, fill, stroke) in enumerate(cols):
-        x = 30 + i * 305
-        b.append(box(x, 62, 280, 44, [title], fill, stroke, 15))
-        b.append(note(x + 140, 126, command, 12))
-        b.append(box(x, 140, 280, 150, [], PAPER, stroke, 12))
+        x = 30 + (i % 2) * 460
+        y = 60 + (i // 2) * 240
+        b.append(box(x, y, 440, 40, [title], fill, stroke, 15))
+        b.append(note(x + 220, y + 60, command, 12))
+        b.append(box(x, y + 72, 440, 150, [], PAPER, stroke, 12))
         for j, line in enumerate(lines):
-            b.append(text(x + 18, 168 + j * 24, line, 12, "400", INK, "start"))
-    b.append(note(480, 330, "The controller, the relay topics, the loop and the "
-                            "analysis are identical in all three."))
-    return svg(960, 360, "".join(b), "Run modes")
+            b.append(text(x + 18, y + 100 + j * 24, line, 12, "400", INK, "start"))
+    b.append(note(480, 550, "The controller, the relay topics, the loop and the "
+                            "analysis are identical in all four."))
+    return svg(960, 580, "".join(b), "Run modes")
 
 
 def efield_modes():

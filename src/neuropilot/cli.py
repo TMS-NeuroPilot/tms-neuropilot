@@ -7,6 +7,7 @@
     neuropilot relay            simulated relay only
     neuropilot real [--launch-relay]           real mode (optionally + real relay)
     neuropilot manual [--launch-relay]         manual mode: no robot
+    neuropilot training [--launch-relay]       training: real TMS, virtual EMG
 """
 
 import argparse
@@ -67,6 +68,12 @@ def main(argv=None):
                         help="also start the production relay from "
                              "TMS_ROBOT_CONTROL_PATH (default: expect one running)")
 
+    training = sub.add_parser(
+        "training", help="training mode: real TMS, virtual EMG, no robot")
+    training.add_argument("--launch-relay", action="store_true",
+                          help="also start the production relay from "
+                               "TMS_ROBOT_CONTROL_PATH (default: expect one running)")
+
     args = parser.parse_args(argv)
 
     # Importing components reads environment variables at import time; the
@@ -87,24 +94,28 @@ def main(argv=None):
             _run(supervisor.real_controller())
         elif args.manual:
             _run(supervisor.manual_stack(with_relay=False))
+        elif args.training:
+            _run(supervisor.training_stack(with_relay=False))
         else:
             _run(supervisor.controller_with_dialog())
         return 0
 
-    if args.command == "manual":
+    if args.command in ("manual", "training"):
+        stack = (supervisor.manual_stack if args.command == "manual"
+                 else supervisor.training_stack)
         if args.launch_relay:
             if not config.TMS_ROBOT_CONTROL_PATH:
                 print("TMS_ROBOT_CONTROL_PATH is not set — cannot launch the "
                       "production relay. Set it in .env or pass it via the "
                       "environment.")
                 return 1
-            _run(supervisor.manual_stack(with_relay=True))
+            _run(stack(with_relay=True))
         else:
             print("[neuropilot] expecting a relay on "
                   f"{config.RELAY_HOST}:{config.RELAY_PORT} (start "
                   "tms-robot-control's relay_server.py manually or use "
                   "--launch-relay)")
-            _run(supervisor.manual_stack(with_relay=False))
+            _run(stack(with_relay=False))
         return 0
 
     # No command: GUI mode selector.
@@ -116,6 +127,8 @@ def main(argv=None):
         _run(supervisor.sim_stack())
     elif mode == "manual":
         _run(supervisor.manual_stack(with_relay=False))
+    elif mode == "training":
+        _run(supervisor.training_stack(with_relay=False))
     else:
         _run(supervisor.real_stack(with_relay=False))
     return 0

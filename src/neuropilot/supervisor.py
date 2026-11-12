@@ -204,5 +204,15 @@ def manual_stack(with_relay=False):
     return components
 
 
+def training_stack(with_relay=False):
+    """Training: real stimulator and navigation, virtual EMG, no robot."""
+    components = []
+    if with_relay:
+        components.append(_real_relay_component())
+    components.append(Component("controller", "neuropilot.controller",
+                                ["--training"], wait_ready=None))
+    return components
+
+
 def real_controller():
     return real_stack(with_relay=False)
