@@ -608,7 +608,9 @@ class MainWindow(QtWidgets.QMainWindow):
         # Same white as the tab strip — a transparent corner showed the
         # window grey behind the LEDs.
         corner.setStyleSheet(
-            "QFrame#tab_corner { background: #FFFFFF; border: none; }")
+            "QFrame#tab_corner { background: #FFFFFF;"
+            " border-top: 1px solid #FFFFFF; border-left: none;"
+            " border-right: none; border-bottom: none; }")
         corner_layout = QtWidgets.QHBoxLayout(corner)
         corner_layout.setContentsMargins(0, 0, 12, 0)
         corner_layout.setSpacing(14)
@@ -859,7 +861,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if corner is not None:
             corner.setStyleSheet(
                 f"QFrame#tab_corner {{ background: {theme['card']};"
-                " border: none; }")
+                " border-top: 1px solid #FFFFFF;"
+                " border-left: none; border-right: none; border-bottom: none; }")
 
         # Instrument beds (log + robot view).
         log = getattr(self, "finishedsteps", None)
