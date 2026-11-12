@@ -78,15 +78,8 @@ leave it untouched. The full key list is in the
 [`.env` reference](config/env.md).
 
 !!! note "Where does session data go?"
-    `ROOT_FOLDER` defaults to `~/.neuropilot`. Results, plots and the session
-    cache are written there. The path is built from the platform's home
-    directory, so on Windows it resolves to `C:\Users\<name>\.neuropilot`
-    without a manual path edit. For a throw-away test you can point it
-    elsewhere:
-
-    ```bash
-    ROOT_FOLDER=/tmp/neuropilot_test neuropilot sim
-    ```
+    `ROOT_FOLDER` defaults to `~/.neuropilot` (Linux) or `C:\Users\<name>\.neuropilot` (Windows). Results, plots and the session
+    cache are written there.
 
 ## 5. Start the simulated stack
 
