@@ -5,8 +5,8 @@ LED, the last message, the connection details and a **Reconnect** button. Start
 is gated on this page being green.
 
 <figure>
-  <img src="assets/screenshots/connections-sim.png" alt="The Connections page in simulation mode with the stimulator, EMG and robot cards green.">
-  <figcaption>Three cards in simulation. Each shows the status, the last
+  <img src="assets/screenshots/connections-sim.png" alt="The Connections page in simulation mode with the relay, stimulator, EMG and robot cards green.">
+  <figcaption>Four cards in simulation. Each shows the status, the last
   message and the connection details the system publishes.</figcaption>
 </figure>
 
@@ -14,12 +14,15 @@ is gated on this page being green.
 
 | Card | Backend (simulation) | Backend (real) |
 |---|---|---|
+| **Relay** | `sim_relay` (supervisor) | production `relay_server.py`; NeuroPilot can start and restart it |
 | **Stimulator** | virtual stimulator | your stimulator via `magicpy` on `STIMULATOR_PORT` |
 | **EMG** | virtual EMG computer | your EMG PC's share (`EMG_COMPUTER_IP`) |
 | **Robot** | virtual MuJoCo robot | `tms-robot-control` over the relay |
 
 In manual and training modes the robot card is absent. In training the
-stimulator card is real and the EMG card is the virtual EMG.
+stimulator card is real and the EMG card is the virtual EMG. The relay card is
+present in every mode: in simulation it is owned by the supervisor; in real,
+manual and training modes NeuroPilot can start and restart a production relay.
 
 ## What a card shows
 
@@ -35,6 +38,7 @@ stimulator card is real and the EMG card is the virtual EMG.
 
 | System | Details |
 |---|---|
+| Relay | URL, mode (simulated/production), managed by, PID and log file |
 | Stimulator | port, TTL port, connected, model, serial number, coil type, waveform, temperature |
 | EMG | transport (`SMB2`), host, share, user, channel names and count |
 | Robot | relay URL, robot ID, model/firmware from the robot's `info{}`, link state |
@@ -57,6 +61,7 @@ The health loop runs at about 1 Hz. A card can lag a second behind reality; the
 
 Start is enabled only when:
 
+- the **relay** is ready,
 - the **robot** is ready (or the session is in manual or training mode),
 - the **stimulator** is ready,
 - the **EMG** is ready,
@@ -75,12 +80,18 @@ If the button is disabled, the system reports no software recovery for its
 current error; the message says what failed and the fix is on the hardware side
 (cable, power, network, robot mode).
 
+The relay card uses **Start relay** when no relay is running and **Restart relay**
+when NeuroPilot owns one. An externally started relay is shown as `External` and
+is left alone.
+
 ## Real mode order
 
-1. Relay.
+1. Relay: `python relay_server.py 5000`, or let the controller start it with
+   `neuropilot real --launch-relay`.
 2. InVesalius (with the remote-control server).
 3. `main_loop.py`.
-4. The controller.
+4. The controller: `neuropilot real` (or `--launch-relay`, which also starts
+   the relay).
 
 If the robot card is red with a connection message, check that `main_loop.py` is
 running and that the robot's Modbus/listen services are enabled. See
@@ -88,9 +99,10 @@ running and that the robot's Modbus/listen services are enabled. See
 
 ## Training order
 
-1. Relay.
+1. Relay: `python relay_server.py 5000`, or let the controller start it with
+   `neuropilot training --launch-relay`.
 2. InVesalius (with the remote-control server).
-3. `neuropilot training`.
+3. `neuropilot training` (or `--launch-relay`, which also starts the relay).
 
 No robot driver and no EMG PC are needed. The stimulator card is the real
 device; the EMG card is the E-field-driven virtual EMG.
@@ -101,7 +113,7 @@ device; the EMG card is the E-field-driven virtual EMG.
 
 ## Simulation
 
-In simulation all three cards go green immediately and the details show the
+In simulation all four cards go green immediately and the details show the
 virtual devices (the simulated stimulator model, the virtual EMG channels, the
 MuJoCo robot). A red card in simulation means a component failed to start —
 check the terminal for the component's log prefix.

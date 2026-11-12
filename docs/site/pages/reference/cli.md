@@ -58,7 +58,7 @@ neuropilot real --launch-relay
 
 | Flag | Meaning |
 |---|---|
-| `--launch-relay` | also start the production relay from `TMS_ROBOT_CONTROL_PATH` |
+| `--launch-relay` | let the controller start and own the production relay from `TMS_ROBOT_CONTROL_PATH` |
 
 Without the flag the controller **expects** a relay on `RELAY_HOST:RELAY_PORT`
 and prints a reminder. With the flag but no `TMS_ROBOT_CONTROL_PATH` it exits 1

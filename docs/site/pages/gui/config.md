@@ -35,7 +35,7 @@ page documents the controls.
 | Field | Key | Notes |
 |---|---|---|
 | **Model** | `ROBOT` | the list comes from `sim_robot/robots.py`; an unknown value stays visible and is reported on save |
-| **tms-robot-control** | `TMS_ROBOT_CONTROL_PATH` | used by `neuropilot real --launch-relay` |
+| **tms-robot-control** | `TMS_ROBOT_CONTROL_PATH` | used by `--launch-relay` and the Relay card to start the production relay |
 
 ### Stimulator
 

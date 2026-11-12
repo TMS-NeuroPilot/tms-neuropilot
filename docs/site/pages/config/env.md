@@ -49,7 +49,7 @@ cp .env.example .env
 | Key | Default | Meaning | Restart |
 |---|---|---|---|
 | `ROBOT` | `omron` | simulated robot model (key from `sim_robot/robots.py`) | yes |
-| `TMS_ROBOT_CONTROL_PATH` | empty | `tms-robot-control` checkout for `--launch-relay` | yes |
+| `TMS_ROBOT_CONTROL_PATH` | empty | `tms-robot-control` checkout for starting the relay (`--launch-relay` or the Relay card) | yes |
 
 ### Stimulator
 

@@ -34,7 +34,7 @@ ROOT = Path(__file__).resolve().parent
 PAGES = ROOT / "pages"
 ASSETS = ROOT / "assets"
 SITE_NAME = "NeuroPilot"
-SITE_TAGLINE = "Guided online TMS mapping with online field optimisation"
+SITE_TAGLINE = "Guided TMS mapping with per-pulse electric fields and online analysis"
 REPO_URL = "https://gitlab.gwdg.de/tms-localization/papers/neuropilot"
 SITE_URL = "https://neuropilot-94ad2d.pages.gwdg.de/"
 

@@ -83,8 +83,9 @@ The relay is `relay_server.py` from `tms-robot-control`; with
 TMS_ROBOT_CONTROL_PATH=/opt/tms-robot-control
 ```
 
-`neuropilot real --launch-relay` starts it for you. For a dry run without
-hardware, `neuropilot relay` starts the simulated relay instead.
+`neuropilot real --launch-relay` starts and manages it for you; the Relay
+card on Connections can start or restart it. For a dry run without hardware,
+`neuropilot relay` starts the simulated relay instead.
 
 ## 4. Neuronavigation PC
 
