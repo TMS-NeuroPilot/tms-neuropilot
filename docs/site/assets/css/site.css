@@ -160,6 +160,7 @@ html[data-theme="dark"] .brand-mark { color: #17191C; }
 .nav-pages { margin: 1px 0 8px; }
 .nav-pages[hidden] { display: none; }
 .sidebar ul { list-style: none; margin: 0; padding: 0; }
+.sidebar .nav-pages { padding-left: 10px; }
 .sidebar li a {
   display: block; padding: 6px 10px; border-radius: 7px;
   color: var(--soft); border-left: 2px solid transparent;
