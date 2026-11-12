@@ -758,6 +758,12 @@ class MainWindow(QtWidgets.QMainWindow):
             "TMS_PULSE_TIME": os.getenv("TMS_PULSE_TIME", "5"),
             "START_MEP": os.getenv("START_MEP", "10"),
             "END_MEP": os.getenv("END_MEP", "100"),
+            "VIRTUAL_MEP_NOISE_MV": os.getenv("VIRTUAL_MEP_NOISE_MV", "0.001"),
+            "VIRTUAL_MEP_TRIAL_VARIABILITY": os.getenv(
+                "VIRTUAL_MEP_TRIAL_VARIABILITY", "true"),
+            "VIRTUAL_MEP_MT": os.getenv("VIRTUAL_MEP_MT", "60"),
+            "VIRTUAL_MEP_UPPER_LIMIT": os.getenv("VIRTUAL_MEP_UPPER_LIMIT", "100"),
+            "VIRTUAL_MEP_EFIELD_SCALE": os.getenv("VIRTUAL_MEP_EFIELD_SCALE", "1.4"),
             "ONLINE_FEM_SOLVER": os.getenv("ONLINE_FEM_SOLVER", "pardiso"),
             "ONLINE_FEM_ANISOTROPY": os.getenv("ONLINE_FEM_ANISOTROPY", "scalar"),
         }
@@ -792,10 +798,144 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cfg_subject_goto_btn.clicked.connect(
             lambda: self.tabWidget.setCurrentIndex(0))
         self.cfg_tabs.currentChanged.connect(self._on_config_page_changed)
+        self._setup_simulation_page()
 
         self.on_config_reload()
         self._apply_config_mode()
         self._refresh_subject_summary()
+
+    def _setup_simulation_page(self):
+        """Build Config › Simulation (the .ui has no page for it)."""
+        if not hasattr(self, "cfg_tabs") or hasattr(self, "cfg_tab_simulation"):
+            return
+        page = QtWidgets.QWidget()
+        page.setObjectName("cfg_tab_simulation")
+        root = QtWidgets.QVBoxLayout(page)
+        root.setContentsMargins(14, 12, 14, 12)
+        root.setSpacing(10)
+
+        intro = QtWidgets.QLabel(
+            "Tune the MEP model used by the virtual EMG in simulation mode. "
+            "The channel source elements come from the project.")
+        intro.setProperty("role", "cap")
+        intro.setWordWrap(True)
+        root.addWidget(intro)
+
+        columns = QtWidgets.QHBoxLayout()
+        columns.setSpacing(10)
+        root.addLayout(columns, 1)
+
+        model = QtWidgets.QGroupBox("MEP model")
+        model.setProperty("card", True)
+        model.setMinimumWidth(420)
+        model_v = QtWidgets.QVBoxLayout(model)
+        model_v.setContentsMargins(0, 6, 0, 0)
+        model_v.setSpacing(8)
+
+        def add_row(text, widget):
+            row = QtWidgets.QHBoxLayout()
+            row.setSpacing(8)
+            cap = QtWidgets.QLabel(text)
+            cap.setProperty("role", "cap")
+            cap.setMinimumWidth(120)
+            row.addWidget(cap)
+            row.addWidget(widget, 1)
+            model_v.addLayout(row)
+
+        self.cfg_sim_noise = QtWidgets.QDoubleSpinBox()
+        self.cfg_sim_noise.setRange(0.0, 10.0)
+        self.cfg_sim_noise.setDecimals(4)
+        self.cfg_sim_noise.setSingleStep(0.001)
+        add_row("Noise sigma (mV)", self.cfg_sim_noise)
+
+        self.cfg_sim_mt = QtWidgets.QDoubleSpinBox()
+        self.cfg_sim_mt.setRange(0.0, 300.0)
+        self.cfg_sim_mt.setDecimals(1)
+        self.cfg_sim_mt.setSingleStep(1.0)
+        add_row("Motor threshold (V/m)", self.cfg_sim_mt)
+
+        self.cfg_sim_upper = QtWidgets.QDoubleSpinBox()
+        self.cfg_sim_upper.setRange(1.0, 300.0)
+        self.cfg_sim_upper.setDecimals(1)
+        self.cfg_sim_upper.setSingleStep(1.0)
+        add_row("Upper limit (V/m)", self.cfg_sim_upper)
+
+        self.cfg_sim_scale = QtWidgets.QDoubleSpinBox()
+        self.cfg_sim_scale.setRange(0.1, 10.0)
+        self.cfg_sim_scale.setDecimals(2)
+        self.cfg_sim_scale.setSingleStep(0.1)
+        add_row("E-field scale", self.cfg_sim_scale)
+
+        self.cfg_sim_trial = QtWidgets.QCheckBox("Trial-to-trial variability")
+        model_v.addWidget(self.cfg_sim_trial)
+        variability_hint = QtWidgets.QLabel(
+            "Off gives an ideal, repeatable curve; noise still applies.")
+        variability_hint.setProperty("role", "cap")
+        variability_hint.setWordWrap(True)
+        model_v.addWidget(variability_hint)
+        model_v.addStretch(1)
+
+        left = QtWidgets.QVBoxLayout()
+        left.setSpacing(10)
+        left.addWidget(model)
+        left.addStretch(1)
+
+        source = QtWidgets.QGroupBox("MEP source")
+        source.setProperty("card", True)
+        source.setMinimumWidth(420)
+        source_v = QtWidgets.QVBoxLayout(source)
+        source_v.setContentsMargins(0, 6, 0, 0)
+        source_v.setSpacing(8)
+        self.cfg_sim_sources = QtWidgets.QPlainTextEdit()
+        self.cfg_sim_sources.setReadOnly(True)
+        self.cfg_sim_sources.setProperty("role", "info")
+        self.cfg_sim_sources.setMaximumHeight(96)
+        source_v.addWidget(self.cfg_sim_sources)
+        self.cfg_sim_project_btn = QtWidgets.QPushButton("Edit in Project")
+        self.cfg_sim_project_btn.setProperty("role", "transport")
+        self.cfg_sim_project_btn.clicked.connect(
+            lambda: self.tabWidget.setCurrentIndex(0))
+        source_v.addWidget(self.cfg_sim_project_btn)
+        source_hint = QtWidgets.QLabel(
+            "The cortical element per channel is project data. This page only "
+            "tunes the simulated signal.")
+        source_hint.setProperty("role", "cap")
+        source_hint.setWordWrap(True)
+        source_v.addWidget(source_hint)
+        source_v.addStretch(1)
+
+        right = QtWidgets.QVBoxLayout()
+        right.setSpacing(10)
+        right.addWidget(source)
+        right.addStretch(1)
+
+        columns.addLayout(left, 1)
+        columns.addLayout(right, 1)
+
+        self.cfg_sim_hint = QtWidgets.QLabel("")
+        self.cfg_sim_hint.setProperty("role", "cap")
+        self.cfg_sim_hint.setWordWrap(True)
+        self.cfg_sim_hint.setText(
+            "Read when the controller starts; restart to apply.")
+        root.addWidget(self.cfg_sim_hint)
+
+        bottom = QtWidgets.QHBoxLayout()
+        bottom.setSpacing(10)
+        self.cfg_sim_save_btn = QtWidgets.QPushButton("Save simulation settings")
+        self.cfg_sim_save_btn.setProperty("role", "primary")
+        self.cfg_sim_save_btn.clicked.connect(self.on_sim_save)
+        self.cfg_sim_reload_btn = QtWidgets.QPushButton("Reload")
+        self.cfg_sim_reload_btn.setProperty("role", "transport")
+        self.cfg_sim_reload_btn.clicked.connect(self.on_sim_reload)
+        self.cfg_sim_status = QtWidgets.QLabel("")
+        self.cfg_sim_status.setProperty("role", "cap")
+        bottom.addWidget(self.cfg_sim_save_btn)
+        bottom.addWidget(self.cfg_sim_reload_btn)
+        bottom.addWidget(self.cfg_sim_status, 1)
+        root.addLayout(bottom)
+
+        self.cfg_tabs.insertTab(1, page, "Simulation")
+        self.cfg_tab_simulation = page
 
     def _lab_fields(self):
         """(key, widget, kind) for every hardware setting on the Lab page."""
@@ -912,6 +1052,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self._set_int(self.cfg_mep_end,
                       env.get("END_MEP", self._config_defaults["END_MEP"]), 100)
 
+        for key, widget, fallback in (
+            ("VIRTUAL_MEP_NOISE_MV", self.cfg_sim_noise, 0.001),
+            ("VIRTUAL_MEP_MT", self.cfg_sim_mt, 60.0),
+            ("VIRTUAL_MEP_UPPER_LIMIT", self.cfg_sim_upper, 100.0),
+            ("VIRTUAL_MEP_EFIELD_SCALE", self.cfg_sim_scale, 1.4),
+        ):
+            self._set_float(widget, env.get(
+                key, self._config_defaults.get(key, fallback)), fallback)
+        self.cfg_sim_trial.setChecked(self._as_bool(
+            env.get("VIRTUAL_MEP_TRIAL_VARIABILITY"),
+            self._as_bool(self._config_defaults.get("VIRTUAL_MEP_TRIAL_VARIABILITY"), True)))
+        self._refresh_simulation_summary()
+
         saved_theme = env.get("UI_THEME") or lab.get("UI_THEME")
         if saved_theme:
             self._theme_loading = True
@@ -948,6 +1101,20 @@ class MainWindow(QtWidgets.QMainWindow):
         except (TypeError, ValueError):
             value = fallback
         widget.setValue(value)
+
+    @staticmethod
+    def _set_float(widget, text, fallback):
+        try:
+            value = float(str(text).strip())
+        except (TypeError, ValueError):
+            value = fallback
+        widget.setValue(value)
+
+    @staticmethod
+    def _as_bool(text, fallback):
+        if text is None or str(text).strip() == "":
+            return fallback
+        return str(text).strip().lower() in {"1", "true", "yes", "on"}
 
     def _set_config_status(self, text):
         label = getattr(self, "cfg_status_label", None)
@@ -995,6 +1162,39 @@ class MainWindow(QtWidgets.QMainWindow):
         self._set_config_status(
             f"Saved {self._lab_profile.path.name}{detail}"
             " — restart NeuroPilot to apply.")
+
+    def on_sim_save(self):
+        """Write the simulated-MEP knobs to .env."""
+        manual = bool(self.controller is not None
+                      and getattr(self.controller, "manual", False))
+        if not self.simulation or manual:
+            self.cfg_sim_status.setText(
+                "Simulation settings are only used in simulation mode.")
+            return
+        if self.cfg_sim_upper.value() <= self.cfg_sim_mt.value():
+            self.cfg_sim_status.setText(
+                "Upper limit must be above the motor threshold.")
+            return
+        values = {
+            "VIRTUAL_MEP_NOISE_MV": f"{self.cfg_sim_noise.value():g}",
+            "VIRTUAL_MEP_TRIAL_VARIABILITY":
+                "true" if self.cfg_sim_trial.isChecked() else "false",
+            "VIRTUAL_MEP_MT": f"{self.cfg_sim_mt.value():g}",
+            "VIRTUAL_MEP_UPPER_LIMIT": f"{self.cfg_sim_upper.value():g}",
+            "VIRTUAL_MEP_EFIELD_SCALE": f"{self.cfg_sim_scale.value():g}",
+        }
+        try:
+            self._config_store.write(values)
+        except OSError as e:
+            self.cfg_sim_status.setText(
+                f"Could not write {self._config_store.path}: {e}")
+            return
+        self.cfg_sim_status.setText(
+            "Saved simulation settings; restart NeuroPilot to apply.")
+
+    def on_sim_reload(self):
+        self.on_config_reload()
+        self.cfg_sim_status.setText("Reloaded from .env.")
 
     # ── Config › Study ─────────────────────────────────────────────────
     def _study_dict(self):
@@ -1117,6 +1317,20 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_config_page_changed(self, index):
         if self.cfg_tabs.widget(index) is getattr(self, "cfg_tab_subject", None):
             self._refresh_subject_summary()
+        elif self.cfg_tabs.widget(index) is getattr(self, "cfg_tab_simulation", None):
+            self._refresh_simulation_summary()
+
+    def _refresh_simulation_summary(self):
+        box = getattr(self, "cfg_sim_sources", None)
+        if box is None:
+            return
+        channels = self.cfg_emg_channels.text().strip() or "not set"
+        sources_path = self.emg_config_label.text().strip()
+        sources = os.path.basename(sources_path) if sources_path else "not set"
+        box.setToolTip(sources_path)
+        box.setPlainText(
+            f"Channels:    {channels}\n"
+            f"EMG sources: {sources}")
 
     def _refresh_subject_summary(self):
         box = getattr(self, "cfg_subject_summary", None)
@@ -1134,6 +1348,7 @@ class MainWindow(QtWidgets.QMainWindow):
             ("EMG sources", self.emg_config_label.text().strip() or "—"),
         ]
         box.setPlainText("\n".join(f"{name:<16}{value}" for name, value in rows))
+        self._refresh_simulation_summary()
 
     def _apply_config_mode(self):
         """Show the active mode and grey out the settings it does not use."""
@@ -1181,6 +1396,20 @@ class MainWindow(QtWidgets.QMainWindow):
             "Simulated EMG: the channel names label the plots and the results."
             if simulated else
             "SMB share on the EMG computer (Digitimer D360 -> CED 1401).")
+
+        # Simulation page: the MEP model only exists in simulation mode.
+        for attr in ("cfg_sim_noise", "cfg_sim_trial", "cfg_sim_mt",
+                     "cfg_sim_upper", "cfg_sim_scale", "cfg_sim_save_btn"):
+            widget = getattr(self, attr, None)
+            if widget is not None:
+                widget.setEnabled(simulated)
+        hint = getattr(self, "cfg_sim_hint", None)
+        if hint is not None:
+            hint.setText(
+                "Read when the controller starts; restart to apply."
+                if simulated else
+                "Simulation mode only; these values are ignored in real and "
+                "manual modes.")
 
     # ── Mapping results panel ───────────────────────────────────────────
     def _setup_mapping_panel(self):

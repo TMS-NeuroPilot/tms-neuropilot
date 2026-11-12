@@ -379,3 +379,78 @@ def test_unknown_robot_stays_visible(window):
     window._set_robot_key("kuka")
     assert window.cfg_robot_type.currentText().strip() == "kuka"
     assert window._robot_key() == "kuka"
+
+
+# ── Simulation scope ───────────────────────────────────────────────────
+
+def test_simulation_page_sits_after_the_lab_page(window):
+    titles = [window.cfg_tabs.tabText(i) for i in range(window.cfg_tabs.count())]
+    assert titles == ["Lab (hardware)", "Simulation", "Study (mapping)",
+                      "Subject (files)"]
+    assert window.cfg_tabs.widget(1) is window.cfg_tab_simulation
+
+
+def test_simulation_reload_fills_from_env(window, tmp_path):
+    env = tmp_path / ".env"
+    env.write_text("VIRTUAL_MEP_NOISE_MV=0.02\n"
+                   "VIRTUAL_MEP_TRIAL_VARIABILITY=false\n"
+                   "VIRTUAL_MEP_MT=45\n"
+                   "VIRTUAL_MEP_UPPER_LIMIT=90\n"
+                   "VIRTUAL_MEP_EFIELD_SCALE=1.2\n")
+    window._config_store = ConfigStore(env)
+    window.on_config_reload()
+    assert window.cfg_sim_noise.value() == pytest.approx(0.02)
+    assert not window.cfg_sim_trial.isChecked()
+    assert window.cfg_sim_mt.value() == pytest.approx(45)
+    assert window.cfg_sim_upper.value() == pytest.approx(90)
+    assert window.cfg_sim_scale.value() == pytest.approx(1.2)
+
+
+def test_simulation_save_writes_the_env_keys(window, tmp_path):
+    env = tmp_path / ".env"
+    env.write_text("# keep me\nKEEP_ME=1\n")
+    window._config_store = ConfigStore(env)
+    window.cfg_sim_noise.setValue(0.01)
+    window.cfg_sim_trial.setChecked(False)
+    window.cfg_sim_mt.setValue(50)
+    window.cfg_sim_upper.setValue(90)
+    window.cfg_sim_scale.setValue(1.3)
+    window.on_sim_save()
+    text = env.read_text()
+    assert "VIRTUAL_MEP_NOISE_MV=0.01" in text
+    assert "VIRTUAL_MEP_TRIAL_VARIABILITY=false" in text
+    assert "VIRTUAL_MEP_MT=50" in text
+    assert "VIRTUAL_MEP_UPPER_LIMIT=90" in text
+    assert "VIRTUAL_MEP_EFIELD_SCALE=1.3" in text
+    assert "KEEP_ME=1" in text
+    assert "restart" in window.cfg_sim_status.text()
+
+
+def test_simulation_save_rejects_an_upper_limit_at_the_threshold(window, tmp_path):
+    env = tmp_path / ".env"
+    window._config_store = ConfigStore(env)
+    window.cfg_sim_mt.setValue(60)
+    window.cfg_sim_upper.setValue(60)
+    window.on_sim_save()
+    assert "above the motor threshold" in window.cfg_sim_status.text()
+    assert not env.exists() or "VIRTUAL_MEP" not in env.read_text()
+
+
+def test_simulation_page_disabled_in_real_mode(window, controller, monkeypatch):
+    monkeypatch.setattr(window, "simulation", False)
+    window.set_controller(controller)
+    window._apply_config_mode()
+    assert not window.cfg_sim_noise.isEnabled()
+    assert not window.cfg_sim_save_btn.isEnabled()
+    assert "ignored" in window.cfg_sim_hint.text()
+
+
+def test_simulation_source_summary_points_to_the_project(window):
+    window.cfg_emg_channels.setText("FDI,APB")
+    window.emg_config_label.setText("/tmp/sources.yaml")
+    window._refresh_simulation_summary()
+    text = window.cfg_sim_sources.toPlainText()
+    assert "FDI,APB" in text
+    assert "sources.yaml" in text
+    assert window.cfg_sim_sources.toolTip() == "/tmp/sources.yaml"
+    assert window.cfg_sim_project_btn.text() == "Edit in Project"

@@ -111,4 +111,4 @@ a colleague's study file.
 ## Next
 
 - [Settings model](config/model.md) — the full precedence picture.
-- [Config page](gui/config.md) — the three scopes in the GUI.
+- [Config page](gui/config.md) — the four scopes in the GUI.

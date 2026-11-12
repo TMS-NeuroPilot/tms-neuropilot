@@ -107,7 +107,8 @@ controller starts:
 or off; turning it off gives an ideal, repeatable curve. `VIRTUAL_MEP_MT` and
 `VIRTUAL_MEP_UPPER_LIMIT` set the field values where the recruitment curve
 starts and saturates. All five keys are in the
-[`.env` reference](config/env.md).
+[`.env` reference](config/env.md). The same values are editable on
+[Config › Simulation](gui/config.md).
 
 Consequences for a simulated session:
 

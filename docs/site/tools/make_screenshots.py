@@ -342,7 +342,8 @@ def run(args, project: Path) -> None:
 
         # 6. Config sub-tabs ------------------------------------------
         win.tabWidget.setCurrentIndex(5)
-        for index, name in enumerate(("config-lab", "config-study", "config-subject")):
+        for index, name in enumerate(("config-lab", "config-simulation",
+                                      "config-study", "config-subject")):
             win.cfg_tabs.setCurrentIndex(index)
             await asyncio.sleep(0.8)
             grab_window(app, win, OUT / f"{name}.png")

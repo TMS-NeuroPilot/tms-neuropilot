@@ -49,6 +49,7 @@ Ask one question:
 | Would another lab need a different value? | **Lab** | `lab.yaml` (Config › Lab) |
 | Would another study need a different value? | **Study** | study YAML (Config › Study) |
 | Would another subject need a different value? | **Subject** | project YAML |
+| Is it a simulated-MEP tuning value? | **Simulation** | `.env` (Config › Simulation) |
 | Must the value exist before the GUI starts? | **bootstrap** | `.env` |
 
 Examples:
@@ -56,6 +57,7 @@ Examples:
 - relay address, serial ports, EMG credentials, theme → Lab
 - fit function, ISI, amplitude, MEP windows, channel names → Study
 - mesh, ROI, library, placements, results path → Subject
+- simulated MEP noise, threshold, upper limit, E-field scale → Simulation
 - data folder, readiness timeout, GLFW library, "run the GUI at all" → `.env`
 
 ## What needs a restart
