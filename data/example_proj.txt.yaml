@@ -1,4 +1,4 @@
-coil_path: /home/ole/miniforge3/envs/pipeline/lib/python3.11/site-packages/simnibs/resources/coil_models/Drakaki_BrainStim_2022/MagVenture_MCF-B65_new.ccd
+coil_path: coil/MagVenture_MCF-B65_new.ccd
 default_speed: 40
 e_field_path: ernie/efield/e.hdf5
 emg_config_fn: example_emg_channels.yaml
