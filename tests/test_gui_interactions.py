@@ -32,6 +32,7 @@ class Recorder:
         self.is_finished = False
         self.control_panel = None
         self.online_fem_mgr = _Manager()
+        self.surrogate_mgr = _Manager()
 
     def __getattr__(self, name):
         if name.startswith("__"):
@@ -55,6 +56,7 @@ class _Manager:
         self.mesh_fn_msh = None
         self.roi_fn_hdf5 = None
         self.coil_fn = None
+        self.library_fn = None
         self.e_matrix = None
 
     @property

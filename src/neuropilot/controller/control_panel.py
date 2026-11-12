@@ -132,6 +132,8 @@ class MainWindow(QtWidgets.QMainWindow):
     file_info_ready = QtCore.pyqtSignal(str, str)
     # Same for the online solver finishing its (background) initialisation.
     online_fem_ready = QtCore.pyqtSignal()
+    # Same for the interpolated library finishing its (background) load.
+    surrogate_library_ready = QtCore.pyqtSignal()
     # Finished R² maps from the analysis worker thread.
     scores_ready = QtCore.pyqtSignal(dict)
 
@@ -186,6 +188,51 @@ class MainWindow(QtWidgets.QMainWindow):
                         round(self._design_size[1] * scale))
 
         # Project tab: explain what each path field expects.
+        # The third E-field source (interpolated library) is created here in
+        # code: the .ui carries the two original radios and path rows, and the
+        # new widgets slot into the existing layouts with the same roles.
+        self.surrogate_efield_btn = QtWidgets.QRadioButton("Interpolated")
+        self.surrogate_efield_btn.setObjectName("surrogate_efield_btn")
+        self.surrogate_efield_btn.setToolTip(
+            "Interpolated E-field: PCA + pose interpolation of the dense "
+            "library (Grosshagauer et al. 2025), with a domain guard. Needs "
+            "the library file and the ROI surface.")
+        efield_layout = self.offline_efield_btn.parent().layout()
+        if efield_layout is not None:
+            efield_layout.insertWidget(
+                efield_layout.indexOf(self.efield_hint),
+                self.surrogate_efield_btn)
+        self.surrogate_library_row = QtWidgets.QWidget()
+        self.surrogate_library_row.setObjectName("surrogate_library_row")
+        row_layout = QtWidgets.QHBoxLayout(self.surrogate_library_row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(6)
+        surrogate_cap = QtWidgets.QLabel("Interpolated library:")
+        surrogate_cap.setProperty("role", "cap")
+        self.surrogate_library_label = QtWidgets.QLineEdit()
+        self.surrogate_library_label.setObjectName("surrogate_library_label")
+        self.surrogate_library_label.setPlaceholderText(
+            "data/<subject>/efield/e_surrogate.hdf5")
+        self.surrogate_library_label.setToolTip(
+            "Dense E-field library for the Interpolated mode: e.hdf5 with the "
+            "E_mag dataset and an roi_hash, written by\n"
+            "scripts/02_create_roi_efield_library.py "
+            "--spatial-resolution 4 --angle-resolution 15 --n-placements 0.\n"
+            "Verified against the ROI surface on load.")
+        self.surrogate_libraryBtn = QtWidgets.QToolButton()
+        self.surrogate_libraryBtn.setObjectName("surrogate_libraryBtn")
+        self.surrogate_libraryBtn.setText("...")
+        self.surrogate_libraryBtn.setProperty("role", "browse")
+        self.surrogate_libraryBtn.setToolTip(
+            "Browse for the interpolated E-field library")
+        for widget in (surrogate_cap, self.surrogate_library_label,
+                       self.surrogate_libraryBtn):
+            row_layout.addWidget(widget)
+        if efield_layout is not None:
+            efield_layout.insertWidget(
+                efield_layout.indexOf(self.efield_hint),
+                self.surrogate_library_row)
+
         path_tooltips = {
             "loadmeshlabel": "Head mesh for the 3D view and the online FEM.\n"
                              "Accepts a pynibs mesh HDF5 (.hdf5 — the matching SimNIBS .msh\n"
@@ -296,6 +343,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.load_e_matrixBtn.clicked.connect(self.pick_e_field)
         self.load_e_matrix_label.editingFinished.connect(self.paste_e_field_path)
 
+        self.surrogate_libraryBtn.clicked.connect(self.pick_surrogate_library)
+        self.surrogate_library_label.editingFinished.connect(
+            self.paste_surrogate_library_path)
+
         self.savePathBtn.clicked.connect(self.pick_save_path)
         self.savePathLineEdit.editingFinished.connect(self.paste_save_path)
 
@@ -314,9 +365,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self._pending_efield_mode = None
         self.online_efield_btn.setEnabled(False)
         self.offline_efield_btn.setEnabled(False)
+        self.surrogate_efield_btn.setEnabled(False)
 
         self.online_efield_btn.toggled.connect(self.on_efield_mode_changed)
         self.offline_efield_btn.toggled.connect(self.on_efield_mode_changed)
+        self.surrogate_efield_btn.toggled.connect(self.on_efield_mode_changed)
+        self.surrogate_library_ready.connect(self._on_surrogate_library_ready)
 
         # Nothing may run before a mode and a ready stack exist: start with the
         # whole transport row (and Finish) disabled.
@@ -783,6 +837,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self._theme_loading = True
         self.cfg_theme.addItems(list(THEMES))     # populate without writing
+        # The .ui carries Precomputed/Online; the interpolated library is the
+        # third E-field source (created in code, like its radio).
+        if self.cfg_efield_mode.findText("Interpolated") < 0:
+            self.cfg_efield_mode.addItem("Interpolated")
         self._theme_loading = False
         self.cfg_theme.currentTextChanged.connect(self.on_theme_changed)
 
@@ -1303,6 +1361,10 @@ class MainWindow(QtWidgets.QMainWindow):
         if mode.startswith("online") and self.online_efield_btn.isEnabled():
             self.online_efield_btn.setChecked(True)
             applied.append("online E-field")
+        elif ((mode.startswith("interp") or mode.startswith("surrogate"))
+                and self.surrogate_efield_btn.isEnabled()):
+            self.surrogate_efield_btn.setChecked(True)
+            applied.append("interpolated E-field")
         elif mode.startswith("pre") and self.offline_efield_btn.isEnabled():
             self.offline_efield_btn.setChecked(True)
             applied.append("precomputed E-field")
@@ -1343,6 +1405,7 @@ class MainWindow(QtWidgets.QMainWindow):
             ("Placements", self.loadplacementlabel.text().strip() or "—"),
             ("Target order", self.target_order_LineEdit.text().strip() or "—"),
             ("E-field library", self.load_e_matrix_label.text().strip() or "—"),
+            ("Interpolated library", self.surrogate_library_label.text().strip() or "—"),
             ("Results file", self.savePathLineEdit.text().strip() or "—"),
             ("EMG sources", self.emg_config_label.text().strip() or "—"),
         ]
@@ -2227,9 +2290,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self._resize_results_panel(s)
 
     def efield_mode_name(self):
-        """``"Online"`` / ``"Precomputed"`` / None (nothing selected yet)."""
+        """``"Online"`` / ``"Interpolated"`` / ``"Precomputed"`` / None."""
         if self.online_efield_btn.isChecked():
             return "Online"
+        if self.surrogate_efield_btn.isChecked():
+            return "Interpolated"
         if self.offline_efield_btn.isChecked():
             return "Precomputed"
         return None
@@ -2244,6 +2309,8 @@ class MainWindow(QtWidgets.QMainWindow):
         text = str(mode or "").strip().lower()
         if text.startswith("online"):
             button, wanted = self.online_efield_btn, "efield_online"
+        elif text.startswith("interp") or text.startswith("surrogate"):
+            button, wanted = self.surrogate_efield_btn, "efield_surrogate"
         elif text.startswith("pre"):
             button, wanted = self.offline_efield_btn, "efield_precomputed"
         else:
@@ -2257,25 +2324,36 @@ class MainWindow(QtWidgets.QMainWindow):
         return True
 
     def on_efield_mode_changed(self):
-        """Switch between precomputed and online E-fields, also mid-run.
+        """Switch between the E-field sources, also mid-run.
 
         The pipeline records one E-field row per pulse, so a switch only
         changes which source the *next* pulse uses; the analysis keeps the
-        pulses it already has.  Both radios stay enabled so the operator can
-        always switch back, and the online solver is initialised once instead
-        of once per toggle.
+        pulses it already has.  The radios stay enabled so the operator can
+        always switch back, and each source is initialised once instead of
+        once per toggle.
         """
-        if not (self.online_efield_btn.isChecked() or self.offline_efield_btn.isChecked()):
+        if not (self.online_efield_btn.isChecked()
+                or self.surrogate_efield_btn.isChecked()
+                or self.offline_efield_btn.isChecked()):
             return
-        online = self.online_efield_btn.isChecked()
+        if self.surrogate_efield_btn.isChecked():
+            mode = "surrogate"
+        elif self.online_efield_btn.isChecked():
+            mode = "online"
+        else:
+            mode = "precomputed"
         self._mark_project_dirty()       # the mode is saved with the project
         if self.controller:
-            self.controller.online_fem_mgr.online_fem = online
-            if online:
+            self.controller.efield_mode = mode
+            self.controller.online_fem_mgr.online_fem = (mode == "online")
+            if mode == "online":
                 # The manager finishes on its worker thread; the signal hops
                 # the callback back to the GUI thread.
                 self.controller.online_fem_mgr.ensure_initialized(
                     callback=self.online_fem_ready.emit)
+            elif mode == "surrogate":
+                self.controller.surrogate_mgr.ensure_initialized(
+                    callback=self.surrogate_library_ready.emit)
         self.efield_mode_selected = True
         self.update_button_states()
 
@@ -2303,24 +2381,37 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _check_paths_ready(self):
         mgr = self.controller.online_fem_mgr if self.controller else None
+        s_mgr = self.controller.surrogate_mgr if self.controller else None
         all_set = bool(
                 mgr
                 and mgr.mesh_fn_msh and os.path.isfile(mgr.mesh_fn_msh)
                 and mgr.roi_fn_hdf5
                 and mgr.coil_fn
         )
+        # The interpolated mode needs the dense library plus the ROI surface
+        # the library is verified against (element order / count).
+        surrogate_set = bool(
+                s_mgr
+                and s_mgr.library_fn and os.path.isfile(s_mgr.library_fn)
+                and s_mgr.roi_fn_hdf5
+        )
         # Both modes stay selectable for the whole session; an in-flight
         # switch is allowed and only affects the following pulses.
         self.online_efield_btn.setEnabled(all_set)
         self.offline_efield_btn.setEnabled(all_set)
-        # Paths may arrive *after* the operator picked online (project load,
-        # path edit); make sure the solver then starts after all.
+        self.surrogate_efield_btn.setEnabled(surrogate_set)
+        # Paths may arrive *after* the operator picked a mode (project load,
+        # path edit); make sure the source then starts after all.
         pending = getattr(self, "_pending_efield_mode", None)
-        if all_set and pending:
+        if pending:
             self._apply_efield_mode(pending)
         if all_set and self.online_efield_btn.isChecked() and self.controller:
             self.controller.online_fem_mgr.ensure_initialized(
                 callback=self.online_fem_ready.emit)
+        if (surrogate_set and self.surrogate_efield_btn.isChecked()
+                and self.controller):
+            self.controller.surrogate_mgr.ensure_initialized(
+                callback=self.surrogate_library_ready.emit)
         self.update_button_states()
 
     def update_button_states(self):
@@ -2341,11 +2432,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
         fem_ok = True
         if self.controller:
-            mgr = self.controller.online_fem_mgr
-            if mgr.is_online:
+            mode = getattr(self.controller, "efield_mode", None)
+            if mode == "online":
+                mgr = self.controller.online_fem_mgr
                 # Online mode waits for the solver, but a running experiment
                 # stays usable: pulses collected so far keep their fields.
                 fem_ok = mgr.is_ready or running
+            elif mode == "surrogate":
+                s_mgr = self.controller.surrogate_mgr
+                fem_ok = s_mgr.is_ready or running
             else:
                 # Precomputed mode without a matrix loaded has no E-field.
                 fem_ok = self.controller.e_matrix is not None or running
@@ -2367,7 +2462,10 @@ class MainWindow(QtWidgets.QMainWindow):
         if label is None:
             return
         mgr = getattr(self.controller, "online_fem_mgr", None) if self.controller else None
+        s_mgr = getattr(self.controller, "surrogate_mgr", None) if self.controller else None
         online = bool(mgr is not None and mgr.is_online)
+        surrogate = bool(getattr(self.controller, "efield_mode", None) == "surrogate"
+                         and s_mgr is not None)
         if mgr is not None and online:
             if mgr.is_ready:
                 text, role = "Online solver ready.", "ok"
@@ -2377,6 +2475,21 @@ class MainWindow(QtWidgets.QMainWindow):
                 role = "busy"
             else:
                 text = "Online solver unavailable — switch to Precomputed."
+                role = "error"
+        elif surrogate:
+            if s_mgr.is_ready:
+                text, role = (f"Interpolated library ready "
+                              f"({s_mgr.n_placements} placements, guard "
+                              f"{s_mgr.surrogate.max_position_distance_mm:.1f} mm / "
+                              f"{s_mgr.surrogate.max_rotation_distance_deg:.0f}°).",
+                              "ok")
+            elif getattr(s_mgr, "initializing", False):
+                text = ("Loading the interpolated E-field library (a few "
+                        "seconds) — pulses wait until it is ready.")
+                role = "busy"
+            else:
+                text = ("Interpolated library unavailable — check the library "
+                        "and ROI paths / the log.")
                 role = "error"
         elif self.offline_efield_btn.isChecked():
             text, role = "Precomputed library — ready immediately.", "ok"
@@ -3018,6 +3131,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.widget_3d_viewer.load_hdf5_mesh(file_path, mesh_type="roi")
             if self.controller:
                 self.controller.online_fem_mgr.set_roi_fn_hdf5(file_path)
+                self.controller.surrogate_mgr.set_roi_fn_hdf5(file_path)
             self._check_paths_ready()
 
     def paste_roi_path(self):
@@ -3028,6 +3142,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.widget_3d_viewer.load_hdf5_mesh(file_path, mesh_type="roi")
             if self.controller:
                 self.controller.online_fem_mgr.set_roi_fn_hdf5(None)
+                self.controller.surrogate_mgr.set_roi_fn_hdf5(None)
             self._check_paths_ready()
 
         # Check if the file actually exists on the drive
@@ -3037,6 +3152,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.widget_3d_viewer.load_hdf5_mesh(file_path, mesh_type="roi")
             if self.controller:
                 self.controller.online_fem_mgr.set_roi_fn_hdf5(file_path)
+                self.controller.surrogate_mgr.set_roi_fn_hdf5(file_path)
                 # The EMG source projection runs against this ROI: re-apply
                 # the channel config so xyz sources re-project.
                 if self.emg_config_label.text().strip():
@@ -3048,6 +3164,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.loadroilabel.setText("")
             if self.controller:
                 self.controller.online_fem_mgr.set_roi_fn_hdf5(None)
+                self.controller.surrogate_mgr.set_roi_fn_hdf5(None)
             self._check_paths_ready()
 
     # === END: Handlers for loading the ROI ===
@@ -3170,6 +3287,52 @@ class MainWindow(QtWidgets.QMainWindow):
             self.load_e_matrix_label.setText("")
             # Optional: UI popup here to warn the user visually
     # === END: Handlers for loading the E-Field ===
+
+    # === BEGIN: Handlers for the interpolated (surrogate) library ===
+    def pick_surrogate_library(self):
+        """File dialog for the dense library of the Interpolated mode."""
+        file_path = self._file_dialog(
+                "Select Interpolated E-field Library",
+                os.getcwd(),
+                "HDF5 Files (*.hdf5)",
+                save=False
+        )
+        if file_path:
+            self.surrogate_library_label.setText(file_path)
+            self.paste_surrogate_library_path()
+
+    def paste_surrogate_library_path(self):
+        file_path = self.surrogate_library_label.text().strip()
+        if not file_path:
+            if self.controller:
+                self.controller.surrogate_mgr.set_library_path(None)
+        elif os.path.isfile(file_path):
+            if self.controller:
+                self.controller.surrogate_mgr.set_library_path(file_path)
+                # A changed library invalidates the loaded one; (re-)start
+                # the background load when the Interpolated mode is selected.
+                if (self.controller.efield_mode == "surrogate"
+                        and self.controller.surrogate_mgr.library_fn
+                        and not self.controller.surrogate_mgr.ready
+                        and not self.controller.surrogate_mgr.initializing):
+                    self.controller.surrogate_mgr.ensure_initialized(
+                        callback=self.surrogate_library_ready.emit)
+        else:
+            print(f"Wrong path: The file '{file_path}' does not exist.")
+            self.surrogate_library_label.setText("")
+        self._check_paths_ready()
+
+    def _on_surrogate_library_ready(self):
+        """The library finished loading: element count for the map + status."""
+        mgr = self.controller.surrogate_mgr if self.controller else None
+        if (mgr and mgr.is_ready
+                and getattr(self.controller, "n_elms", None) in (None, -1)):
+            # Same role as the precomputed matrix load: the map needs the
+            # element count for the subsampled index list.
+            self.controller.n_elms = mgr.n_elements
+            self.controller.set_map_elms(self.controller.map_elms)
+        self.update_button_states()
+    # === END: Handlers for the interpolated library ===
 
     # === BEGIN: Handlers for loading the saving path ===
     def pick_save_path(self):
@@ -3446,6 +3609,7 @@ class MainWindow(QtWidgets.QMainWindow):
             "mesh_head_path": self.loadmeshlabel.text() or None,
             "mesh_RIO_path": self.loadroilabel.text() or None,
             "e_field_path": self.load_e_matrix_label.text() or None,
+            "surrogate_library_path": self.surrogate_library_label.text() or None,
             "coil_path": self.coilspathlineedit.text() or None,
             "emg_config_fn": self.emg_config_label.text() or None,
             # Travels with the subject so a session resumes in the same mode.
@@ -3497,6 +3661,7 @@ class MainWindow(QtWidgets.QMainWindow):
             "mesh_head_path": lambda v: (self.loadmeshlabel.setText(v or ""),self.paste_mesh_path()),
             "mesh_RIO_path": lambda v: (self.loadroilabel.setText(v or ""),self.paste_roi_path()),
             "e_field_path": lambda v: (self.load_e_matrix_label.setText(v or ""),self.paste_e_field_path()),
+            "surrogate_library_path": lambda v: (self.surrogate_library_label.setText(v or ""), self.paste_surrogate_library_path()),
             "coil_path": lambda v: (self.coilspathlineedit.setText(v or ""), self.paste_coil_path()),
             "emg_config_fn": lambda v: (self.emg_config_label.setText(v or ""), self.paste_emg_config()),
         }

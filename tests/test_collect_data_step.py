@@ -84,6 +84,8 @@ def make_controller(online=False, e_matrix=None, computed=None, amplitude=70):
         excluded_pulse_indices=set(),
         e_matrix=e_matrix,
         online_fem_mgr=mgr,
+        efield_mode="online" if online else "precomputed",
+        surrogate_mgr=None,
         emg_computer=FakeEMG(),
         results_fn=None,
         control_panel=None,
@@ -168,10 +170,12 @@ def test_switching_modes_between_pulses_keeps_each_source():
     ctrl = make_controller(online=False, e_matrix=np.full((2, 2), 2.0), amplitude=10)
     run_step(ctrl)                                   # precomputed
 
+    ctrl.efield_mode = "online"
     ctrl.online_fem_mgr.online_fem = True            # switch mid-run
     ctrl.online_fem_mgr.computed = np.array([9.0, 9.0])
     run_step(ctrl)                                   # online
 
+    ctrl.efield_mode = "precomputed"
     ctrl.online_fem_mgr.online_fem = False           # and back
     run_step(ctrl)                                   # precomputed
 
@@ -180,6 +184,36 @@ def test_switching_modes_between_pulses_keeps_each_source():
     np.testing.assert_allclose(ctrl.pulse_e_fields[0], expected)
     np.testing.assert_allclose(ctrl.pulse_e_fields[1], [9.0, 9.0])
     np.testing.assert_allclose(ctrl.pulse_e_fields[2], expected)
+
+
+def test_interpolated_outside_pulse_is_recorded_and_excluded():
+    from neuropilot.controller.pipeline_controller import (
+        assemble_analysis_matrix,
+    )
+    ctrl = make_controller(online=False, e_matrix=np.full((2, 2), 2.0))
+    ctrl.efield_mode = "surrogate"
+    ctrl.surrogate_mgr = SimpleNamespace(
+        compute_e_field=lambda marker, amplitude: np.full(2, np.nan))
+    run_step(ctrl)
+    assert ctrl.pulse_modes == ["surrogate"]
+    assert np.all(np.isnan(ctrl.pulse_e_fields[0]))
+    assert ctrl.realized_targets["e_field_mode"] == ["surrogate"]
+    # The regression drops the NaN row: the pulse is excluded from the map.
+    kept, matrix = assemble_analysis_matrix(ctrl.pulse_e_fields, [0])
+    assert len(kept) == 0 and matrix is None
+
+
+def test_interpolated_inside_pulse_feeds_the_virtual_emg():
+    ctrl = make_controller(online=False, e_matrix=np.full((2, 2), 2.0))
+    ctrl.efield_mode = "surrogate"
+    row = np.array([3.0, 4.0])
+    ctrl.surrogate_mgr = SimpleNamespace(
+        compute_e_field=lambda marker, amplitude: row.copy())
+    run_step(ctrl)
+    np.testing.assert_allclose(ctrl.pulse_e_fields[0], row)
+    # e_field_for_mep reaches _read_emg; with the FakeEMG the pulse still
+    # completes and the row is finite.
+    assert np.all(np.isfinite(ctrl.pulse_e_fields[0]))
 
 
 def test_recorded_rows_are_copies():

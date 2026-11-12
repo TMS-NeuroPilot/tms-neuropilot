@@ -25,6 +25,11 @@ By default the coil dA/dt is evaluated at mesh nodes (``--dadt-at nodes``):
 823k points instead of 5.75M element centres, about 4x faster with a ~0.02%
 field difference. Use ``--dadt-at elements`` for the reference path.
 
+The output carries provenance attributes (mesh, ROI, coil, target/radius
+source, grid settings) and an ``roi_hash`` — a SHA256 over the ROI centroid
+sequence, which defines the E-field column order. A session verifies this
+hash against its own ROI before trusting the library.
+
 Example (precomputed library, 500 placements covering the ROI):
 
     python scripts/02_create_roi_efield_library.py \
@@ -104,26 +109,32 @@ import pynibs  # noqa: E402
 from simnibs import mesh_io, opt_struct  # noqa: E402
 from simnibs.simulation.onlinefem import FemTargetPointCloud, OnlineFEM  # noqa: E402
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                os.pardir, "src"))
+from neuropilot.controller.EFieldSurrogate import (  # noqa: E402
+    read_roi_surface, roi_geometry_hash)
+
 out_dir = os.path.dirname(os.path.abspath(args.out))
 os.makedirs(out_dir, exist_ok=True)
 
 # The ROI is read first: the automatic target and search radius are derived
 # from it (the target defaults to the ROI centroid, the radius to the ROI
 # extent plus a motion margin), so no manual coordinates are needed.
+# read_roi_surface accepts both HDF5 layouts (m2m `roi_surface/<idx>` and the
+# pipeline `geo.hdf5`), and the centroid sequence it returns is what the
+# roi_hash is computed over — the same order the session's ROI uses.
 print(f"Reading ROI {args.roi_idx} ...")
-with h5py.File(args.roi_hdf5, "r") as f:
-    roi_group = f[f"roi_surface/{args.roi_idx}"]
-    node_coord_mid = roi_group["node_coord_mid"][:]
-    node_number_list = roi_group["node_number_list"][:]
-    tri_center_coord_mid = roi_group["tri_center_coord_mid"][:]
+roi_points, roi_triangles, roi_centroids = read_roi_surface(
+    args.roi_hdf5, args.roi_idx)
+roi_hash = roi_geometry_hash(roi_centroids)
 
 if args.target is None:
-    target = tri_center_coord_mid.mean(axis=0)
+    target = roi_centroids.mean(axis=0)
     target_source = "ROI centroid"
 else:
     target = np.asarray(args.target, dtype=float)
     target_source = "explicit"
-roi_radius = float(np.max(np.linalg.norm(tri_center_coord_mid - target, axis=1)))
+roi_radius = float(np.max(np.linalg.norm(roi_centroids - target, axis=1)))
 if args.search_radius is None:
     search_radius = roi_radius + args.margin
     radius_source = f"ROI extent + {args.margin:g} mm margin"
@@ -135,7 +146,8 @@ print("-" * 64)
 print("NeuroPilot ROI E-field library")
 print(f"  mesh:          {args.mesh_msh}")
 print(f"  roi:           {args.roi_idx} ({args.roi_hdf5}), "
-      f"{len(tri_center_coord_mid)} triangles")
+      f"{len(roi_centroids)} triangles")
+print(f"  roi hash:      {roi_hash[:12]}…")
 print(f"  coil:          {args.coil}")
 print(f"  target:        {np.round(target, 2)} ({target_source})")
 print(f"  ROI radius:    {roi_radius:.1f} mm")
@@ -192,18 +204,16 @@ print(f"Placement library written to {fn_search}")
 # Build the midlayer ROI (no layer interpolation); the arrays were read
 # above, where they also provided the automatic target and search radius.
 # ============================================================================
-offset = np.min(node_number_list[:, :3])
-p1 = node_coord_mid[node_number_list[:, 0] - offset]
-p2 = node_coord_mid[node_number_list[:, 1] - offset]
-p3 = node_coord_mid[node_number_list[:, 2] - offset]
-triangles_normals = np.cross(p2 - p1, p3 - p1).T
-triangles_normals /= np.linalg.norm(triangles_normals, axis=0)
-triangles_normals = triangles_normals.T
-n_tri = tri_center_coord_mid.shape[0]
+p1 = roi_points[roi_triangles[:, 0]]
+p2 = roi_points[roi_triangles[:, 1]]
+p3 = roi_points[roi_triangles[:, 2]]
+triangles_normals = np.cross(p2 - p1, p3 - p1)
+triangles_normals /= np.linalg.norm(triangles_normals, axis=1)[:, None]
+n_tri = roi_centroids.shape[0]
 print(f"ROI midlayer: {n_tri} triangles")
 
 mesh_simn = mesh_io.read_msh(os.path.abspath(args.mesh_msh))
-roi_simnibs = [FemTargetPointCloud(center=tri_center_coord_mid, mesh=mesh_simn)]
+roi_simnibs = [FemTargetPointCloud(center=roi_centroids, mesh=mesh_simn)]
 roi_simnibs[-1].triangles_normals = triangles_normals
 
 # Prepare the OnlineFEM solver (one factorization, one RHS per placement)
@@ -255,6 +265,8 @@ with h5py.File(args.out, "w") as h5:
     h5.attrs["mesh_msh"] = os.path.abspath(args.mesh_msh)
     h5.attrs["roi_idx"] = args.roi_idx
     h5.attrs["coil"] = os.path.abspath(args.coil)
+    h5.attrs["roi_hash"] = roi_hash
+    h5.attrs["n_elements"] = int(n_tri)
     h5.attrs["target_source"] = target_source
     h5.attrs["roi_radius_mm"] = roi_radius
     h5.attrs["search_radius_mm"] = search_radius

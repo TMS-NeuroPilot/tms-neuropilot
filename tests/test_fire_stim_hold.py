@@ -48,9 +48,11 @@ class FakeManager:
         return self.ready
 
 
-def make_controller(online=True, ready=False):
+def make_controller(online=True, ready=False, mode=None):
     ctrl = SimpleNamespace(
         online_fem_mgr=FakeManager(online, ready),
+        efield_mode=(mode if mode is not None
+                     else ("online" if online else "precomputed")),
         _online_hold_logged=False,
         _amplitude_hold_logged=False,
         control_panel=SimpleNamespace(finishedsteps=FakeLog()),
@@ -61,6 +63,9 @@ def make_controller(online=True, ready=False):
         current_step_start_time=time.time(),
     )
     ctrl._log_step = lambda text: ctrl.control_panel.finishedsteps.appendPlainText(text)
+    # fire_stim_step is exercised on a bare namespace; bind the mode helper.
+    ctrl._active_efield_manager = (
+        lambda: PipelineController._active_efield_manager(ctrl))
     return ctrl
 
 
@@ -93,8 +98,28 @@ def test_switching_back_to_precomputed_releases_the_pulse():
     ctrl = make_controller(online=True, ready=False)
     fire_stim_step(ctrl, target=None)
     ctrl.online_fem_mgr.online_fem = False      # operator picked precomputed
+    ctrl.efield_mode = "precomputed"
     fire_stim_step(ctrl, target=None)
     assert ctrl.stimulator.armed == 1
+
+
+def test_pulse_is_held_while_the_interpolated_library_loads():
+    ctrl = make_controller(online=False, mode="surrogate")
+    ctrl.surrogate_mgr = FakeManager(online=False, ready=False)
+    fire_stim_step(ctrl, target=None)
+    assert ctrl.stimulator.armed == 0
+    lines = ctrl.control_panel.finishedsteps.lines
+    assert any("interpolated E-field library" in line for line in lines)
+
+
+def test_pulse_resumes_when_the_interpolated_library_is_ready():
+    ctrl = make_controller(online=False, mode="surrogate")
+    ctrl.surrogate_mgr = FakeManager(online=False, ready=False)
+    fire_stim_step(ctrl, target=None)
+    ctrl.surrogate_mgr.ready = True
+    fire_stim_step(ctrl, target=None)
+    assert ctrl.stimulator.armed == 1
+    assert ctrl._online_hold_logged is False
 
 
 def test_precomputed_mode_never_waits():

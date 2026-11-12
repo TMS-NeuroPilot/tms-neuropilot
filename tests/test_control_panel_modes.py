@@ -62,9 +62,27 @@ class FakeManager:
         self.init_background_calls.append(callback)
 
 
+class FakeSurrogateManager:
+    def __init__(self):
+        self.ready = False
+        self.initializing = False
+        self.library_fn = None
+        self.roi_fn_hdf5 = None
+        self.ensure_calls = []
+
+    @property
+    def is_ready(self):
+        return self.ready
+
+    def ensure_initialized(self, callback=None):
+        self.ensure_calls.append(callback)
+
+
 class FakeController:
     def __init__(self, mgr=None, e_matrix=None, manual=False):
         self.online_fem_mgr = mgr or FakeManager()
+        self.surrogate_mgr = FakeSurrogateManager()
+        self.efield_mode = None
         self.e_matrix = e_matrix
         self.manual = manual
         self.start_of_experiment = None
@@ -75,13 +93,15 @@ class FakeController:
         return self.start_of_experiment is not None and not self.is_finished
 
 
-def make_panel(controller=None, online=False, offline=False):
+def make_panel(controller=None, online=False, offline=False, surrogate=False):
     panel = SimpleNamespace(
         controller=controller,
         online_efield_btn=FakeButton(online),
         offline_efield_btn=FakeButton(offline),
+        surrogate_efield_btn=FakeButton(surrogate),
         efield_mode_selected=False,
         robot_ready=True, stim_ready=True, emg_ready=True,
+        relay_ready=True,
         start_btn=FakeButton(), skiptarget=FakeButton(), back_btn=FakeButton(),
         move_coil_up=FakeButton(), finish_btn=FakeButton(),
     )
@@ -89,6 +109,7 @@ def make_panel(controller=None, online=False, offline=False):
     # The window forwards the solver callback through a Qt signal so it runs
     # on the GUI thread; the stand-in calls the slot directly.
     panel.online_fem_ready = SimpleNamespace(emit=lambda: update_button_states(panel))
+    panel.surrogate_library_ready = SimpleNamespace(emit=lambda: update_button_states(panel))
     # Bound helpers the real window has; the stand-in keeps them inert.
     panel._update_efield_hint = lambda: None
     panel._mark_project_dirty = lambda *a, **k: None
@@ -112,6 +133,26 @@ def test_switching_to_precomputed_does_not_touch_the_solver():
     on_mode_changed(panel)
     assert ctrl.online_fem_mgr.online_fem is False
     assert ctrl.online_fem_mgr.ensure_calls == []
+
+
+def test_switching_to_interpolated_selects_the_mode_and_loads():
+    ctrl = FakeController()
+    panel = make_panel(ctrl, surrogate=True)
+    on_mode_changed(panel)
+    assert ctrl.efield_mode == "surrogate"
+    assert len(ctrl.surrogate_mgr.ensure_calls) == 1
+    assert ctrl.online_fem_mgr.online_fem is False
+
+
+def test_switching_back_from_interpolated_releases_the_mode():
+    ctrl = FakeController()
+    panel = make_panel(ctrl, surrogate=True)
+    on_mode_changed(panel)
+    panel.surrogate_efield_btn.setChecked(False)
+    panel.offline_efield_btn.setChecked(True)
+    on_mode_changed(panel)
+    assert ctrl.efield_mode == "precomputed"
+    assert ctrl.online_fem_mgr.online_fem is False
 
 
 def test_both_radios_stay_enabled_after_a_selection():
@@ -215,6 +256,22 @@ def test_no_controller_keeps_the_radios_disabled():
     check_paths_ready(panel)
     assert not panel.online_efield_btn.isEnabled()
     assert not panel.offline_efield_btn.isEnabled()
+    assert not panel.surrogate_efield_btn.isEnabled()
+
+
+def test_interpolated_radio_needs_the_library_and_the_roi():
+    ctrl = FakeController()
+    panel = make_panel(ctrl)
+    check_paths_ready(panel)
+    assert not panel.surrogate_efield_btn.isEnabled()
+
+    ctrl.surrogate_mgr.library_fn = __file__
+    check_paths_ready(panel)
+    assert not panel.surrogate_efield_btn.isEnabled()   # still needs the ROI
+
+    ctrl.surrogate_mgr.roi_fn_hdf5 = __file__
+    check_paths_ready(panel)
+    assert panel.surrogate_efield_btn.isEnabled()
 
 
 # ── start-button gating ─────────────────────────────────────────────────

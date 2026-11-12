@@ -29,6 +29,7 @@ multiply by ``didt / 1e6`` -- or by ``amplitude_percent * 1.4`` -- for V/m.
 """
 from dataclasses import dataclass
 from pathlib import Path
+import hashlib
 import warnings
 
 import numpy as np
@@ -36,6 +37,61 @@ import numpy as np
 
 class OutsideDomainError(RuntimeError):
     """Raised when a coil pose lies outside the surrogate's sampled domain."""
+
+
+def read_roi_surface(path, roi_idx=None):
+    """Read an ROI surface from either supported HDF5 layout.
+
+    Returns ``(points, triangles, centroids)`` with 0-based triangles:
+
+    * the m2m layout written by pynibs (``roi_surface/<idx>`` with
+      ``node_coord_mid`` / ``node_number_list`` / ``tri_center_coord_mid``),
+      which ``scripts/02_create_roi_efield_library.py`` reads; and
+    * the pipeline layout (``mesh/elm/triangle_number_list`` +
+      ``mesh/nodes/node_coord``), i.e. the ``geo.hdf5`` a session loads.
+
+    Both describe the same surface. Centroids are always computed from the
+    triangle nodes (the m2m file also stores them, but as float32, which
+    differs from the float64 computation by ~1e-5 mm — enough to break an
+    exact hash). The centroid sequence defines the E-field column order;
+    compare :func:`roi_geometry_hash` values to verify that a library and a
+    session ROI are the same element list.
+    """
+    import h5py
+
+    path = Path(path)
+    with h5py.File(path, "r") as handle:
+        if "roi_surface" in handle:
+            group_name = roi_idx or next(iter(handle["roi_surface"]))
+            group = handle[f"roi_surface/{group_name}"]
+            points = np.asarray(group["node_coord_mid"][:], dtype=np.float64)
+            raw = np.asarray(group["node_number_list"][:, :3], dtype=np.int64)
+        elif "mesh" in handle:
+            points = np.asarray(handle["mesh/nodes/node_coord"][:],
+                                dtype=np.float64)
+            raw = np.asarray(handle["mesh/elm/triangle_number_list"][:, :3],
+                             dtype=np.int64)
+        else:
+            raise KeyError(f"{path} has neither 'roi_surface' nor 'mesh' groups")
+    triangles = raw - raw.min()
+    if triangles.max() >= len(points):
+        raise ValueError("ROI triangles reference nodes outside the point list")
+    centroids = points[triangles].mean(axis=1)
+    return points, triangles, centroids
+
+
+def roi_geometry_hash(centroids):
+    """SHA256 over the rounded centroid sequence of an ROI.
+
+    The centroid order *is* the E-field column order, so equal hashes mean a
+    library and a session ROI carry the same element list. Round-trip stable
+    across the two HDF5 layouts (verified on the ernie data).
+    """
+    data = np.round(np.asarray(centroids, dtype=np.float64), 4)
+    digest = hashlib.sha256()
+    digest.update(f"{data.shape}:".encode())
+    digest.update(np.ascontiguousarray(data, dtype="<f8").tobytes())
+    return digest.hexdigest()
 
 
 @dataclass(frozen=True)
@@ -283,6 +339,11 @@ class EFieldSurrogate:
     @property
     def n_elements(self):
         return int(self._mean.shape[0])
+
+    @property
+    def n_poses(self):
+        """Number of library placements the estimator was trained on."""
+        return int(self._coefficients.shape[0])
 
     def check_pose(self, matsimnibs):
         """Return the domain check for a 4x4 coil pose, without interpolating."""

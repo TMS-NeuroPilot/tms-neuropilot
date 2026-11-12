@@ -190,6 +190,7 @@ import gdist
 #except ImportError:
 #    print(f"Cannot import OnlineFEM from SimNIBS")
 from .OnlineFEMManager import OnlineFEMManager
+from .SurrogateManager import SurrogateManager
 
 load_dotenv()
 enable_health_check_and_control_panel = os.getenv('ENABLE_HEALTH_CHECK_AND_CONTROL_PANEL', 'false').lower() == 'true'
@@ -335,7 +336,7 @@ class PipelineController:
         # the E-field mode can be switched between pulses without misaligning
         # the regression matrix. None marks a pulse whose field is missing.
         self.pulse_e_fields = []
-        self.pulse_modes = []  # "online" / "precomputed", for diagnostics and exports
+        self.pulse_modes = []  # "online" / "precomputed" / "surrogate", for diagnostics and exports
         self.mep_history = {}  # Stores MEPs: {'ADC 0': [0.1, 0.5...], ...}  # {'ADC 0': [], 'ADC 1': []}
         self.emg_preac_amp_history = {}  # Stores MEPs: {'ADC 0': [0.1, 0.5...], ...}  # {'ADC 0': [], 'ADC 1': []}
         self.emg_preac_var_history = {}  # Stores MEPs: {'ADC 0': [0.1, 0.5...], ...}  # {'ADC 0': [], 'ADC 1': []}
@@ -367,6 +368,11 @@ class PipelineController:
 
         # -------------- Online stuff - hardcoded for now - TODO
         self.online_fem_mgr = OnlineFEMManager()
+        # E-field mode: "precomputed" / "online" / "surrogate" (the GUI sets
+        # it; a string, so future sources such as a predicted field can be
+        # added without another flag). None until the operator picks one.
+        self.efield_mode = None
+        self.surrogate_mgr = SurrogateManager()
         #self.online_fem = None  # default: none has to be set from the GUI before start
         #self.onlinefem_ready = False
         #self.online_e_matrix = None
@@ -823,9 +829,10 @@ class PipelineController:
         self.start_of_experiment = datetime.now()
         self.datetime_str = f"{self.start_of_experiment.strftime('%Y%m%d_%H%M%S')}"
 
-        while (self.online_fem_mgr.is_online and not self.online_fem_mgr.is_ready
-               and self.online_fem_mgr.initializing):
+        mgr = self._active_efield_manager()
+        while (mgr is not None and not mgr.is_ready and mgr.initializing):
             await asyncio.sleep(0.1)
+            mgr = self._active_efield_manager()
 
         # for target_id, target in enumerate(target_queue):
         # for pulse_idx, target_id in enumerate(target_order):
@@ -1293,6 +1300,19 @@ class PipelineController:
         """
         return (datetime.now() - self.start_of_experiment).total_seconds()
 
+    def _active_efield_manager(self):
+        """The manager the current mode waits on / computes with.
+
+        ``None`` for the precomputed mode (its field is a lookup, not a
+        solver). Uses ``getattr`` so partially initialised test doubles work.
+        """
+        mode = getattr(self, "efield_mode", None)
+        if mode == "online":
+            return self.online_fem_mgr
+        if mode == "surrogate":
+            return self.surrogate_mgr
+        return None
+
     def fire_stim_step(self, target):
         if self.stimulator_amplitude is None:
             # The GUI normally sets this, but a session restored without a
@@ -1304,14 +1324,18 @@ class PipelineController:
             return
         self._amplitude_hold_logged = False
 
-        # A switch to the online solver may land mid-run.  Hold the pulse until
-        # the solver is ready instead of firing a pulse whose E-field cannot be
-        # computed; the coil simply stays on target meanwhile.  Switching back
-        # to precomputed releases the hold immediately.
-        if self.online_fem_mgr.is_online and not self.online_fem_mgr.is_ready:
+        # A switch to a solver-based mode may land mid-run.  Hold the pulse
+        # until the active source (online solver or interpolated library) is
+        # ready instead of firing a pulse whose E-field cannot be computed;
+        # the coil simply stays on target meanwhile.  Switching back to
+        # precomputed releases the hold immediately.
+        mgr = self._active_efield_manager()
+        if mgr is not None and not mgr.is_ready:
             if not self._online_hold_logged:
                 self._online_hold_logged = True
-                message = ("Holding stimulation: online E-field solver not ready yet "
+                kind = ("online E-field solver" if self.efield_mode == "online"
+                        else "interpolated E-field library")
+                message = (f"Holding stimulation: {kind} not ready yet "
                            "(switch to precomputed to continue without it).")
                 print(message)
                 if self.control_panel is not None:
@@ -1319,7 +1343,7 @@ class PipelineController:
             return
         if self._online_hold_logged:
             self._online_hold_logged = False
-            print("Online solver ready, stimulation resumes.")
+            print("E-field ready, stimulation resumes.")
 
         if not self.stim_armed:
             self.stimulator.arm()
@@ -1419,7 +1443,7 @@ class PipelineController:
             self.realized_targets['rotc_target'].append(self.target_at_stim[1][2])
 
             aim = self._aim_error(marker, self.target_at_stim)
-            if (aim is not None and not self.online_fem_mgr.is_online
+            if (aim is not None and self.efield_mode == "precomputed"
                     and aim > self.max_aim_error_mm):
                 # Precomputed mode uses the *planned* placement's field, so a
                 # miss means the regression is fed a field the cortex did not
@@ -1430,23 +1454,32 @@ class PipelineController:
             self.realized_targets['pressure'].append(self.pressure_at_stim)
             self.realized_targets['intensity'].append(self.stimulator_amplitude_at_stim)
             self.realized_targets['e_field_mode'].append(
-                "online" if self.online_fem_mgr.is_online else "precomputed")
-
-            if self.online_fem_mgr.is_online:
-                self.online_fem_mgr.compute_e_field(marker, self.stimulator_amplitude_at_stim)
+                self.efield_mode if self.efield_mode in ("online", "surrogate")
+                else "precomputed")
 
             # E-field this pulse actually saw, from whichever source is active
-            # right now (the mode may change between pulses).
-            if self.online_fem_mgr.is_online:
-                e_row = self.online_fem_mgr.e_matrix[-1] if self.online_fem_mgr.e_matrix is not None else None
+            # right now (the mode may change between pulses). The solvers
+            # return the row they appended — never read e_matrix[-1] here, a
+            # skipped pulse would otherwise repeat the previous row.
+            if self.efield_mode == "online":
+                e_row = self.online_fem_mgr.compute_e_field(
+                    marker, self.stimulator_amplitude_at_stim)
                 pulse_mode = "online"
+            elif self.efield_mode == "surrogate":
+                e_row = self.surrogate_mgr.compute_e_field(
+                    marker, self.stimulator_amplitude_at_stim)
+                pulse_mode = "surrogate"
             else:
                 e_row = precomputed_e_field_row(self.e_matrix,
                                                 self.current_target_index,
                                                 self.stimulator_amplitude_at_stim)
                 pulse_mode = "precomputed"
 
-            e_field_for_mep = e_row if self.online_fem_mgr.is_online else None
+            # The virtual EMG is driven by the realised field; a pulse outside
+            # the interpolated domain has an all-NaN row and gets none.
+            e_field_for_mep = e_row if (pulse_mode in ("online", "surrogate")
+                                        and e_row is not None
+                                        and np.all(np.isfinite(e_row))) else None
             emg_data = await self._read_emg(e_field_for_mep)
 
             if self.current_step != Step.COLLECT_DATA:
@@ -1811,7 +1844,8 @@ class PipelineController:
         print("--- Running Analysis ---")
         generation = (self._analysis_generation if generation is None
                       else generation)
-        if not self.online_fem_mgr.is_online and self.e_matrix is None and not self.pulse_e_fields:
+        if (self.efield_mode in (None, "precomputed") and self.e_matrix is None
+                and not self.pulse_e_fields):
             print("Skipping: No E-Matrix loaded yet.")
             return
 
@@ -1841,8 +1875,9 @@ class PipelineController:
             # an undisclosed subset of the session.
             self._log_step(f"[WARN] {dropped} pulse(s) without an E-field were "
                            f"left out of the map ({len(valid_indices)} used).")
-        if self.online_fem_mgr.is_online:
+        if self.efield_mode in ("online", "surrogate"):
             print(f"online pulses: {self.pulse_modes.count('online')} / "
+                  f"interpolated pulses: {self.pulse_modes.count('surrogate')} / "
                   f"precomputed pulses: {self.pulse_modes.count('precomputed')}")
         # 3. Filter the MEP history to match, per channel: a non-finite MEP
         # (empty/partial EMG sweep) would otherwise turn the whole channel's
