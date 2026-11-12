@@ -7,7 +7,11 @@ where to look instead of "the app does not start".
 
 ```bash
 conda activate pipeline
-python - <<'PY'
+```
+
+Paste this into a Python session, or save it as `check_imports.py` and run it:
+
+```python
 import neuropilot, neuropilot.config
 print("suite   ", neuropilot.__name__, neuropilot.config.REPO_ROOT)
 import PyQt5.QtWidgets, qasync, pyvista      # GUI + 3-D
@@ -15,7 +19,6 @@ import h5py, numpy, scipy, yaml, socketio    # data + relay
 import pynibs                                # MEP analysis
 import mujoco, ikpy                          # virtual robot
 print("imports ok")
-PY
 ```
 
 A missing module names the layer to fix. `magicpy` is optional (real

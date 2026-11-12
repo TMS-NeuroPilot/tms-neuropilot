@@ -111,19 +111,29 @@ missing; the folder must exist and be writable. The columns are documented in
 
 ## Sanity checks before the session
 
-```bash
-python - <<'PY'
-import h5py, numpy as np
-roi = "roi/geo.hdf5"; ef = "efield/e.hdf5"; pl = "placements.hdf5"
+Adjust the three paths, then paste this into a Python session (or save it as
+`check_subject_data.py` and run it):
+
+```python
+import h5py
+
+roi = "roi/geo.hdf5"
+efield = "efield/e.hdf5"
+placements = "placements.hdf5"
+
 with h5py.File(roi) as f:
-    n_el = f["mesh/elm/triangle_number_list"].shape[0]
-with h5py.File(ef) as f:
-    E = f["E_mag"]
-    print("E_mag", E.shape, "elements", E.shape[1])
-with h5py.File(pl) as f:
-    print("placements", f["matsimnibs"].shape[2])
-print("ROI triangles", n_el)
-PY
+    n_elements = f["mesh/elm/triangle_number_list"].shape[0]
+
+with h5py.File(efield) as f:
+    e_mag = f["E_mag"]
+    print("E_mag", e_mag.shape, "elements", e_mag.shape[1])
+
+with h5py.File(placements) as f:
+    mats = f["matsimnibs"].shape
+    n_positions = mats[2] if mats[:2] == (4, 4) else mats[0]
+    print("placements", n_positions)
+
+print("ROI triangles", n_elements)
 ```
 
 - [ ] `E_mag.shape[1] == ROI triangles`
