@@ -91,9 +91,23 @@ not used by the regression.
 
 In simulation the "EMG" is generated from the E-field and the channel sources:
 the virtual amplifier adds noise and a recruitment curve on top of the field at
-the channel's source element. Constants live in
-`controller/systems/virtual_emg.py` (a tuning constant, not an operator
-setting).
+the channel's source element. The settings are `.env` keys, read when the
+controller starts:
+
+| Key | Default | Effect |
+|---|---|---|
+| `VIRTUAL_MEP_NOISE_MV` | `0.001` | white-noise sigma added to the trace, mV |
+| `VIRTUAL_MEP_TRIAL_VARIABILITY` | `true` | trial-to-trial variability of the MEP model |
+| `VIRTUAL_MEP_MT` | `60` | motor threshold used to normalise the field, V/m |
+| `VIRTUAL_MEP_UPPER_LIMIT` | `100` | saturation field of the recruitment curve, V/m |
+| `VIRTUAL_MEP_EFIELD_SCALE` | `1.4` | scale applied to the precomputed E-field row |
+
+`VIRTUAL_MEP_NOISE_MV` is the standard deviation of the white noise, in mV.
+`VIRTUAL_MEP_TRIAL_VARIABILITY` turns the model's trial-to-trial variability on
+or off; turning it off gives an ideal, repeatable curve. `VIRTUAL_MEP_MT` and
+`VIRTUAL_MEP_UPPER_LIMIT` set the field values where the recruitment curve
+starts and saturates. All five keys are in the
+[`.env` reference](config/env.md).
 
 Consequences for a simulated session:
 

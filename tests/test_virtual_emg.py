@@ -97,3 +97,31 @@ def test_details_describe_the_configured_channels(emg):
     details = published[-1]
     assert "FDI, APB, ADM" in details["Channels"]
     assert details["Backend"].startswith("Simulated")
+
+
+def test_mep_tuning_comes_from_env(monkeypatch):
+    monkeypatch.setenv("EMG_CHANNELS", "FDI")
+    monkeypatch.setenv("VIRTUAL_MEP_NOISE_MV", "0.02")
+    monkeypatch.setenv("VIRTUAL_MEP_TRIAL_VARIABILITY", "off")
+    monkeypatch.setenv("VIRTUAL_MEP_MT", "45")
+    monkeypatch.setenv("VIRTUAL_MEP_UPPER_LIMIT", "90")
+    monkeypatch.setenv("VIRTUAL_MEP_EFIELD_SCALE", "1.2")
+    emg = VirtualEMG()
+    assert emg.noise_mv == pytest.approx(0.02)
+    assert emg.trial_variability is False
+    assert emg.mt == pytest.approx(45)
+    assert emg.upper_limit == pytest.approx(90)
+    assert emg.efield_scale == pytest.approx(1.2)
+
+
+def test_disabling_noise_and_trial_variability_is_deterministic(monkeypatch):
+    monkeypatch.setenv("EMG_CHANNELS", "FDI")
+    monkeypatch.setenv("VIRTUAL_MEP_NOISE_MV", "0")
+    monkeypatch.setenv("VIRTUAL_MEP_TRIAL_VARIABILITY", "false")
+    emg = VirtualEMG()
+    emg.set_e_matrix(np.ones((1, 6000)))
+    emg.set_channel_elements([1])
+    field = np.full(6000, 90.0)
+    first = emg.get_latest_emg_df(e_field_for_mep=field)["ADC 0"].to_numpy()
+    second = emg.get_latest_emg_df(e_field_for_mep=field)["ADC 0"].to_numpy()
+    np.testing.assert_allclose(first, second)

@@ -7,6 +7,13 @@ from ..systems.system import System, SystemStatus
 from pynibs.expio.Mep import get_virtual_mep_tvs, scale_e_for_dvs
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
 class VirtualEMG(System):
     NAME = "Virtual EMG"
     DESCRIPTION = "Simulated (E-field driven)"
@@ -18,6 +25,15 @@ class VirtualEMG(System):
         self.e_matrix = None
         self.current_coil_placement_idx = 0
         self.stimulator_amplitude = None
+
+        # Simulated-MEP tuning. These are read once at construction; change
+        # them in .env and restart the controller. The defaults are the values
+        # the simulator has always used.
+        self.noise_mv = float(os.getenv("VIRTUAL_MEP_NOISE_MV", "0.001"))
+        self.trial_variability = _env_bool("VIRTUAL_MEP_TRIAL_VARIABILITY", True)
+        self.mt = float(os.getenv("VIRTUAL_MEP_MT", "60"))
+        self.upper_limit = float(os.getenv("VIRTUAL_MEP_UPPER_LIMIT", "100"))
+        self.efield_scale = float(os.getenv("VIRTUAL_MEP_EFIELD_SCALE", "1.4"))
 
         # The channel count comes from .env (EMG_CHANNELS, comma separated --
         # the entries are the *display* names, e.g. FDI,APB,ADM). The data
@@ -108,18 +124,23 @@ class VirtualEMG(System):
                 print(f"Shape of e_field_for_mep: {e_field_for_mep}")
                 e_field = e_field_for_mep[elem_idx]
             else:
-                e_field = self.e_matrix[self.current_coil_placement_idx, elem_idx]*1.4*self.stimulator_amplitude #1.4 to convert from (0-100)stimulator to (0-100) A/us
+                e_field = (
+                    self.e_matrix[self.current_coil_placement_idx, elem_idx]
+                    * self.efield_scale
+                    * self.stimulator_amplitude
+                )
             print("this is the e_field",e_field)
 
             # Normalize to [0,1] (0 = motor threshold)
-            e_normalized = scale_e_for_dvs(e_field, mt=60, upper_limit=100)
+            e_normalized = scale_e_for_dvs(
+                e_field, mt=self.mt, upper_limit=self.upper_limit)
             e_normalized = np.clip(e_normalized, 0,1)
             print("this is the e_normalized", e_normalized)
 
             # Generate MEP using TVS model
             mep_mV = get_virtual_mep_tvs(
                 np.array([e_normalized]),
-                trial_variability=True
+                trial_variability=self.trial_variability,
             )
 
             print("this is the mep_mV", mep_mV)
@@ -143,7 +164,7 @@ class VirtualEMG(System):
             freq = 150
             env = np.exp(-((t - center) ** 2) / (2 * width ** 2))
             wave = np.sin(2 * np.pi * freq * t) * env
-            return (wave * (vpp / 2.0)) + np.random.normal(0, 0.001, len(t))
+            return (wave * (vpp / 2.0)) + np.random.normal(0, self.noise_mv, len(t))
 
         data = {"Time": t}
         for name, vpp in vpps.items():

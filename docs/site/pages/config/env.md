@@ -34,6 +34,16 @@ cp .env.example .env
 | `NEUROPILOT_UI_SCALE` | empty (from the screen) | force the GUI scale | yes |
 | `UI_THEME` | `Workstation Light` | colour theme; also editable in Config › Lab | no |
 
+### Virtual EMG (simulation)
+
+| Key | Default | Meaning | Restart |
+|---|---|---|---|
+| `VIRTUAL_MEP_NOISE_MV` | `0.001` | white-noise sigma added to the trace, mV | yes |
+| `VIRTUAL_MEP_TRIAL_VARIABILITY` | `true` | trial-to-trial variability of the MEP model | yes |
+| `VIRTUAL_MEP_MT` | `60` | motor threshold used to normalise the field, V/m | yes |
+| `VIRTUAL_MEP_UPPER_LIMIT` | `100` | saturation field of the recruitment curve, V/m | yes |
+| `VIRTUAL_MEP_EFIELD_SCALE` | `1.4` | scale applied to the precomputed E-field row | yes |
+
 ### Robot
 
 | Key | Default | Meaning | Restart |
