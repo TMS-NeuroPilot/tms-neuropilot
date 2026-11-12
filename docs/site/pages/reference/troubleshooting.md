@@ -41,6 +41,7 @@ page that explains it.
 | Symptom | Cause | Fix |
 |---|---|---|
 | **Start** grey | no E-field mode, missing library, or a system not ready | read the hint under the E-field radios |
+| **Start** grey while a file row says `loading...` | a large project file is still being read | wait for the row to show its summary; the window remains usable |
 | `Online solver unavailable` | SimNIBS/petsc4py not importable | check `import simnibs`, then the MKL note in install |
 | pulses are held in online mode | solver warming up | wait for `Online solver ready.` |
 | `Held at …: … not ready` | a system dropped mid-run | fix it, **Reconnect**; the loop continues |

@@ -52,7 +52,8 @@ applied. Changing a path starts a new read and discards the old result.
 
 - A filled row is a file the controller has accepted, or one that is still
   being read in the background.
-- A red hint under a row means the file is missing or failed validation.
+- A message in the row tooltip or the log means the file is missing or failed
+  validation.
 - The *Results file* row shows where the CSV will be written; its folder must
   exist.
 - The **Config › Subject** tab mirrors this page read-only, with the same
