@@ -7,7 +7,7 @@ project is loaded.
 
 ## Before Start
 
-1. **Connections** — all three cards green. In simulation they turn green a
+1. **Connections**: all four cards green. In simulation they turn green a
    second after the controller connects; if one stays grey, press **Reconnect**.
 2. **Control** — choose **Precomputed E-Field**. The hint under the radios says
    *"Precomputed library — ready immediately."* and **Start** becomes enabled.
@@ -118,18 +118,19 @@ Analyses started, moving to next target
 With fewer than three pulses the analysis step says so instead of fitting:
 
 ```text
-Skipping analysis (N samples 1 < 3.
+Skipping analysis (N samples 1 < 3).
 ```
 
 A pulse whose realised pose never arrives from the neuronavigation is dropped
 rather than recorded with the wrong geometry:
 
 ```text
-No realized target after 5 s -- pulse skipped.
+No realized target after 20 s -- pulse skipped.
 ```
 
-While the controller is still waiting for the robot, there is no timeout: use
-**Next** to skip the target or **Finish** to end the session.
+The timeout is `COLLECT_TIMEOUT_S` (default 20 s). While the controller is
+waiting for the robot, there is no timeout: use **Next** to skip the target or
+**Finish** to end the session.
 
 ## Next
 

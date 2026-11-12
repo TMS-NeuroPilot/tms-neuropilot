@@ -104,7 +104,7 @@ add it to the production components if it must work with hardware, and update
   collect timeout; a lost `Health status` turns the card grey/red after a few
   seconds.
 
-## Why the strings are ugly
+## Why the topic strings are fixed
 
 They are the production strings from `tms-robot-control` and InVesalius. Keeping
 them byte-identical means the simulator can stand in for the real components,

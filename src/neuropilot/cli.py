@@ -57,6 +57,8 @@ def main(argv=None):
     mode.add_argument("--real", action="store_true", help="real-hardware mode")
     mode.add_argument("--manual", action="store_true",
                       help="manual mode: real hardware, no robot")
+    mode.add_argument("--training", action="store_true",
+                      help="training mode: real TMS, virtual EMG, no robot")
 
     real = sub.add_parser("real", help="real-hardware mode")
     real.add_argument("--launch-relay", action="store_true",

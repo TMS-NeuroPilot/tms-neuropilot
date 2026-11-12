@@ -51,8 +51,8 @@ when you already have one.
     decimates it for display, but the file must stay complete for the FEM.
 
 An HDF5 mesh with `mesh/nodes/node_coord` and
-`mesh/elm/triangle_number_list` is also accepted; the demo dataset uses that
-form.
+`mesh/elm/triangle_number_list` is also accepted. The bundled example subject
+uses a SimNIBS `.msh` head mesh.
 
 ## 2. ROI surface
 
@@ -96,10 +96,10 @@ sources:
   - xyz: [-16.2, 14.6, 61.9]  # ADM: position in mm; nearest triangle is used
 ```
 
-`element_id` is the row index of the E-field column, so it must be
-`< n_elements`. `xyz` is projected onto the nearest ROI vertex and the
-projection distance is printed, which makes it a safe alternative when you know
-the anatomy but not the index.
+`element_id` is a 0-based index into the ROI triangles, which is also the
+column index in the E-field row. It must be `< n_elements`. `xyz` is projected
+onto the nearest ROI triangle centre; the projection distance is printed, which
+makes it a safe alternative when you know the anatomy but not the index.
 
 See [EMG channels and MEP windows](prepare/emg.md) for the full format.
 

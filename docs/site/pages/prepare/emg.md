@@ -39,12 +39,12 @@ sources:
 
 | Field | Meaning |
 |---|---|
-| `element_id` | 0-based index into the ROI triangles (the E-field columns) |
-| `xyz` | position in mm in SimNIBS space; the nearest ROI vertex is used |
+| `element_id` | 0-based index into the ROI triangles, also the E-field column index |
+| `xyz` | position in mm in SimNIBS space; the nearest ROI triangle centre is used |
 
-If the file has fewer entries than channels, the remaining channels have no
-source; the map for them stays empty. If it has more, the extra entries are
-ignored. Both cases are reported in the log.
+The number of entries must equal the number of channels. A mismatch is rejected
+and the previous channel assignment stays in use. Both cases are reported in the
+log.
 
 !!! note "What the source is used for"
     The source ties a muscle to a cortical site, which is what makes the map

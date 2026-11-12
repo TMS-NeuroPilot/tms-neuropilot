@@ -248,29 +248,36 @@ def run_modes():
 
 
 def efield_modes():
-    b = [multiline(480, 30, ["Two sources, one per-pulse row"], 17, "700")]
-    # lane 1
-    b.append(box(30, 70, 170, 60, ["E-field library", "E_mag row"], ACCENT_SOFT, ACCENT, 12))
-    b.append(arrow(200, 100, 268, 100))
-    b.append(box(270, 70, 190, 60, ["row of planned", "placement"], FILL, LINE, 12))
-    b.append(label(150, 148, "precomputed mode"))
-    # lane 2
-    b.append(box(30, 200, 170, 60, ["realised pose", "from tracking"], FILL, LINE, 12))
-    b.append(arrow(200, 230, 268, 230))
-    b.append(box(270, 200, 190, 60, ["OnlineFEMManager", "solve (≈ 1 min warm-up)"],
+    b = [multiline(480, 30, ["Three sources, one per-pulse row"], 17, "700")]
+    # lane 1: precomputed
+    b.append(box(30, 60, 170, 60, ["E-field library", "E_mag row"], ACCENT_SOFT, ACCENT, 12))
+    b.append(arrow(200, 90, 268, 90))
+    b.append(box(270, 60, 190, 60, ["row of planned", "placement"], FILL, LINE, 12))
+    b.append(label(150, 138, "precomputed mode"))
+    # lane 2: online
+    b.append(box(30, 170, 170, 60, ["realised pose", "from tracking"], FILL, LINE, 12))
+    b.append(arrow(200, 200, 268, 200))
+    b.append(box(270, 170, 190, 60, ["OnlineFEMManager", "solve (≈ 1 min warm-up)"],
                  BLUE_SOFT, BLUE, 11))
-    b.append(label(150, 278, "online mode"))
+    b.append(label(150, 248, "online mode"))
+    # lane 3: interpolated
+    b.append(box(30, 280, 170, 60, ["dense library", "E_mag + roi_hash"], OK_SOFT, OK, 12))
+    b.append(arrow(200, 310, 268, 310))
+    b.append(box(270, 280, 190, 60, ["EFieldSurrogate", "pose interpolation"],
+                 ACCENT_SOFT, ACCENT, 11))
+    b.append(label(150, 358, "interpolated mode"))
     # merge
-    b.append(arrow(460, 100, 560, 160))
-    b.append(arrow(460, 230, 560, 170))
-    b.append(box(562, 130, 160, 70, ["pulse row", "(n_elements,)"], OK_SOFT, OK, 12))
-    b.append(arrow(722, 165, 790, 165))
-    b.append(box(792, 130, 140, 70, ["regression", "MEP ~ f(E)"], ACCENT_SOFT, ACCENT, 12))
-    b.append(note(480, 340, "Each pulse stores the field it was stimulated with, so "
+    b.append(arrow(460, 90, 560, 190))
+    b.append(arrow(460, 200, 560, 200))
+    b.append(arrow(460, 310, 560, 210))
+    b.append(box(562, 165, 160, 70, ["pulse row", "(n_elements,)"], OK_SOFT, OK, 12))
+    b.append(arrow(722, 200, 790, 200))
+    b.append(box(792, 165, 140, 70, ["regression", "MEP ~ f(E)"], ACCENT_SOFT, ACCENT, 12))
+    b.append(note(480, 410, "Each pulse stores the field it was stimulated with, so "
                             "the mode can change mid-run."))
-    b.append(note(480, 360, "Rows without a field are dropped and the MEP history "
+    b.append(note(480, 430, "Rows without a field are dropped and the MEP history "
                             "is re-indexed with them."))
-    return svg(960, 390, "".join(b), "E-field modes")
+    return svg(960, 470, "".join(b), "E-field modes")
 
 
 def state_machine():

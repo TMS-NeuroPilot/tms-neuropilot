@@ -1738,7 +1738,7 @@ class PipelineController:
             # self.running_analyses_tasks.append(task)  # optional book-keeping
 
         else:
-            print(f"Skipping analysis (N samples {n_samples} < 3.")
+            print(f"Skipping analysis (N samples {n_samples} < 3).")
 
         # 2. Done. Move to Complete.
         print("Analyses started, moving to next target")

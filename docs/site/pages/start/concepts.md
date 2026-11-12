@@ -13,9 +13,9 @@ five quantities, one loop.
 | **MEP** | The peak-to-peak amplitude of the EMG response that pulse evoked, per channel, in mV. | the MEP results page, the results CSV |
 | **R²** | How well the MEP amplitudes are explained by the E-field, per cortical element and per channel. | the Cortical results page, the exported `_roi_r2.csv` |
 
-The point of the software is the last row: a map of R² over the cortex says
-*where* the stimulation effect is best explained by the field the coil
-delivered — a data-driven localisation of the stimulated site.
+The main output is the last row: a map of R² over the cortex says *where* the
+stimulation effect is best explained by the field the coil delivered. It is a
+data-driven localisation of the stimulated site, not a significance map.
 
 ## The loop
 

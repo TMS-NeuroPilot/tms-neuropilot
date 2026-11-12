@@ -14,7 +14,7 @@ the source for the ParaView field comparisons.
 
 | Dataset | Shape | Meaning |
 |---|---|---|
-| `E_mag` | `(n_placements, n_elements)` float | field magnitude per placement and ROI triangle, V/m |
+| `E_mag` | `(n_placements, n_elements)` float | field magnitude per placement and ROI triangle, V/m at 100 % stimulator output |
 | `E` | `(n_placements, n_elements, 3)` float | field vector, optionally |
 | `E_norm` | `(n_placements, n_elements)` float | normal component, optionally |
 | `E_tan` | `(n_placements, n_elements)` float | tangential component, optionally |
@@ -26,8 +26,9 @@ datasets are ignored by the regression but useful for inspection.
 !!! note "Large files"
     A 500-placement library with all four datasets is roughly 350 MB as
     float64; a dense surrogate library (some thousands of placements) is
-    several GB. Keep one library per subject and ROI. `data/` is git-ignored,
-    so generated libraries never reach the repository.
+    several GB. Keep one library per subject and ROI. The bundled example
+    subject is stored through Git LFS; generated libraries for study subjects
+    should not be committed.
 
 ## Building it
 

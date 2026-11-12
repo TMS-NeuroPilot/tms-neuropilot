@@ -10,7 +10,7 @@ For each pulse the controller stores:
 
 ```python
 pulse_e_fields[i] = array(n_elements)   # or None if no field was available
-pulse_modes[i]    = "precomputed" | "online"
+pulse_modes[i]    = "precomputed" | "online" | "surrogate"
 mep_history[ch][i] = amplitude_mV       # or NaN
 ```
 
@@ -110,6 +110,22 @@ Practical reading:
 | high R² on few pulses | unstable — collect more before interpreting |
 | map changes completely after 3 pulses | too few samples; wait for 10+ |
 
+## Reporting a map
+
+The map is only interpretable together with its acquisition and analysis
+choices. Record at least:
+
+- the number of pulses used and the number excluded, with the reason;
+- the fit function and the subsampling factor (`map_elms`);
+- the E-field mode per pulse, especially for a mixed session;
+- the E-field library provenance (`target_source`, `search_radius_mm`,
+  `roi_hash`) or the online solver settings;
+- the coil model, neuronavigation registration quality and aim-error summary;
+- the ROI definition and the element count.
+
+Do not report R² as a significance value or as a causal source estimate. A
+useful figure states the pulse count and the scalar range next to the map.
+
 ## How the analysis runs
 
 - It runs in a `ProcessPoolExecutor`, one task per channel, so the GUI and the
@@ -124,7 +140,8 @@ Practical reading:
 
 | Message | Meaning |
 |---|---|
-| `Skipping analysis (N samples 3 < 3.` | not enough pulses yet |
+| `Skipping analysis (N samples 3 < 3).` | not enough pulses yet |
+| `Skipping analysis (Only N valid pulses).` | too few usable pulses |
 | `Skipping analysis: N pulse(s) with an E-field (need 3).` | too many dropped rows |
 | `channel X: only N finite MEP(s)` | the EMG had no usable response |
 | `channel X: N MEP(s) were not measurable` | partial sweeps |

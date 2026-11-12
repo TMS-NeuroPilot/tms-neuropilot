@@ -25,13 +25,20 @@ documents the viewport, the four cards next to it and the export.
 | **F** | reset the camera to the home view |
 
 The surface selector above the viewport switches between the head mesh and the
-ROI. The scalar selector chooses the colour array: tissue labels on the head,
-`Score <channel>` on the ROI. **Show edges** overlays the triangle wireframe;
-it is on by default.
+ROI. The scalar selector offers **No color** and the computed `Score <channel>`
+arrays on the ROI. Tissue labels are not offered as a result; the head is shown
+in plain colour. **Show edges** overlays the triangle wireframe; it is on by
+default.
 
 !!! note "No map is drawn before three pulses"
     The readout says *"No R² map yet — needs at least three pulses."* until the
     regression has enough samples. That is a threshold, not a bug.
+
+!!! note "Localisation, not significance"
+    R² measures how much of the MEP variance the field at an element explains.
+    It is not corrected for multiple comparisons and is not a significance
+    test. Report the pulse count, exclusions, fit function and E-field mode
+    with the map (see [Analysis and fits](results/analysis.md)).
 
 ## Results card
 
@@ -103,7 +110,7 @@ include it.
 | `<base>_README.txt` | the column dictionary, units and frames |
 
 The README is generated next to the data on purpose: an exported table without
-its units is a future mistake. The full column list is in
+its units is ambiguous. The full column list is in
 [Export and data formats](results/export.md).
 
 **Screenshot…** saves the current view (including the corner overlays) as a PNG.
@@ -115,8 +122,8 @@ deleted — the message appears in the Selection card.
 - **R²** is per element and per channel, computed from the pulses collected so
   far. A dark blue element is not "unstimulated"; it is an element whose field
   did not co-vary with the MEP.
-- The scale is fixed to the data range of the selected channel, so comparing two
-  screenshots means comparing the scalar bars, not the colours.
+- The scale is fixed to **0 to 1** for R², so the colour of a value means the
+  same thing in every session and every screenshot.
 - Tissue colours on the head mesh are anatomy, not results.
 
 ## Keyboard summary

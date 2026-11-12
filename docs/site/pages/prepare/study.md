@@ -69,9 +69,9 @@ Applied: mapping/stimulation, precomputed E-field · needs restart: MEP windows 
   `start_mep`, `end_mep`, `measurement_start_time`),
 - **EMG channel names**.
 
-The controller parses these at import time, so the running process keeps the old
-values. The status line always lists them under *needs restart* — believe it
-rather than the widgets.
+The controller parses these at import time, so the running process keeps the
+old values. The status line always lists them under *needs restart*. Check that
+line rather than the widgets.
 
 ### What is refused
 

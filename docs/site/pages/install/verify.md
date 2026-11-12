@@ -32,7 +32,7 @@ neuropilot sim --help
 neuropilot controller --help
 ```
 
-The first line should read `usage: neuropilot [-h] {sim,relay,controller,real,manual}`.
+The first line should read `usage: neuropilot [-h] {sim,relay,controller,real,manual,training}`.
 If the command is missing, the editable install did not run in this environment:
 
 ```bash

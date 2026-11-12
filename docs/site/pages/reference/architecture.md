@@ -49,9 +49,11 @@ tasks share one thread. Consequences:
 
 - a blocking call freezes the GUI **and** the health checks;
 - `magicpy` (stimulator) and SMB reads run in executors;
+- project files with large meshes, E-field libraries or placements are read by
+  background loader threads, and the GUI applies their results through a timer;
 - the FEM and the regression run in worker processes/executors;
-- results are delivered to the GUI through Qt signals, not by touching widgets
-  from a worker.
+- results are delivered to the GUI through Qt signals or the loader queue, not
+  by touching widgets from a worker.
 
 [The mapping loop](run/mapping-loop.md) covers the state machine.
 
@@ -76,7 +78,7 @@ poses, status and small payloads.
 ```text
 neuropilot/
 ├── src/neuropilot/
-│   ├── cli.py                 # subcommands: sim, relay, controller, real, manual
+│   ├── cli.py                 # subcommands: sim, relay, controller, real, manual, training
 │   ├── supervisor.py          # component order, readiness, log multiplexing
 │   ├── config.py              # .env + lab profile merge, cross-component values
 │   ├── lab_profile.py         # ~/.neuropilot/lab.yaml reader/writer
@@ -116,7 +118,7 @@ neuropilot/
 | results and plots | `~/.neuropilot` | `ROOT_FOLDER` |
 | project | anywhere | Project page |
 | lab profile | `~/.neuropilot/lab.yaml` | `NEUROPILOT_LAB_FILE` |
-| session cache | `~/.neuropilot/last_session.yaml` | — |
+| session cache | `~/.neuropilot/last_session.yaml` | `NEUROPILOT_SESSION_FILE` |
 
 ## Why the relay exists
 

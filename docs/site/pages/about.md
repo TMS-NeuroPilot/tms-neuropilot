@@ -26,6 +26,33 @@ operator and the stimulator's own safety limits.
 - Add new hardware setups, optimization schemes or fit functions thanks to the
   modular design
 
+## Scientific scope and limits
+
+NeuroPilot implements per-pulse E-field mapping: each pulse is paired with the
+field at its realised coil pose, and a regression is fitted separately for each
+ROI element and EMG channel. This follows the element-wise mapping approach
+described by
+[Numssen et al. (2021)](https://doi.org/10.1016/j.neuroimage.2021.118654) and
+the TMS mapping protocol of
+[Weise et al. (2023)](https://doi.org/10.1038/s41596-022-00776-6). Coil
+placement optimisation can use FPS ([Schultheiss et al., 2025](https://doi.org/10.1162/IMAG.a.1056))
+or D-optimal design ([Numssen, Qiu et al., 2026](https://doi.org/10.64898/2026.10.24.761539)).
+The interpolated E-field mode uses the surrogate method of
+[Grosshagauer et al. (2025)](https://doi.org/10.1016/j.brs.2025.102990).
+
+The R² map is an explanatory localisation fitted to the collected pulses. It is
+not a significance map, a causal source reconstruction, or a clinical
+diagnosis. Report it with the pulse count, excluded pulses, fit function,
+subsampling factor, E-field mode, coil model and registration quality. The
+[cortical results page](gui/cortical.md) and
+[analysis page](results/analysis.md) state the guards that limit
+interpretation.
+
+The virtual twin and the virtual EMG are models. They are useful for testing the
+controller, the relay protocol, the mapping loop and operator training, but they
+do not replace measurements of a participant's EMG or field. Real stimulation
+still requires ethics approval and the stimulator's own safety limits.
+
 ## Contributors
 
 | Contributor | Role                                                                                                                                         |
@@ -63,7 +90,7 @@ not a separate pipeline: they speak the same relay topics as InVesalius and
 other end is real or virtual. `pynibs` and SimNIBS are libraries the controller
 imports, not processes.
 
-The suite has about 740 pytest tests, including GUI tests, six-page visual
+The suite has more than 800 pytest tests, including GUI tests, six-page visual
 baselines and a relay-topic contract test. The documentation has its own
 contract tests: every environment key, lab-profile key, relay topic and fit
 function has to be documented, or CI fails. See

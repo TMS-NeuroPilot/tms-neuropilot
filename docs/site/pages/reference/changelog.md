@@ -66,7 +66,7 @@ suite is used.
 - **Config › Study** — a study profile with *Apply to session*, and a clear
   split between what applies immediately and what needs a restart.
 - **Project file carries the E-field mode** (`efield_mode`).
-- **Test suite** — about 700 tests, GUI tests behind a `gui` marker, six-page
+- **Test suite**: more than 800 tests, GUI tests behind a `gui` marker, six-page
   snapshot baselines, property/fuzz tests for the `.env` editor.
 
 ## 0.1.0 — 2026-11-10

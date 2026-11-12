@@ -37,9 +37,11 @@ These are the packages the GUI, the 3-D view, the relay, the analysis and the
 virtual robot need. If the `pipeline` environment already exists, activate it
 and skip the create/install lines.
 
-SimNIBS is not needed for this walkthrough, which uses the precomputed E-field
-mode. It is needed for the online solver and for displaying a SimNIBS `.msh`
-head mesh; [Install the suite](install/install.md) has the recipe.
+SimNIBS is not needed to run the simulator or the precomputed mapping mode. It
+is needed for the online solver and for displaying a SimNIBS `.msh` head mesh;
+the bundled example uses a `.msh` head mesh, so install SimNIBS if you want the
+head anatomy as well as the ROI surface. [Install the suite](install/install.md)
+has the recipe.
 
 InVesalius is not part of this environment: it is a separate application for
 real and manual sessions, covered in [Install the suite](install/install.md)
@@ -62,7 +64,7 @@ neuropilot --help
 ```
 
 ```text
-usage: neuropilot [-h] {sim,relay,controller,real,manual} ...
+usage: neuropilot [-h] {sim,relay,controller,real,manual,training} ...
 ```
 
 ## 4. Create the bootstrap configuration

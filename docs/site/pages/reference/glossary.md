@@ -93,7 +93,7 @@ coil pose during the session.
 **Project file** — the per-subject YAML with file paths and session defaults.
 
 **Session cache** — `~/.neuropilot/last_session.yaml`; remembers the last
-project and settings.
+project and settings. `NEUROPILOT_SESSION_FILE` moves it for tests and tools.
 
 **Fit registry** — `controller/fit_functions.py`, the mapping from display names
 to pynibs functions.
@@ -105,7 +105,7 @@ to pynibs functions.
 | `minium_isi` | the project-file key for the minimum ISI (sic) |
 | `mesh_RIO_path` | the project-file key for the ROI surface (sic) |
 | `map_elms` | subsampling factor |
-| `e_field_mode` | per-pulse E-field source (`precomputed` / `online`) |
+| `e_field_mode` | per-pulse E-field source (`precomputed` / `online` / `surrogate`) |
 | `pulse_e_fields` | list of per-pulse E-field rows |
 | `pulse_modes` | list of per-pulse modes |
 | `collect_timeout_s` | `COLLECT_TIMEOUT_S`, wait for the realised pose |

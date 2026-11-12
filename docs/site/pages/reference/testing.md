@@ -1,7 +1,8 @@
 # Testing and CI
 
-The suite has about 700 tests. Most of them need no display and no hardware;
-the GUI tests are marked and run on a workstation or in a manual CI job.
+The suite has more than 800 tests. Most of them need no display and no
+hardware; the GUI tests are marked and run on a workstation or in a manual CI
+job.
 
 ## Running
 

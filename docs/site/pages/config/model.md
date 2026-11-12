@@ -109,7 +109,7 @@ file, so hand-written comments and extra keys survive an edit.
 | lab profile | `~/.neuropilot/lab.yaml` | `NEUROPILOT_LAB_FILE` |
 | study profile | `<ROOT_FOLDER>/study.yaml` by default | any path on save/load |
 | project | wherever you save it | — |
-| session cache | `~/.neuropilot/last_session.yaml` | — |
+| session cache | `~/.neuropilot/last_session.yaml` | `NEUROPILOT_SESSION_FILE` |
 
 ## Next
 

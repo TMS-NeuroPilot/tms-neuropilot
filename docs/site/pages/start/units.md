@@ -43,7 +43,7 @@ SimNIBS head space  ── registration ──►  neuronavigation space
 | **Robot base frame** | the robot's own base, metres | motion planning in `tms-robot-control` |
 | **Coil local frame** | origin at the stimulation point, handle along **−y** | coil model, tool chain, IK target |
 
-!!! danger "Safety — the tool point is the stimulation point"
+!!! danger "Safety: the tool point is the stimulation point"
     The robot's tool centre point (its end-effector site — `coil_tcp_site` in the
     shipped model) is the coil's stimulation point, not the flange and not the
     handle. If you change the coil
@@ -79,7 +79,7 @@ E-field rows and the target-order file together (see
       SimNIBS run of the **same** subject.
 - [ ] The number of placements equals the first dimension of `E_mag`.
 - [ ] The number of E-field columns equals the number of ROI triangles.
-- [ ] The target-order file only contains indices in `1 … n_placements`.
+- [ ] The target-order file only contains indices in `0 … n_placements - 1`.
 - [ ] In simulation, the coil visibly touches the head at the target.
 - [ ] In a real session, the neuronavigation's registration was accepted and
       the coil is inside the tracking volume at the first target.

@@ -136,7 +136,7 @@ python main_loop.py        # after the relay; then Connect to robot
 
 In InVesalius, press *Connect to robot* only after `main_loop.py` is running.
 
-!!! danger "Safety — order matters"
+!!! danger "Safety: order matters"
     Start the relay, then InVesalius, then the robot driver, then the
     controller — and press *Connect to robot* in InVesalius only after the
     driver is running. Connecting to a robot whose driver is not running leaves
@@ -159,7 +159,7 @@ Set the devices in **Config › Lab** (or `STIMULATOR_PORT` /
 depending on the card. Use the stable `/dev/serial/by-id/...` path if the
 adapter enumerates differently across reboots.
 
-!!! danger "Safety — test pulses"
+!!! danger "Safety: test pulses"
     Test the stimulator with the coil away from people and according to your
     local rules. Check the displayed amplitude on the device itself before the
     first pulse of a session; the GUI value is not a substitute.

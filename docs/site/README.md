@@ -83,7 +83,15 @@ page's root, **including inside raw HTML figures**.
 - Settings are tables with **key / meaning / scope / default / restart**.
 - Commands are copyable `bash` blocks; show the expected output when a command
   can fail silently.
-- Safety uses one reserved style: `!!! danger "Safety — …"`.
+- Separate measured facts from modeled or simulated values. State units,
+  coordinate frames and sample counts. Cite the method paper for a scientific
+  claim.
+- State limitations next to the feature they affect. R² is not a significance
+  test, the virtual EMG is a model, and the simulation is not a substitute for
+  a measurement.
+- Safety uses one reserved style: `!!! danger "Safety: …"`.
+- Prefer commas, colons, semicolons or parentheses over em dashes in new
+  prose. Keep quoted UI strings and log messages verbatim.
 - End a page with a `## Next` section pointing at one or two pages.
 - Do not duplicate `docs/CONFIG.md` or `docs/ROBOTS.md`; link them.
 

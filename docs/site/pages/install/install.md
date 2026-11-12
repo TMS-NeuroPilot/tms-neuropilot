@@ -13,7 +13,9 @@ cd neuropilot
 ```
 
 The repository is self-contained: `src/` holds the four packages, `scripts/`
-the data-preparation tools, `docs/` the documentation sources.
+the data-preparation tools, `docs/` the documentation sources. The example
+subject under `data/ernie` is stored through Git LFS; run `git lfs pull` after
+cloning if you want to use it.
 
 ## 2. Create the environment
 

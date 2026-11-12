@@ -181,8 +181,8 @@ placements, target order, E-field library, results file, EMG sources — with:
 | **Load project…** | same as Project › Load |
 | **Edit in Project tab** | jumps to the Project page |
 
-The point of this tab is that all four scopes are visible in one window: Lab
-and Simulation first, Study next, Subject here.
+The tab shows all four scopes in one window: Lab and Simulation first, Study
+next, Subject here.
 
 ## What applies when
 

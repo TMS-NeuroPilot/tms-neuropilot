@@ -37,7 +37,7 @@ pages = [
 [[sections]]
 title = "Run a session"
 pages = [
-  ["Run modes", "run/modes.md", "Simulation, real hardware and manual mode — what differs and when to use which."],
+  ["Run modes", "run/modes.md", "Simulation, real hardware and manual mode: what differs and when to use which."],
   ["A simulated session", "run/simulated.md", "Follow one mapping from Connect to Complete in the virtual twin."],
   ["Real session checklist", "run/real.md", "The ordered checklist for a session with a participant."],
   ["Manual mode", "run/manual.md", "Hardware without the robot: the experimenter positions the coil."],

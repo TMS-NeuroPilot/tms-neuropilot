@@ -3867,7 +3867,7 @@ class MainWindow(QtWidgets.QMainWindow):
         file_path = self._file_dialog(
                 "Select Mesh File",
                 os.getcwd(),
-                "HDF5 Files (*.hdf5 *.h5);;VTK Files (*.vtk)",
+                "SimNIBS Mesh (*.msh);;HDF5 Files (*.hdf5 *.h5);;VTK Files (*.vtk)",
                 save=False
         )
         if file_path:

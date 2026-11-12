@@ -7,8 +7,10 @@ them.
 
 ## The results CSV
 
-Path: the project's `results_fn`. One row per pulse, written when the session
-finishes (`Finish`) — the file is overwritten, not appended, per session.
+Path: the project's `results_fn`. The final file is written when the session
+finishes (`Finish`). During the session, the analysis also writes timestamped
+snapshots next to it (`<name><stamp>.csv`), so an interrupted session still
+leaves the pulses collected so far.
 
 | Column | Unit | Meaning |
 |---|---|---|
@@ -21,7 +23,7 @@ finishes (`Finish`) — the file is overwritten, not appended, per session.
 | `rota_target`, `rotb_target`, `rotc_target` | deg | planned orientation |
 | `pressure` | — | force-sensor reading at stimulation (empty in manual mode) |
 | `intensity` | % MSO | stimulator output at the pulse |
-| `e_field_mode` | — | `precomputed` or `online` |
+| `e_field_mode` | — | `precomputed`, `online` or `surrogate` |
 | `mep_<channel>_mV` | mV | peak-to-peak MEP per channel |
 | `mep_<channel>_preact_p2p` | mV | pre-activation peak-to-peak |
 | `mep_<channel>_preact_var` | mV² | pre-activation variance |

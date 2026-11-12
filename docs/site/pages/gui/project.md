@@ -87,7 +87,7 @@ The full key list, with types and defaults, is in
 | *Load* shows "expected a mapping of settings" | the file is a list, a string or empty |
 | the mesh row stays red | the path points at a folder or a non-HDF5/non-msh file |
 | Start disabled after loading | no E-field library loaded in precomputed mode |
-| paths work on your PC but not the lab PC | relative paths and a different working directory |
+| paths work on your PC but not the lab PC | an absolute path outside the project folder points at a location that exists only on that PC; paths below the project file are relative and portable |
 | the map is empty although pulses ran | ROI surface missing or element count mismatch |
 
 ## Next

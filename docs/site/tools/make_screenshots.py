@@ -18,7 +18,7 @@ by ``MeshWidget.screenshot()`` and composited into the window image at the
 viewport's geometry. That is the only non-Qt step.
 
 Needs a display (``DISPLAY`` or ``WAYLAND_DISPLAY``) and the example dataset in
-``data/ernie`` (untracked, see data/create_ernie.py).
+``data/ernie`` (stored through Git LFS).
 """
 
 from __future__ import annotations
@@ -400,7 +400,8 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     if not (DATA / "mesh" / "m2m_ernie" / "ernie.msh").is_file():
-        raise SystemExit("example dataset missing: data/ernie (see data/create_ernie.py)")
+        raise SystemExit("example dataset missing: data/ernie (run git lfs pull, "
+                         "or see data/create_ernie.py)")
     if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
         raise SystemExit("no display: set DISPLAY (or WAYLAND_DISPLAY) first")
 

@@ -7,8 +7,8 @@ third source — a surrogate interpolator
 described at the end of this page.
 
 <figure>
-  <img src="assets/diagrams/efield-modes.svg" alt="The precomputed and online E-field paths, both ending in one per-pulse row appended to the regression.">
-  <figcaption>Two sources, one row format. The mode decides where the row comes
+  <img src="assets/diagrams/efield-modes.svg" alt="The precomputed, online and interpolated E-field paths, all ending in one per-pulse row appended to the regression.">
+  <figcaption>Three sources, one row format. The mode decides where the row comes
   from; the analysis does not care.</figcaption>
 </figure>
 
@@ -27,7 +27,6 @@ e_matrix[target_index]  →  one row of E_mag  →  regression
 - The coil must actually be at the planned placement for the row to be true;
   the controller flags a large aim error in the log and in the export.
 - The CSV records `e_field_mode = precomputed` for those pulses.
-
 ## Online
 
 The field is solved for the realised coil pose while the session runs, using
@@ -76,10 +75,11 @@ is ready. At pulse time `SurrogateManager` scales the library field
 contract as the other sources, so modes can be mixed within a session.
 
 The outside policy is **skip and exclude**: a pose outside the trained grid is
-recorded with an all-NaN field row — the pulse indices stay aligned — and the
+recorded with an all-NaN field row, so the pulse indices stay aligned, and the
 regression drops it exactly like a pulse without a field. The log says so once
 per excursion. There is no interpolation outside the domain, and no fallback
-to the online solver.
+to the online solver. The CSV records `e_field_mode = surrogate` for these
+pulses.
 
 NeuroPilot implements the estimator independently of that repository
 (`EFieldSurrogate`). `scripts/03_validate_efield_surrogate.py` measures the
@@ -137,6 +137,7 @@ What happens on a switch:
 | Library exists and the coil reliably reaches the planned pose | precomputed |
 | No library yet, or the head moved since it was computed | online |
 | Many pulses, session time is tight | precomputed |
+| Dense library exists and the pose stays inside the trained grid | interpolated |
 | The interesting question is the field of the *realised* pose | online |
 | Debugging the stimulator/EMG only | either; precomputed is faster to start |
 
@@ -146,7 +147,7 @@ Both modes produce the same structure:
 
 ```python
 pulse_e_fields = [row_0, row_1, row_2, ...]   # one vector per pulse
-pulse_modes    = ["precomputed", "online", ...]
+pulse_modes    = ["precomputed", "online", "surrogate", ...]
 ```
 
 `assemble_analysis_matrix()` drops the `None` rows and returns the indices it

@@ -33,7 +33,7 @@ the order list) and **Current** (the pulse counter and the active target).
 | **Enable** | — | arms the stimulator for a single manual pulse |
 | **Fire** | — | fires one pulse; only after **Enable** |
 
-!!! danger "Safety — amplitude changes reach the stimulator"
+!!! danger "Safety: amplitude changes reach the stimulator"
     Moving the amplitude slider sends `set_amplitude_stim` immediately. Confirm
     the value on the stimulator itself before the first pulse, and never change
     it while a pulse is in flight.
