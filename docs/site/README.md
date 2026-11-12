@@ -123,6 +123,11 @@ Do not hand-edit a generated SVG or PNG; change the generator and rerun it.
 | `check:docs` | `build.py --check` on MRs and branches |
 | `pages` | builds `public/` on the default branch; GitLab Pages serves it |
 
+The site is published at <https://neuropilot-94ad2d.pages.gwdg.de/> (GitLab's
+unique Pages domain for this project). Both docs jobs pin `python:3.11-alpine`
+because the shared runners' default image has no Python or bash; they do not
+need the lab environment.
+
 The `tests/test_docs_site.py` suite additionally verifies that every
 environment key, lab-profile key, relay topic and fit function is documented.
 A new key without a docs row fails CI.

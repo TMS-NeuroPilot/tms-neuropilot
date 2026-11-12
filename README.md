@@ -31,7 +31,7 @@ The full documentation — installation, subject-data preparation, every GUI pag
 and configuration key, the workflows, the architecture, the relay protocol and
 troubleshooting — is published with GitLab Pages:
 
-<https://tms-localization.pages.gwdg.de/papers/neuropilot/>
+<https://neuropilot-94ad2d.pages.gwdg.de/>
 
 Its sources live in `docs/site/`: plain Markdown plus a dependency-free
 generator (no MkDocs, no network). Build and preview locally:

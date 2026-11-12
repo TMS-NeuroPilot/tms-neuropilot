@@ -37,7 +37,7 @@ SITE_NAME = "NeuroPilot"
 SITE_TAGLINE = "Guided online TMS mapping with online field optimisation"
 REPO_URL = "https://gitlab.gwdg.de/tms-localization/papers/neuropilot"
 EDIT_URL = REPO_URL + "/-/edit/main/docs/site/pages/"
-SITE_URL = "https://tms-localization.pages.gwdg.de/papers/neuropilot/"
+SITE_URL = "https://neuropilot-94ad2d.pages.gwdg.de/"
 
 _LINK = re.compile(r"\[([^\]]+)\]\(([^)\s]+)(?:\s+\"([^\"]*)\")?\)")
 _IMAGE = re.compile(r"!\[([^\]]*)\]\(([^)\s]+)(?:\s+\"([^\"]*)\")?\)")
