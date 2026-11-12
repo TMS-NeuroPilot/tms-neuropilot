@@ -365,6 +365,7 @@ def _template(body: str, page: dict, nav_html: str, toc_html: str,
 <meta property="og:type" content="article">
 <link rel="stylesheet" href="{ctx['root']}assets/css/site.css?v={ctx['version']}">
 <link rel="icon" href="{ctx['root']}assets/img/favicon.svg" type="image/svg+xml">
+<noscript><style>.nav-pages[hidden]{{display:block}}.nav-toggle{{pointer-events:none}}.chevron{{display:none}}</style></noscript>
 </head>
 <body>
 <a class="skip" href="#content">Skip to content</a>
@@ -414,11 +415,26 @@ def _template(body: str, page: dict, nav_html: str, toc_html: str,
 
 
 def build_nav(sections: list[dict], current: str, root: str) -> str:
+    """Collapsible sections: the current one is open, the rest start closed.
+
+    Without JavaScript the page still works: a <noscript> rule in the head
+    makes every group visible again.
+    """
     out = []
-    for section in sections:
+    for index, section in enumerate(sections):
         active = any(page["path"] == current for page in section["pages"])
-        out.append(f'<div class="nav-section{" active" if active else ""}">')
-        out.append(f'<p class="nav-title">{html.escape(section["title"])}</p><ul>')
+        ident = f"nav-{slug(section['title'])}-{index}"
+        expanded = "true" if active else "false"
+        hidden = "" if active else " hidden"
+        out.append(
+            f'<div class="nav-section{" active" if active else ""}" '
+            f'data-section="{html.escape(section["title"], quote=True)}">')
+        out.append(
+            f'<button class="nav-toggle" type="button" aria-expanded="{expanded}" '
+            f'aria-controls="{ident}">'
+            f'<span class="nav-title">{html.escape(section["title"])}</span>'
+            '<span class="chevron" aria-hidden="true"></span></button>')
+        out.append(f'<ul class="nav-pages" id="{ident}"{hidden}>')
         for page in section["pages"]:
             cls = ' class="current"' if page["path"] == current else ""
             href = f"{root}{page['path'][:-3]}.html"

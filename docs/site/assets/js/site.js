@@ -249,3 +249,47 @@ document.querySelectorAll(".tabs").forEach((group) => {
     button.addEventListener("click", () => select(index));
   });
 });
+
+
+/* ── collapsible navigation ────────────────────────────────────────── */
+(() => {
+  const STORE_KEY = "np-nav-open";
+  const sections = [...document.querySelectorAll(".nav-section")];
+  if (!sections.length) return;
+
+  const readOpen = () => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(STORE_KEY) || "[]"));
+    } catch (_) {
+      return new Set();
+    }
+  };
+  const open = readOpen();
+
+  const setExpanded = (section, expanded) => {
+    const button = section.querySelector(".nav-toggle");
+    const pages = section.querySelector(".nav-pages");
+    if (!button || !pages) return;
+    button.setAttribute("aria-expanded", expanded ? "true" : "false");
+    pages.hidden = !expanded;
+  };
+
+  sections.forEach((section) => {
+    const name = section.dataset.section || "";
+    const button = section.querySelector(".nav-toggle");
+    if (!button) return;
+    // The server opens the section that contains this page; restore any
+    // other section the reader opened earlier.
+    if (open.has(name)) setExpanded(section, true);
+    button.addEventListener("click", () => {
+      const expanded = button.getAttribute("aria-expanded") !== "true";
+      setExpanded(section, expanded);
+      if (expanded) open.add(name); else open.delete(name);
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify([...open]));
+      } catch (_) {
+        /* private mode: the state simply does not persist */
+      }
+    });
+  });
+})();
