@@ -255,7 +255,7 @@ def efield_modes():
 
 
 def state_machine():
-    b = [multiline(480, 28, ["The controller state machine"], 17, "700")]
+    b = [multiline(520, 28, ["The controller state machine"], 17, "700")]
     nodes = {
         "INIT": (60, 70), "SEND_MARKER": (250, 70), "START_TRACKING": (440, 70),
         "WAIT": (630, 70), "FIRE": (820, 70),
@@ -277,12 +277,13 @@ def state_machine():
     b.append(arrow(438, 248, 330, 130, dashed=True))
     b.append(label(360, 190, "next target"))
     b.append(label(905, 175, "fire", 11))
-    # escape
-    b.append(arrow(710, 70, 520, 216, dashed=True, color=DANGER))
-    b.append(text(640, 175, "SKIP / Next", 11, "600", DANGER))
-    b.append(note(480, 330, "Finish, Skip and Next work even when a system is in "
+    # Escape hatch: leave WAIT_FOR_TARGET from its *bottom* edge and complete
+    # the target, instead of cutting across the box from the top.
+    b.append(arrow(710, 126, 520, 218, dashed=True, color=DANGER))
+    b.append(text(660, 150, "SKIP / Next", 11, "600", DANGER))
+    b.append(note(520, 330, "Finish, Skip and Next work even when a system is in "
                             "error; the health gate only blocks the work steps."))
-    return svg(960, 360, "".join(b), "Controller state machine")
+    return svg(1040, 360, "".join(b), "Controller state machine")
 
 
 def config_precedence():

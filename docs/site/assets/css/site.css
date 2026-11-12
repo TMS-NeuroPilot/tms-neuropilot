@@ -249,7 +249,9 @@ th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--lin
 thead th { background: var(--hover); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 tbody tr:last-child td { border-bottom: 0; }
 tbody tr:hover { background: color-mix(in srgb, var(--hover) 55%, transparent); }
-td code { white-space: nowrap; }
+td code { white-space: normal; overflow-wrap: anywhere; }
+/* Keys and step names belong together; prose columns may wrap. */
+td:first-child > code { white-space: nowrap; }
 
 /* ── admonitions ─────────────────────────────────────────────────────── */
 .admonition {
