@@ -80,9 +80,9 @@ leave it untouched. The full key list is in the
 !!! note "Where does session data go?"
     `ROOT_FOLDER` defaults to `~/.neuropilot`. Results, plots and the session
     cache are written there. The path is built from the platform's home
-    directory, so it also resolves on Windows (`C:\Users\<name>\.neuropilot`)
-    instead of the old hard-coded `/data/...` cluster path, which does not exist
-    on Windows. For a throw-away test you can point it elsewhere:
+    directory, so on Windows it resolves to `C:\Users\<name>\.neuropilot`
+    without a manual path edit. For a throw-away test you can point it
+    elsewhere:
 
     ```bash
     ROOT_FOLDER=/tmp/neuropilot_test neuropilot sim
