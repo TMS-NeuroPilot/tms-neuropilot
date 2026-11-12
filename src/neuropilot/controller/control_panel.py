@@ -63,6 +63,32 @@ class _TabCornerFrame(QtWidgets.QFrame):
         return QtCore.QSize(hint.width(), max(hint.height(), height))
 
 
+class _TopLineOverlay(QtWidgets.QWidget):
+    """One-device-pixel white line over the LED corner.
+
+    The tab bar paints a one-pixel top separator itself, but its width stops
+    where the QTabWidget corner starts.  QTabWidget also keeps resetting the
+    corner's y to 1 logical pixel, so a border or paint inside the corner
+    lands on a different row (and is twice as thick at 200 % scaling).  This
+    overlay starts at y=0 and uses a cosmetic pen, matching the tab bar's
+    line exactly at every device-pixel ratio.
+    """
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.setAttribute(Qt.WA_NoSystemBackground, True)
+
+    def paintEvent(self, event):
+        painter = QtGui.QPainter(self)
+        pen = QtGui.QPen(QtGui.QColor("#FFFFFF"))
+        pen.setWidthF(1.0)               # one logical pixel, like the tab bar
+        painter.setPen(pen)
+        painter.drawLine(QtCore.QPointF(0, 1.0),
+                         QtCore.QPointF(self.width(), 1.0))
+        painter.end()
+
+
 _ICON_CACHE = {}
 
 
@@ -604,13 +630,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         corner = _TabCornerFrame(self.tabWidget)
         self._tab_corner = corner
+        self._top_line = _TopLineOverlay(self.tabWidget)
         corner.setObjectName("tab_corner")
         # Same white as the tab strip — a transparent corner showed the
         # window grey behind the LEDs.
         corner.setStyleSheet(
-            "QFrame#tab_corner { background: #FFFFFF;"
-            " border-top: 1px solid #FFFFFF; border-left: none;"
-            " border-right: none; border-bottom: none; }")
+            "QFrame#tab_corner { background: #FFFFFF; border: none; }")
         corner_layout = QtWidgets.QHBoxLayout(corner)
         corner_layout.setContentsMargins(0, 0, 12, 0)
         corner_layout.setSpacing(14)
@@ -861,8 +886,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if corner is not None:
             corner.setStyleSheet(
                 f"QFrame#tab_corner {{ background: {theme['card']};"
-                " border-top: 1px solid #FFFFFF;"
-                " border-left: none; border-right: none; border-bottom: none; }")
+                " border: none; }")
 
         # Instrument beds (log + robot view).
         log = getattr(self, "finishedsteps", None)
@@ -1224,6 +1248,12 @@ class MainWindow(QtWidgets.QMainWindow):
         corner.setGeometry(self.tabWidget.width() - hint.width(), 0,
                            hint.width(), max(hint.height(), bar.height()))
         corner.raise_()
+        line = getattr(self, "_top_line", None)
+        if line is not None:
+            line.setGeometry(bar.width(), 0,
+                             max(1, self.tabWidget.width() - bar.width()),
+                             max(1, bar.height()))
+            line.raise_()
 
     def _resize_results_panel(self, scale):
         """The results panel's width comes from the style sheet's design
