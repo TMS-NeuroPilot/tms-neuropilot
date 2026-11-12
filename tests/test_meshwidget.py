@@ -115,6 +115,20 @@ def test_channel_display_names_are_remembered(view):
     assert view.channel_display_names == {"ADC 0": "FDI", "ADC 1": "APB"}
 
 
+def test_edges_are_shown_by_default(view):
+    assert view.edge_checkbox.text() == "Show edges"
+    assert view.edge_checkbox.isChecked()
+
+
+def test_legend_values_follow_the_metric(view):
+    from neuropilot.controller.meshwidget import MeshWidget
+
+    assert MeshWidget._format_legend_value(0.00653, "MEP FDI (mV)") == "0.00653"
+    assert MeshWidget._format_legend_value(0.0117, "MEP FDI (mV)") == "0.0117"
+    assert MeshWidget._format_legend_value(0.0, "FDI mapping result (R2)") == "0.00"
+    assert MeshWidget._format_legend_value(1.0, "FDI mapping result (R2)") == "1.00"
+
+
 def test_pulse_count_reaches_the_corner_label(view, qapp):
     view.set_pulse_count(7)
     qapp.processEvents()

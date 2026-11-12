@@ -20,6 +20,8 @@ def test_relay_system_binds_to_the_card(window):
     relay.set_system_status(SystemStatus.OK)
     assert window.relayStatusLabel.text() == "OK"
     assert window.relayStatusLabel.styleSheet()
+    assert window.relayStatusLabel.property("role") == "value"
+    assert window.relayLastUpdateLabel.property("role") == "mono"
     assert window.relay_ready is True
     assert "Relay" in window.groupBox_relay.title()
 

@@ -105,6 +105,60 @@ def test_results_panel_cards_scale_with_the_window(window, qapp):
     assert narrow >= 320
 
 
+def test_control_action_buttons_are_compact(window, qapp):
+    window.show()
+    qapp.processEvents()
+    window.tabWidget.setCurrentIndex(2)       # Control
+    window.resize(1244, 960)
+    qapp.processEvents()
+    assert window.enableBtn.height() <= 30
+    assert window.fireBtn.height() <= 30
+
+
+def test_robot_view_ends_with_the_robot_card(window, qapp):
+    window.show()
+    qapp.processEvents()
+    window.tabWidget.setCurrentIndex(2)       # Control
+    window.resize(1244, 960)
+    qapp.processEvents()
+    view_bottom = window.robot_view_label.mapTo(
+        window, window.robot_view_label.rect().bottomLeft()).y()
+    card_bottom = window.groupBox_6.mapTo(
+        window, window.groupBox_6.rect().bottomLeft()).y()
+    assert view_bottom == card_bottom
+
+
+def test_target_counters_sit_inside_the_robot_view(window):
+    overlay = window._target_overlay
+    assert overlay.parentWidget() is window.robot_view_label
+    assert window.totaltargets3.parentWidget() is overlay
+    assert window.currenttarget.parentWidget() is overlay
+    assert window.totaltargets3.property("role") == "value"
+    assert window.currenttarget.property("role") == "value"
+    assert window.tab3.layout().count() == 3
+
+
+def test_log_card_has_no_inner_caption_and_a_usable_console(window):
+    assert window.groupBox_stats.title() == "Log"
+    assert getattr(window, "label_5", None) is None
+    assert window.finishedsteps.minimumHeight() >= 100
+    assert (window.robot_view_label.sizePolicy().verticalPolicy()
+            == QtWidgets.QSizePolicy.Ignored)
+
+
+def test_width_only_resize_keeps_connections_card_widths(window, qapp):
+    window.show()
+    qapp.processEvents()
+    window.tabWidget.setCurrentIndex(1)       # Connections
+    window.resize(1244, 960)
+    qapp.processEvents()
+    window.resize(1900, 960)
+    qapp.processEvents()
+    assert window.groupBox_relay.width() > 800
+    assert window.groupBox_relay.width() == window.groupBox_2.width()
+    assert window.groupBox_relay_info.width() == window.groupBox_stim_info.width()
+
+
 def test_choice_popups_can_be_sized_twice(window):
     window._size_choice_popups()
     window._size_choice_popups()          # idempotent, must not raise

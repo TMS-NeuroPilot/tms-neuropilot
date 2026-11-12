@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QFrame, QCheckBox, QRadioButton, \
     QButtonGroup, QSizePolicy
 from PyQt5 import QtGui
-from PyQt5.QtCore import QPoint, Qt, pyqtSignal
+from PyQt5.QtCore import QPoint, QRectF, Qt, pyqtSignal
 import pyvista as pv
 from pyvistaqt import QtInteractor
 import h5py
@@ -11,6 +11,94 @@ import numpy as np
 # subject's upper left, slightly posterior — nose pointing left, vertex up.
 # Same home view for head and ROI meshes.
 HOME_VIEW_DIRECTION = np.array([-0.75, -0.30, 0.58])
+
+
+class _ScalarLegend(QWidget):
+    """Compact legend: large title, thin bar, values at the bar ends."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WA_NoSystemBackground, True)
+        self.setStyleSheet("background: transparent;")
+        self._title = ""
+        self._minimum = ""
+        self._maximum = ""
+        self._colours = []
+        self._ink = QtGui.QColor("#1B1F24")
+        self.setFixedHeight(52)
+        self.hide()
+
+    def set_legend(self, title, minimum, maximum, colours, ink=None):
+        self._title = str(title or "")
+        self._minimum = str(minimum)
+        self._maximum = str(maximum)
+        self._colours = list(colours or [])
+        if ink is not None:
+            self._ink = QtGui.QColor(ink)
+        self.show()
+        self.raise_()
+        self.update()
+
+    def clear_legend(self):
+        self._title = ""
+        self._minimum = ""
+        self._maximum = ""
+        self._colours = []
+        self.hide()
+
+    def set_ink(self, ink):
+        self._ink = QtGui.QColor(ink)
+        self.update()
+
+    def paintEvent(self, event):
+        if not self._colours or not self._title:
+            return
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+
+        base_px = self.font().pixelSize()
+        if base_px <= 0:
+            base_px = 16
+        title_font = QtGui.QFont(self.font())
+        title_font.setPixelSize(max(13, round(base_px * 1.2)))
+        label_font = QtGui.QFont(self.font())
+        label_font.setPixelSize(max(9, round(base_px * 0.8)))
+        title_metrics = QtGui.QFontMetrics(title_font)
+        label_metrics = QtGui.QFontMetrics(label_font)
+
+        title_h = title_metrics.height()
+        bar_h = max(6, round(base_px * 0.667))
+        label_w = max(label_metrics.horizontalAdvance(self._minimum),
+                      label_metrics.horizontalAdvance(self._maximum)) + 8
+        bar_x = label_w
+        bar_w = max(20, self.width() - 2 * label_w)
+        bar_y = title_h + 4
+
+        painter.setFont(title_font)
+        painter.setPen(self._ink)
+        painter.drawText(QRectF(0, 0, self.width(), title_h),
+                         Qt.AlignHCenter | Qt.AlignVCenter, self._title)
+
+        gradient = QtGui.QLinearGradient(bar_x, 0, bar_x + bar_w, 0)
+        for index, colour in enumerate(self._colours):
+            position = index / max(1, len(self._colours) - 1)
+            gradient.setColorAt(position, colour)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QtGui.QBrush(gradient))
+        painter.drawRect(QRectF(bar_x, bar_y, bar_w, bar_h))
+
+        painter.setFont(label_font)
+        painter.setPen(self._ink)
+        label_y = bar_y + (bar_h - label_metrics.height()) / 2
+        painter.drawText(QRectF(0, label_y, label_w - 8,
+                                      label_metrics.height()),
+                         Qt.AlignRight | Qt.AlignVCenter, self._minimum)
+        painter.drawText(QRectF(bar_x + bar_w + 8, label_y,
+                                      label_w - 8, label_metrics.height()),
+                         Qt.AlignLeft | Qt.AlignVCenter, self._maximum)
+        painter.end()
 
 
 class MeshWidget(QWidget):
@@ -115,8 +203,8 @@ class MeshWidget(QWidget):
         self.controls_layout.addWidget(self.scalar_selector)
 
         # Checkbox to toggle edges
-        self.edge_checkbox = QCheckBox("Show Mesh Lines")
-        self.edge_checkbox.setChecked(False)  # Set to False by default
+        self.edge_checkbox = QCheckBox("Show edges")
+        self.edge_checkbox.setChecked(True)  # Mesh edges are visible by default
         # Pixel-based font: the app default font scales with the X screen DPI
         # and renders ~2x on high-DPI screens, larger than the rest of the panel.
         self.edge_checkbox.setStyleSheet("margin-left: 15px; color: #1B1F24; font-size: 13px;")
@@ -147,6 +235,12 @@ class MeshWidget(QWidget):
         # --- 3. The 3D Plotter ---
         self.plotter = QtInteractor(self)
         self.layout.addWidget(self.plotter)
+        # Three-point kit lighting keeps folds and coil-like curvature
+        # readable when the surface is a single colour with edge lines.
+        try:
+            self.plotter.enable_lightkit()
+        except (AttributeError, RuntimeError):
+            pass
 
         # <--- ADD THIS: PERFORMANCE SETTINGS --->
         # <--- start --->
@@ -183,6 +277,8 @@ class MeshWidget(QWidget):
         self._pulse_count = 0
         self._label_map = self._make_corner_label()
         self._label_pulses = self._make_corner_label(align_right=True)
+        self._legend = _ScalarLegend(self)
+        self._legend_ink = "#1B1F24"
         self._init_picking()
         self._install_shortcuts()
 
@@ -268,6 +364,20 @@ class MeshWidget(QWidget):
             x = (self.width() - margin - label.width()) if right else margin
             label.move(max(margin, x), top)
             label.raise_()
+        self._position_legend()
+
+    def _position_legend(self):
+        legend = getattr(self, "_legend", None)
+        if legend is None or not legend.isVisible():
+            return
+        base_px = self.font().pixelSize() or 16
+        legend.setFixedHeight(max(36, round(52 * base_px / 16)))
+        width = min(max(320, int(self.width() * 0.6)), max(200, self.width() - 40))
+        legend.setFixedWidth(width)
+        x = (self.width() - width) // 2
+        y = self.height() - legend.height() - 16
+        legend.move(max(0, x), max(0, y))
+        legend.raise_()
 
     def set_pulse_count(self, count):
         self._pulse_count = int(count or 0)
@@ -423,7 +533,7 @@ class MeshWidget(QWidget):
         self.plotter.add_points(points, scalars=values, cmap="turbo", clim=clim,
                                 render_points_as_spheres=True, point_size=22,
                                 name="placements", show_scalar_bar=False)
-        self._add_scalar_bar(title)
+        self._add_scalar_bar(title, clim)
 
         if self._show_coil_handles:
             segments = [self._coil_handle_segment(rec, point)
@@ -503,6 +613,7 @@ class MeshWidget(QWidget):
                     f" color: {theme['ink']}; border: 1px solid {theme['line']};"
                     " border-radius: 6px; padding: 6px 10px; font-size: 12px; }")
         self._style_scalar_bar()
+        self._position_legend()
         self.plotter.render()
 
     def _style_controls(self, theme):
@@ -543,6 +654,10 @@ class MeshWidget(QWidget):
         if not theme:
             return
         rgb = [int(theme["ink"][i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        self._legend_ink = theme["ink"]
+        legend = getattr(self, "_legend", None)
+        if legend is not None:
+            legend.set_ink(self._legend_ink)
         bars = getattr(self.plotter, "scalar_bars", None)
         if not bars:
             return
@@ -554,17 +669,80 @@ class MeshWidget(QWidget):
             for prop in (bar.GetTitleTextProperty(), bar.GetLabelTextProperty()):
                 prop.SetColor(*rgb)
 
-    def _add_scalar_bar(self, title):
-        """Legend bar with its title.
+    @staticmethod
+    def _format_legend_value(value, title):
+        """Match the scalar-bar label style: R² maps use two decimals."""
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            return str(value)
+        text = str(title or "").lower()
+        if "mapping result" in text or "r2" in text or "r²" in text:
+            return f"{value:.2f}"
+        return f"{value:.3g}"
 
-        Two labels (min/max) instead of four: VTK draws the title directly
-        above the tick row, so a middle label would sit on it.  Title and
-        labels then share one font, which keeps their sizes consistent
-        (a separate text actor rendered far larger than the tick values)."""
+    def _legend_colours(self, bar):
+        """Sample the scalar-bar lookup table for the Qt gradient."""
+        colours = []
+        try:
+            lut = bar.GetLookupTable()
+            count = int(lut.GetNumberOfTableValues()) if lut is not None else 0
+            for index in range(max(0, count)):
+                value = lut.GetTableValue(index)
+                if value is not None and len(value) >= 3:
+                    colours.append(QtGui.QColor.fromRgbF(*value[:3]))
+        except (AttributeError, TypeError, ValueError):
+            colours = []
+        if not colours:
+            # Keep the legend usable if VTK did not expose its lookup table.
+            colours = [QtGui.QColor("#30123b"), QtGui.QColor("#4145ab"),
+                       QtGui.QColor("#4675ed"), QtGui.QColor("#39a2fc"),
+                       QtGui.QColor("#1bcfd4"), QtGui.QColor("#24eca6"),
+                       QtGui.QColor("#61fc6c"), QtGui.QColor("#a4fc3b"),
+                       QtGui.QColor("#d1e834"), QtGui.QColor("#f3c63a"),
+                       QtGui.QColor("#fe9b2d"), QtGui.QColor("#f36315"),
+                       QtGui.QColor("#d93806"), QtGui.QColor("#b11901"),
+                       QtGui.QColor("#7a0402")]
+        return colours
+
+    def _add_scalar_bar(self, title, clim=None):
+        """Draw a thin Qt legend with end labels instead of VTK tick labels.
+
+        VTK puts horizontal scalar-bar labels above the colour strip; the Qt
+        overlay places the minimum and maximum beside the bar and gives the
+        title its own, larger type size. The VTK actor is kept only as the
+        lookup-table source and is hidden.
+        """
         self._bar_title = title or ""
-        self.plotter.add_scalar_bar(title=title or "", n_labels=2,
-                                    vertical=False, height=0.16, width=0.5,
-                                    position_x=0.25, position_y=0.02)
+        bar = self.plotter.add_scalar_bar(title="", n_labels=2,
+                                          vertical=False, height=0.06,
+                                          width=0.5, position_x=0.25,
+                                          position_y=0.02)
+        if bar is None:
+            self._legend.clear_legend()
+            return
+        try:
+            bar.SetDrawTickLabels(False)
+            bar.SetTitle("")
+            bar.SetDrawAnnotations(False)
+        except AttributeError:
+            pass
+        if clim is None:
+            try:
+                clim = bar.GetLookupTable().GetRange()
+            except (AttributeError, TypeError):
+                clim = (0.0, 1.0)
+        colours = self._legend_colours(bar)
+        self._legend.set_legend(
+            title,
+            self._format_legend_value(clim[0], title),
+            self._format_legend_value(clim[1], title),
+            colours, getattr(self, "_legend_ink", "#1B1F24"))
+        self._position_legend()
+        try:
+            bar.VisibilityOff()
+        except AttributeError:
+            pass
         self._style_scalar_bar()
 
     def _draw_best_element(self):
@@ -615,7 +793,7 @@ class MeshWidget(QWidget):
         painter = QtGui.QPainter(image)
         scale_x = width / max(1, self.width())
         scale_y = height / max(1, self.height())
-        for label in (self._label_map, self._label_pulses):
+        for label in (self._label_map, self._label_pulses, self._legend):
             if not label.isVisible():
                 continue
             pos = label.mapTo(self, QPoint(0, 0))
@@ -978,6 +1156,7 @@ class MeshWidget(QWidget):
         """Renders the mesh for the first time after loading."""
         self.plotter.clear()
         self.plotter.scalar_bars.clear()
+        self._legend.clear_legend()
         self.plotter.add_axes()
 
         # Check if we have data to show automatically
@@ -994,7 +1173,11 @@ class MeshWidget(QWidget):
             self.scalar_selector.setCurrentIndex(score_index)
             self.update_scalars(score_index)
             return
-        self.plotter.add_mesh(self.current_mesh, color='#d9e6f2', show_edges=True,
+        self.plotter.add_mesh(self.current_mesh, color='#d9e6f2',
+                              show_edges=show_lines,
+                              edge_color='#4B5563', edge_opacity=0.75,
+                              smooth_shading=True, specular=0.55,
+                              specular_power=25, ambient=0.2, diffuse=0.9,
                               name="main_mesh")
 
         self._set_home_camera()
@@ -1004,6 +1187,7 @@ class MeshWidget(QWidget):
         """Called when user changes dropdown."""
         self.plotter.clear()
         self.plotter.scalar_bars.clear()
+        self._legend.clear_legend()
         self.plotter.add_axes()
         if self.current_mesh is None:
             self._render_cell_markers()
@@ -1021,7 +1205,11 @@ class MeshWidget(QWidget):
             self.edge_checkbox.setEnabled(True)
             show_lines = self.edge_checkbox.isChecked()
             self.plotter.add_mesh(self.current_mesh, color='#d9e6f2',
-                                  show_edges=show_lines, name="main_mesh")
+                                  show_edges=show_lines,
+                                  edge_color='#4B5563', edge_opacity=0.75,
+                                  smooth_shading=True, specular=0.55,
+                                  specular_power=25, ambient=0.2,
+                                  diffuse=0.9, name="main_mesh")
         else:
             # Data mode: allow user to toggle edges freely
             self.edge_checkbox.setEnabled(True)
@@ -1033,7 +1221,8 @@ class MeshWidget(QWidget):
                                   show_edges=show_lines, edge_color="black",
                                   clim=[0.0, 1.0], show_scalar_bar=False,
                                   name="main_mesh")
-            self._add_scalar_bar(self.scalar_selector.currentText())
+            self._add_scalar_bar(self.scalar_selector.currentText(),
+                                 clim=(0.0, 1.0))
 
         # Only re-home the camera when the *mesh* changed: a colour switch or
         # a fresh R² map must not rotate the view under the user.

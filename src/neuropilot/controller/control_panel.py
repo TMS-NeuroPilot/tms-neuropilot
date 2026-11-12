@@ -121,9 +121,70 @@ def _session_cache_path():
 
     Lives in ``~/.neuropilot`` — ``os.path.expanduser`` resolves to the
     user's profile directory on Windows as well, so the same code works on
-    the lab PCs without adjustment.
+    the lab PCs without adjustment. ``NEUROPILOT_SESSION_FILE`` lets tools
+    and tests redirect it without touching the real profile.
     """
+    override = os.getenv("NEUROPILOT_SESSION_FILE")
+    if override:
+        return override
     return os.path.join(os.path.expanduser("~"), ".neuropilot", "last_session.yaml")
+
+
+# Path-valued fields in a project YAML.  They are stored relative to the
+# project file when the asset lives below it, so a cloned example project
+# keeps working on another machine.
+_PROJECT_PATH_KEYS = (
+    "results_fn", "target_order_fn", "targets_file", "mesh_head_path",
+    "mesh_RIO_path", "e_field_path", "surrogate_library_path",
+    "coil_path", "emg_config_fn",
+)
+
+
+def _resolve_project_paths(data, base_dir):
+    """Return a copy of *data* with relative project paths made absolute."""
+    if not isinstance(data, dict) or not base_dir:
+        return data
+    result = dict(data)
+    base = os.path.abspath(os.path.expanduser(str(base_dir)))
+    for key in _PROJECT_PATH_KEYS:
+        value = result.get(key)
+        if value is None or str(value).strip() == "":
+            continue
+        text = os.path.expanduser(str(value))
+        if not os.path.isabs(text):
+            text = os.path.join(base, text)
+        result[key] = os.path.normpath(os.path.abspath(text))
+    return result
+
+
+def _relative_project_paths(data, base_dir):
+    """Return a copy of *data* with paths below *base_dir* made relative."""
+    if not isinstance(data, dict) or not base_dir:
+        return data
+    result = dict(data)
+    base = os.path.abspath(os.path.expanduser(str(base_dir)))
+    for key in _PROJECT_PATH_KEYS:
+        value = result.get(key)
+        if value is None or str(value).strip() == "":
+            continue
+        path = os.path.abspath(os.path.expanduser(str(value)))
+        try:
+            if os.path.commonpath((path, base)) != base:
+                continue
+        except ValueError:
+            continue
+        result[key] = os.path.relpath(path, base)
+    return result
+
+
+class _TargetValueLabel(QtWidgets.QLabel):
+    """A value label that reports text changes to the target overlay."""
+
+    text_changed = QtCore.pyqtSignal()
+
+    def setText(self, text):
+        super().setText(text)
+        self.text_changed.emit()
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -150,6 +211,53 @@ class MainWindow(QtWidgets.QMainWindow):
         self.file_info_ready.connect(self._on_file_info_ready)
         self.online_fem_ready.connect(self.update_button_states)
         self.scores_ready.connect(self.update_mesh_coloring)
+
+        # The robot view is a QLabel that receives a pixmap every frame. Its
+        # pixmap size hint would otherwise feed the label's own current height
+        # back into the layout and pin the 3D view to the largest possible
+        # size. Ignore that vertical hint so the layout can give the log card
+        # the space below it.
+        self.robot_view_label.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Ignored)
+
+        # The console needs no separate caption inside its card.
+        self.groupBox_stats.setTitle("Log")
+        log_caption = getattr(self, "label_5", None)
+        if log_caption is not None:
+            self.groupBox_stats.layout().removeWidget(log_caption)
+            log_caption.setParent(None)
+            log_caption.deleteLater()
+            self.label_5 = None
+
+        # Enable/Fire are single-action buttons; use a compact height so the
+        # 3D view ends higher and the log console gets the space.
+        for button in (self.enableBtn, self.fireBtn):
+            button.setProperty("role", "compact")
+
+        # The Control page's three cards were taller than their content and
+        # squeezed the log console at the bottom. Tighten their padding and
+        # spacing; the extra height now goes to the console. The card padding
+        # is inline so it scales with the rest of the page styles.
+        for name in ("groupBox_5", "groupBox_efield", "groupBox_6"):
+            card = getattr(self, name, None)
+            if card is not None:
+                card.setStyleSheet(
+                    "QGroupBox { padding: 8px 14px 8px 14px; }")
+        for name in ("stim_v", "efield_v", "robot_v", "stats_v"):
+            card_layout = getattr(self, name, None)
+            if card_layout is not None:
+                card_layout.setSpacing(6)
+        if hasattr(self, "control_left"):
+            self.control_left.setSpacing(8)
+            # The old spacer at the bottom of the card column would absorb
+            # the height difference and leave the 3D view hanging below the
+            # Robot card. Remove it so the view ends with the cards.
+            for index in range(self.control_left.count() - 1, -1, -1):
+                item = self.control_left.itemAt(index)
+                if item is not None and item.spacerItem() is not None:
+                    self.control_left.takeAt(index)
+        self.finishedsteps.setMinimumHeight(120)
+        self._setup_target_overlay()
 
         self._theme_name = DEFAULT_THEME
         self._theme = theme_tokens(DEFAULT_THEME)
@@ -193,6 +301,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # new widgets slot into the existing layouts with the same roles.
         self.surrogate_efield_btn = QtWidgets.QRadioButton("Interpolated")
         self.surrogate_efield_btn.setObjectName("surrogate_efield_btn")
+        self.surrogate_efield_btn.setProperty("role", "choice")
         self.surrogate_efield_btn.setToolTip(
             "Interpolated E-field: PCA + pose interpolation of the dense "
             "library (Grosshagauer et al. 2025), with a domain guard. Needs "
@@ -594,6 +703,12 @@ class MainWindow(QtWidgets.QMainWindow):
         base = getattr(self, "_base_rects", None)
         if base is not None:
             base["win_sheet"] = sheet          # the scaler re-applies this one
+            # The fresh sheet is built at the design size. Re-apply the
+            # current window scale immediately, otherwise a theme change
+            # makes the whole window snap back to small fonts until the
+            # next resize.
+            self._rescale()
+            self._match_relay_card_height()
         if persist:
             try:
                 self._lab_profile.write({"UI_THEME": self._theme_name})
@@ -796,7 +911,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
         row = QtWidgets.QHBoxLayout()
-        row.setSpacing(10)
+        row.setSpacing(12)
 
         card = QtWidgets.QGroupBox("Relay")
         card.setObjectName("groupBox_relay")
@@ -806,14 +921,21 @@ class MainWindow(QtWidgets.QMainWindow):
         card_v.setContentsMargins(0, 6, 0, 0)
         card_v.setSpacing(8)
 
-        def add_pair(caption, attr, right=False):
+        def add_pair(caption, attr, right=False, role="detail"):
             line = QtWidgets.QHBoxLayout()
             line.setSpacing(8)
             cap = QtWidgets.QLabel(caption)
             cap.setProperty("role", "cap")
             cap.setMinimumWidth(90)
+            cap.setSizePolicy(QtWidgets.QSizePolicy.Preferred,
+                              QtWidgets.QSizePolicy.Fixed)
             val = QtWidgets.QLabel("")
             val.setObjectName(attr)
+            # Same roles as the .ui cards: value for Status, mono for the
+            # timestamp, detail for the value column.
+            val.setProperty("role", role)
+            val.setSizePolicy(QtWidgets.QSizePolicy.Preferred,
+                              QtWidgets.QSizePolicy.Fixed)
             if right:
                 val.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             line.addWidget(cap)
@@ -821,9 +943,10 @@ class MainWindow(QtWidgets.QMainWindow):
             card_v.addLayout(line)
             setattr(self, attr, val)
 
-        add_pair("Status", "relayStatusLabel", right=True)
-        add_pair("Message", "relayMessageLabel")
-        add_pair("Last update", "relayLastUpdateLabel", right=True)
+        add_pair("Status", "relayStatusLabel", right=True, role="value")
+        add_pair("Message", "relayMessageLabel", role="cap")
+        add_pair("Last update", "relayLastUpdateLabel", right=True,
+                 role="mono")
 
         button_row = QtWidgets.QHBoxLayout()
         button_row.addStretch(1)
@@ -849,8 +972,13 @@ class MainWindow(QtWidgets.QMainWindow):
             cap = QtWidgets.QLabel("")
             cap.setObjectName(f"relay_info_cap_{index}")
             cap.setProperty("role", "cap")
+            cap.setSizePolicy(QtWidgets.QSizePolicy.Preferred,
+                              QtWidgets.QSizePolicy.Fixed)
             val = QtWidgets.QLabel("")
             val.setObjectName(f"relay_info_val_{index}")
+            val.setProperty("role", "detail")
+            val.setSizePolicy(QtWidgets.QSizePolicy.Preferred,
+                              QtWidgets.QSizePolicy.Fixed)
             setattr(self, f"relay_info_cap_{index}", cap)
             setattr(self, f"relay_info_val_{index}", val)
             grid.addWidget(cap, index - 1, 0)
@@ -858,9 +986,124 @@ class MainWindow(QtWidgets.QMainWindow):
         grid.setColumnStretch(1, 1)
         details_v.addLayout(grid)
 
-        row.addWidget(card, 1)
-        row.addWidget(details, 1)
+        row.addWidget(card, 3)
+        row.addWidget(details, 2)
         layout.insertLayout(0, row)
+
+        # The relay row must not collapse to its own (shorter) content: keep
+        # both relay cards the same height as the stimulator/EMG/robot cards.
+        tabs = getattr(self, "tabWidget", None)
+        if tabs is not None:
+            tabs.currentChanged.connect(
+                lambda _index: QtCore.QTimer.singleShot(
+                    0, self._match_relay_card_height))
+        QtCore.QTimer.singleShot(0, self._match_relay_card_height)
+
+    def _match_relay_card_height(self, *_):
+        """Match the relay row to the height of the other Connections cards."""
+        refs = (getattr(self, "groupBox_2", None),
+                getattr(self, "groupBox_4", None),
+                getattr(self, "groupBox_3", None))
+        cards = (getattr(self, "groupBox_relay", None),
+                 getattr(self, "groupBox_relay_info", None))
+        if any(card is None for card in cards):
+            return
+
+        visible = [w.height() for w in refs
+                   if w is not None and w.isVisible() and w.height() > 0]
+        if not visible:
+            # The Connections tab has not been shown yet; use the design
+            # height until it is.
+            visible = [w.sizeHint().height() for w in refs if w is not None]
+        if not visible:
+            return
+        target = max(visible)
+        for card in cards:
+            if card.minimumHeight() != target:
+                card.setMinimumHeight(target)
+
+    def _setup_target_overlay(self):
+        """Put the session counters on top of the robot view.
+
+        The old full-width status strip cost a whole row above the transport
+        buttons. Moving the same labels into the 3D view frees that row and
+        keeps the counters visible next to the robot.
+        """
+        root = getattr(self, "tab3", None)
+        if root is None:
+            return
+        root = root.layout()
+        if root is None:
+            return
+
+        # Remove the old status strip from the page layout; keep its child
+        # labels and move them into the overlay.
+        for attr in ("totaltargets3", "currenttarget"):
+            old = getattr(self, attr)
+            self.totals_row.removeWidget(old)
+            replacement = _TargetValueLabel(old.text(), self.robot_view_label)
+            replacement.setObjectName(attr)
+            replacement.setProperty("role", "value")
+            replacement.setSizePolicy(old.sizePolicy())
+            replacement.setAlignment(old.alignment())
+            setattr(self, attr, replacement)
+            old.setParent(None)
+            old.deleteLater()
+        for widget in (self.label_7, self.label_6):
+            self.totals_row.removeWidget(widget)
+        for index in range(root.count()):
+            if root.itemAt(index).layout() is self.status_strip:
+                root.takeAt(index)
+                break
+        # Remove the status strip's row and give the freed height to the log
+        # rather than to the 3D view: body (1) then log (2).
+        root.setStretch(0, 0)
+        root.setStretch(1, 1)
+        root.setStretch(2, 2)
+
+        overlay = QtWidgets.QWidget(self.robot_view_label)
+        overlay.setObjectName("target_overlay")
+        overlay.setAttribute(QtCore.Qt.WA_StyledBackground, True)
+        overlay.setStyleSheet(
+            "QWidget#target_overlay { background: rgba(15, 23, 42, 0.78);"
+            " border-radius: 6px; }"
+            "QWidget#target_overlay QLabel { background: transparent;"
+            " color: #F8FAFC; }"
+            "QWidget#target_overlay QLabel[role=\"cap\"] { color: #CBD5E1; }"
+            "QWidget#target_overlay QLabel[role=\"value\"] { color: #FFFFFF;"
+            " font-weight: 600; }")
+
+        overlay_layout = QtWidgets.QHBoxLayout(overlay)
+        overlay_layout.setContentsMargins(10, 5, 10, 5)
+        overlay_layout.setSpacing(6)
+        overlay_layout.addWidget(self.label_7)
+        overlay_layout.addWidget(self.totaltargets3)
+        overlay_layout.addSpacing(12)
+        overlay_layout.addWidget(self.label_6)
+        overlay_layout.addWidget(self.currenttarget)
+        overlay.adjustSize()
+        overlay.hide()
+        self._target_overlay = overlay
+        self.robot_view_label.installEventFilter(self)
+
+        self.totaltargets3.text_changed.connect(self._place_target_overlay)
+        self.currenttarget.text_changed.connect(self._place_target_overlay)
+        self._place_target_overlay()
+
+    def _place_target_overlay(self, *_):
+        """Anchor the counters to the top-right corner of the robot view."""
+        overlay = getattr(self, "_target_overlay", None)
+        label = getattr(self, "robot_view_label", None)
+        if overlay is None or label is None or not label.isVisible():
+            return
+        if label.width() <= 0 or label.height() <= 0:
+            return
+        overlay.adjustSize()
+        margin = max(8, round(10 * self._current_scale()))
+        overlay.move(max(0, label.width() - overlay.width() - margin),
+                     margin)
+        overlay.show()
+        overlay.raise_()
 
     # ── Config tab ─────────────────────────────────────────────────────
     def _setup_config_tab(self):
@@ -1514,8 +1757,9 @@ class MainWindow(QtWidgets.QMainWindow):
         }[mode]
         badge.setText(mode)
         badge.setStyleSheet(
-            f"background: {palette[0]}; color: {palette[1]}; border-radius: 9px;"
-            " padding: 2px 10px; font-size: 11px; font-weight: 600;")
+            f"QLabel[role=\"badge\"] {{ background: {palette[0]};"
+            f" color: {palette[1]}; border-radius: 9px;"
+            " padding: 2px 10px; }")
 
         # Robot: only the simulator uses the model selector.
         self.cfg_robot_type.setEnabled(simulated)
@@ -2204,13 +2448,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 ss = re.sub(r"font-size:\s*\d+px", f"font-size: {max(9, px)}px", ss)
                 widget.setStyleSheet(ss)
                 return
-            # strip previously appended scaling rules (both forms)
+            # A colour-only stylesheet leaves the size to setFont. Do not
+            # append a selector after bare declarations: that is invalid CSS,
+            # so Qt drops the declarations (this used to make the relay
+            # status fall back to the default colour and font size).
             ss = re.sub(r"\s*/\* neuropilot font scaling \*/\s*\n?\w[\w:]* \{ font-size: \d+px; \}", "", ss)
             ss = re.sub(r"\s*/\* neuropilot font scaling \*/ font-size: \d+px;", "", ss)
-            selector = widget.metaObject().className()
-            widget.setStyleSheet(
-                ss.rstrip()
-                + f"\n/* neuropilot font scaling */\n{selector} {{ font-size: {px}px; }}\n")
+            if ss != widget.styleSheet():
+                widget.setStyleSheet(ss)
 
     def _capture_base_rects(self):
         """Record the design-geometry of every absolutely-positioned
@@ -2247,38 +2492,68 @@ class MainWindow(QtWidgets.QMainWindow):
         # (a zero-timer fires when the event loop next processes events).
         if self._base_rects is None:
             QtCore.QTimer.singleShot(0, self._capture_base_rects_now)
+        QtCore.QTimer.singleShot(0, self._place_target_overlay)
         super().showEvent(event)
+
+    def eventFilter(self, obj, event):
+        if (obj is getattr(self, "robot_view_label", None)
+                and event.type() in (QtCore.QEvent.Resize, QtCore.QEvent.Show)):
+            QtCore.QTimer.singleShot(0, self._place_target_overlay)
+        return super().eventFilter(obj, event)
 
     def _capture_base_rects_now(self):
         self._base_rects = self._capture_base_rects()
         # Apply the current scale immediately so a window resized before the
         # capture is consistent from the first paint after it.
         self._rescale()
+        self._match_relay_card_height()
 
     def resizeEvent(self, event):
         if getattr(self, "_base_rects", None) is None:
             return
         # Cheap pass on every resize event: geometry only.
         self._rescale_geometry()
-        # Re-run the visible page's layout immediately: the deferred style
-        # pass otherwise lets its widgets float in stale positions while the
-        # drag is in progress.
+        # Re-run the visible page's layout tree immediately: the deferred
+        # style pass otherwise lets nested columns (Config in particular)
+        # float in stale positions while the drag is in progress.
         page = self.tabWidget.currentWidget()
         if page is not None:
-            lay = QtWidgets.QWidget.layout(page)
-            if lay is not None:
-                lay.activate()
+            self._activate_layout_tree(page)
+            page.updateGeometry()
+        self._place_target_overlay()
         # The tab bar itself is resized by the layout after this event, so
         # place the LED corner once that has settled (otherwise it keeps the
         # old x position and the last LED is clipped).
         QtCore.QTimer.singleShot(0, self._place_tab_corner)
         # Expensive pass (full stylesheet repolish + setFont on every widget):
-        # deferred so dragging stays smooth, and skipped entirely when the
-        # rounded pixel sizes did not change.
+        # deferred to the next event-loop turn so dragging stays smooth, and
+        # skipped entirely when the rounded pixel sizes did not change. A
+        # long delay makes the page visibly snap after the drag ends.
         if not getattr(self, "_styles_timer_pending", False):
             self._styles_timer_pending = True
-            QtCore.QTimer.singleShot(150, self._apply_styles_if_needed)
+            QtCore.QTimer.singleShot(0, self._apply_styles_if_needed)
         super().resizeEvent(event)
+
+    def _activate_layout_tree(self, widget):
+        """Recompute the layouts of one page, including nested cards/tabs.
+
+        A resize changes the page geometry without necessarily invalidating
+        the cached item rectangles. Activating a stale layout leaves cards at
+        their old width (visible on Connections after a width-only resize), so
+        invalidate the whole page first and then activate from the top down.
+        """
+        layouts = []
+        layout = QtWidgets.QWidget.layout(widget)
+        if layout is not None:
+            layouts.append(layout)
+        for child in widget.findChildren(QtWidgets.QWidget):
+            child_layout = QtWidgets.QWidget.layout(child)
+            if child_layout is not None:
+                layouts.append(child_layout)
+        for layout in layouts:
+            layout.invalidate()
+        for layout in layouts:
+            layout.activate()
 
     def _current_scale(self):
         rects = getattr(self, "_base_rects", None)
@@ -2317,6 +2592,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return  # rounded pixel sizes unchanged — skip the expensive pass
         self._last_style_scale = s
         self._rescale_styles(s)
+        self._match_relay_card_height()
 
     def _rescale(self):
         self._rescale_geometry()
@@ -2348,12 +2624,34 @@ class MainWindow(QtWidgets.QMainWindow):
                           sheet)
 
         self.setStyleSheet(scale_px(self._base_rects["win_sheet"]))
-        for w, base_sheet in self._base_rects["sheets"].items():
-            w.setStyleSheet(scale_px(base_sheet) if base_sheet else "")
+        last_scaled = getattr(self, "_last_scaled_sheets", {})
+        for w, base_sheet in list(self._base_rects["sheets"].items()):
+            current = w.styleSheet()
+            previous = last_scaled.get(w)
+            if previous is not None and current != previous:
+                # A handler replaced this widget's inline style since the
+                # last scaling pass (status colour, theme badge, log bed).
+                # Take the fresh declaration as the new unscaled base so a
+                # later resize or theme change does not restore stale colours.
+                base_sheet = current
+                self._base_rects["sheets"][w] = base_sheet
+            scaled = scale_px(base_sheet) if base_sheet else ""
+            w.setStyleSheet(scaled)
+            last_scaled[w] = scaled
 
         # Fonts scale with the window for every descendant.
         for w, base_px in self._base_rects["fonts"].items():
             self._apply_font_px(w, max(9, round(base_px * s)))
+        # Remember the post-font sheets: a font-size rewrite is not a new
+        # declaration from a handler, so it must not replace the base sheet.
+        for w in self._base_rects["sheets"]:
+            last_scaled[w] = w.styleSheet()
+        self._last_scaled_sheets = last_scaled
+
+        # Keep the log console readable at every scale. This also caps the
+        # robot view above it, so the log card starts higher and grows with
+        # the window instead of staying at its minimum height.
+        self.finishedsteps.setMinimumHeight(max(80, round(120 * s)))
 
         # Font and style changes alter size hints; re-activate the layout tree
         # so rows sized from label/font metrics stop clipping at larger scales.
@@ -2366,6 +2664,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._sync_project_gap()
         self._size_choice_popups()
         self._resize_results_panel(s)
+        self._place_target_overlay()
 
     def efield_mode_name(self):
         """``"Online"`` / ``"Interpolated"`` / ``"Precomputed"`` / None."""
@@ -2549,7 +2848,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if mgr.is_ready:
                 text, role = "Online solver ready.", "ok"
             elif getattr(mgr, "initializing", False):
-                text = ("Warming up the online solver (about a minute) — "
+                text = ("Warming up the online solver; "
                         "pulses wait until it is ready.")
                 role = "busy"
             else:
@@ -2974,7 +3273,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.pending_recovery[system] = None
 
         if status == SystemStatus.OK:
-            status_label.setStyleSheet(f"color: {theme.get('ok', '#0D9E42')}")
+            status_label.setStyleSheet(
+                f"QLabel {{ color: {theme.get('ok', '#0D9E42')}; }}")
             status_label.setText("OK")
             self.set_led_status(led_widget, "on", "green")
             if message_label:
@@ -2988,7 +3288,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.pending_recovery[system] = "Restart relay"
 
         elif status == SystemStatus.ERROR:
-            status_label.setStyleSheet(f"color: {theme.get('danger', '#B50E0E')}")
+            status_label.setStyleSheet(
+                f"QLabel {{ color: {theme.get('danger', '#B50E0E')}; }}")
             status_label.setText("ERROR")
             self.set_led_status(led_widget, "on", "red")
 
@@ -3013,7 +3314,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 message_label.setText(msg_text)
 
         elif status == SystemStatus.NAN:
-            status_label.setStyleSheet(f"color: {theme.get('muted', '#595959')}")
+            status_label.setStyleSheet(
+                f"QLabel {{ color: {theme.get('muted', '#595959')}; }}")
             status_label.setText("Status: Not Initialized")
             self.set_led_status(led_widget, "off", "")
             if message_label:
@@ -3533,6 +3835,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if not isinstance(data, dict):
             return (f"expected a mapping of settings, found "
                     f"{type(data).__name__}")
+        data = _resolve_project_paths(
+            data, os.path.dirname(os.path.abspath(file_path)))
         self._project_loading = True
         try:
             self.apply_config_dict(data)
@@ -3581,7 +3885,8 @@ class MainWindow(QtWidgets.QMainWindow):
         # via get_config_dict below).
         if not self.project_name_edit.text().strip():
             self.project_name_edit.setText(os.path.basename(file_path))
-        data = self.get_config_dict()
+        data = self.get_config_dict(
+            base_dir=os.path.dirname(os.path.abspath(file_path)))
         try:
             with open(file_path, "w") as f:
                 yaml.dump(data, f, default_flow_style=False)
@@ -3690,9 +3995,14 @@ class MainWindow(QtWidgets.QMainWindow):
             self.controller.set_minium_isi(value)
 
     ##################################################
-    def get_config_dict(self):
-        """Return controller and GUI parameters as a plain dict."""
-        return {
+    def get_config_dict(self, base_dir=None):
+        """Return controller and GUI parameters as a plain dict.
+
+        ``base_dir`` is set when writing a project YAML; paths below it are
+        stored relative to the project file.  The session cache uses the
+        default ``None`` and therefore keeps absolute paths.
+        """
+        data = {
             "project_name": self.project_name_edit.text().strip() or None,
             "fit_fun": self.fitFunctionComboBox.currentText(),
             "map_elms": self.sampling_spinBox.value(),
@@ -3714,6 +4024,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # Travels with the subject so a session resumes in the same mode.
             "efield_mode": self.efield_mode_name(),
         }
+        return _relative_project_paths(data, base_dir)
 
     def apply_config_dict(self, d):
         """Apply only the keys present in d to controller state and UI.

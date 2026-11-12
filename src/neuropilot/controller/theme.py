@@ -172,6 +172,7 @@ QLabel[role="cap"]     { font-size: 11px; color: %(muted)s; }
 QLabel[role="value"]   { font-size: 15px; font-weight: 600; }
 QLabel[role="value-xl"]{ font-size: 16px; font-weight: 600; }
 QLabel[role="section"] { font-size: 11px; font-weight: 600; color: %(muted)s; }
+QLabel[role="badge"]   { font-size: 11px; font-weight: 600; }
 QRadioButton[role="choice"] { font-size: 12px; color: %(soft)s; spacing: 6px; }
 QLabel[role="mono"]    { font-family: 'DejaVu Sans Mono','Consolas',monospace;
                          font-size: 12px; color: %(mono)s; }
@@ -201,6 +202,7 @@ QPushButton[role="danger"]  { background: %(card)s; color: %(danger)s;
                               min-height: 24px; padding: 7px 18px; }
 QPushButton[role="danger"]:hover { background: %(danger_soft)s; }
 QPushButton[role="transport"] { min-height: 24px; padding: 7px 18px; }
+QPushButton[role="compact"] { min-height: 10px; padding: 2px 14px; font-size: 13px; }
 QPushButton[role="recover"] { min-height: 16px; padding: 3px 10px; font-size: 11px; }
 QPushButton:disabled { background: %(disabled_bg)s; color: %(disabled_ink)s; border-color: %(disabled_edge)s; }
 QPushButton[role="primary"]:disabled { background: %(accent_disabled)s; color: %(on_accent)s;

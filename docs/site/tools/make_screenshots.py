@@ -129,6 +129,16 @@ def grab_window(app, win, path: Path, composite_mesh=False,
             painter = QtGui.QPainter(image)
             painter.drawImage(QtCore.QRect(top_left, label.size()), frame_image)
             painter.end()
+            # The counters are child widgets of the label, so the robot
+            # composite above covers them. Paint them back on top.
+            overlay = getattr(win, "_target_overlay", None)
+            if overlay is not None and overlay.isVisible():
+                overlay_image = overlay.grab().toImage()
+                top_left = overlay.mapTo(win, QtCore.QPoint(0, 0))
+                painter = QtGui.QPainter(image)
+                painter.drawImage(QtCore.QRect(top_left, overlay.size()),
+                                  overlay_image)
+                painter.end()
     if composite_mesh:
         view = win.widget_3d_viewer
         temp = path.with_suffix(".mesh.png")
@@ -298,6 +308,8 @@ def run(args, project: Path) -> None:
         # 3. Control, precomputed mode --------------------------------
         win.tabWidget.setCurrentIndex(2)
         win.offline_efield_btn.setChecked(True)
+        win.totaltargets3.setText("500")
+        win.currenttarget.setText("pulse 16 · 1/1 · target 483")
         win.finishedsteps.appendPlainText(
             "NeuroPilot 0.1.0 · simulation mode\n"
             "Project NP001_M1_left loaded\n"
@@ -391,6 +403,7 @@ def main(argv=None) -> int:
     os.environ["ROOT_FOLDER"] = str(DEMO / "data")
     os.environ["NEUROPILOT_LAB_FILE"] = str(DEMO / "lab.yaml")
     os.environ["NEUROPILOT_ENV_FILE"] = str(DEMO / ".env")
+    os.environ["NEUROPILOT_SESSION_FILE"] = str(DEMO / "last_session.yaml")
     os.environ.setdefault("QT_SCALE_FACTOR", "1")
     os.environ.setdefault("MUJOCO_GL", "glfw")
 

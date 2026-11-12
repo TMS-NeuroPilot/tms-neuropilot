@@ -71,9 +71,8 @@ class RelaySystem(System):
         })
 
     def _set_status(self, status, message=None):
-        if self.status != status or getattr(self, "_last_message", None) != message:
-            self._last_message = message
-            self.set_system_status(status, message)
+        self._last_message = message
+        self.set_system_status(status, message)
 
     def try_connect(self):
         """Check the port; start the relay only when NeuroPilot manages it."""

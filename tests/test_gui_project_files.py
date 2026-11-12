@@ -400,3 +400,20 @@ def test_paste_save_path_with_a_file_as_parent_is_reported(window, controller, t
 
 
 pytestmark = pytest.mark.gui
+
+
+def test_project_paths_are_saved_relative_to_the_project_file(window, tmp_path):
+    folder = tmp_path / "subject"
+    folder.mkdir()
+    mesh = folder / "head.msh"
+    mesh.write_text("fake")
+    window.apply_config_dict({"mesh_head_path": str(mesh)})
+    project = folder / "project.yaml"
+    assert window.save_project_file(str(project)) is None
+    data = yaml.safe_load(project.read_text())
+    assert data["mesh_head_path"] == "head.msh"
+
+    # Loading from a different working directory resolves against the YAML.
+    window.apply_config_dict({"mesh_head_path": ""})
+    assert window.load_project_file(str(project)) is None
+    assert window.loadmeshlabel.text() == str(mesh)

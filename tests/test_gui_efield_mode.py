@@ -286,6 +286,7 @@ def test_hint_updates_with_the_button_state(window):
 # ── the interpolated mode ──────────────────────────────────────────────
 
 def test_mode_name_interpolated(window):
+    assert window.surrogate_efield_btn.property("role") == "choice"
     window.surrogate_efield_btn.setChecked(True)
     assert window.efield_mode_name() == "Interpolated"
 

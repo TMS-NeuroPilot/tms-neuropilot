@@ -234,6 +234,19 @@ def test_close_stops_the_robot_view(window, qapp):
     assert not view._timer.isActive()
 
 
+def test_resize_scales_fonts_without_waiting_for_a_debounce(window, qapp):
+    window.show()
+    qapp.processEvents()
+    window.resize(1244, 960)
+    qapp.processEvents()
+    window._rescale()
+    before = window.cfg_mode_badge.fontInfo().pixelSize()
+    window.resize(1800, 1200)
+    qapp.processEvents()
+    after = window.cfg_mode_badge.fontInfo().pixelSize()
+    assert after > before
+
+
 def test_resize_then_close_leaves_no_pending_style_timer(window, qapp, monkeypatch):
     captured = []
     monkeypatch.setattr(sys, "excepthook", lambda t, e, tb: captured.append(e))
@@ -283,7 +296,7 @@ pytestmark = pytest.mark.gui
 def test_style_pass_after_close_is_a_no_op(window, qapp, monkeypatch):
     calls = []
     monkeypatch.setattr(window, "_rescale_styles", lambda s: calls.append(s))
-    window.resize(1500, 1100)          # arms the 150 ms style timer
+    window.resize(1500, 1100)          # arms the style timer
     window.close()
     pump(qapp, 0.5)
     assert calls == []

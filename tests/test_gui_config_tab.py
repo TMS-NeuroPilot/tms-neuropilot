@@ -209,6 +209,8 @@ def test_save_button_writes_only_the_temporary_files(window, qapp, tmp_path):
 def test_mode_badge_simulated(window):
     window._apply_config_mode()
     assert window.cfg_mode_badge.text() == "Simulated"
+    assert window.cfg_mode_badge.property("role") == "badge"
+    assert "font-size" not in window.cfg_mode_badge.styleSheet()
     assert window.cfg_robot_type.isEnabled()
     assert not window.cfg_stim_port.isEnabled()
 

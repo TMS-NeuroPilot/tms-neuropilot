@@ -137,10 +137,18 @@ def test_theme_switch_recolours_the_status_labels(window, qapp):
 
     system = System()
     window.initialize({system: system.ERROR_RECOVERIES})
+    window.show()
+    qapp.processEvents()
+    window.resize(1500, 1050)
+    qapp.processEvents()
+    window._rescale()
     window.update_system_status(system, SystemStatus.OK)
     window.cfg_theme.setCurrentText("Midnight")
     qapp.processEvents()
-    assert theme.tokens("Midnight")["ok"] in window.emgStatusLabel.styleSheet()
+    tokens = theme.tokens("Midnight")
+    assert tokens["ok"] in window.emgStatusLabel.styleSheet()
+    assert tokens["accent_soft"] in window.cfg_mode_badge.styleSheet()
+    assert tokens["accent_dark"] in window.cfg_mode_badge.styleSheet()
 
 
 def test_charts_follow_the_theme(window, qapp):
@@ -163,13 +171,19 @@ def test_theme_change_survives_a_resize(window, qapp):
 
 
 def test_theme_change_after_resize_keeps_the_scaling(window, qapp):
+    window.show()
+    qapp.processEvents()
     window.resize(1500, 1050)
     qapp.processEvents()
+    window._rescale()
+    before = window.cfg_mode_badge.fontInfo().pixelSize()
+    assert before > 11
     window.cfg_theme.setCurrentText("Graphite")
     qapp.processEvents()
     # the scaler re-applies the new sheet, including its px values
     assert "font-size" in window.styleSheet()
     assert theme.tokens("Graphite")["canvas"] in window.styleSheet()
+    assert window.cfg_mode_badge.fontInfo().pixelSize() == before
 
 
 pytestmark = pytest.mark.gui

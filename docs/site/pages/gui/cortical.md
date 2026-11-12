@@ -26,7 +26,8 @@ documents the viewport, the four cards next to it and the export.
 
 The surface selector above the viewport switches between the head mesh and the
 ROI. The scalar selector chooses the colour array: tissue labels on the head,
-`Score <channel>` on the ROI.
+`Score <channel>` on the ROI. **Show edges** overlays the triangle wireframe;
+it is on by default.
 
 !!! note "No map is drawn before three pulses"
     The readout says *"No R² map yet — needs at least three pulses."* until the

@@ -96,7 +96,7 @@ The one line below the E-field buttons is the mode's state machine:
 |---|---|
 | `Choose a mode to enable Start.` | no mode selected; Start is disabled |
 | `Precomputed library — ready immediately.` | precomputed mode with a library loaded |
-| `Warming up the online solver (about a minute) — pulses wait until it is ready.` | online mode, solver loading |
+| `Warming up the online solver; pulses wait until it is ready.` | online mode, solver loading |
 | `Online solver ready.` | online mode, solving per pulse |
 | `Online solver unavailable — switch to Precomputed.` | SimNIBS/petsc4py not importable |
 | `Loading the interpolated E-field library (a few seconds) — pulses wait until it is ready.` | interpolated mode, library loading |

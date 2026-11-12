@@ -6,7 +6,7 @@ the transport buttons, the robot view and the log.
 <figure>
   <img src="assets/screenshots/control-precomputed.png" alt="The Control page with the precomputed E-field mode selected and Start enabled.">
   <figcaption>Transport buttons at the top, stimulation and E-field cards on the
-  left, robot speeds and the status log on the right.</figcaption>
+  left, robot speeds and the log on the right.</figcaption>
 </figure>
 
 ## Transport row
@@ -19,8 +19,8 @@ the transport buttons, the robot view and the log.
 | **Next** | skip the current target | implemented as `skip` → `COMPLETE` |
 | **Finish** | end the session after the current step | always enabled during a run |
 
-Above the buttons: **Total targets** (the length of the order list) and
-**Current** (the pulse counter and the active target).
+In the top-right corner of the robot view: **Total targets** (the length of
+the order list) and **Current** (the pulse counter and the active target).
 
 ## Stimulation card
 
@@ -66,7 +66,7 @@ loads.
 Both speeds are pushed to the robot when a session starts, so the robot runs
 with the values shown in the GUI rather than its power-on defaults.
 
-## Status card
+## Log card
 
 A read-only log of the state machine:
 
