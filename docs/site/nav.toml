@@ -8,6 +8,7 @@
 title = "Start here"
 pages = [
   ["Overview", "index.md", "What NeuroPilot is, what it does, and how to read this documentation."],
+  ["Use cases", "start/use-cases.md", "Real experiments, virtual experiments and the hybrid training case."],
   ["Quick start", "start/quickstart.md", "Run a complete simulated mapping session in ten minutes."],
   ["Key concepts", "start/concepts.md", "Targets, pulses, E-fields, MEPs, R² maps and the vocabulary the rest of the site uses."],
   ["Units and frames", "start/units.md", "Millimetres, degrees, head space, robot base and the coil-handle convention."],

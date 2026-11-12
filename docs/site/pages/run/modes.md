@@ -2,7 +2,7 @@
 
 NeuroPilot has three run modes. They share the controller, the state machine,
 the relay protocol and the analysis; they differ only in who plays the other
-three roles — robot, neuronavigation and stimulator.
+three roles: robot, neuronavigation and stimulator.
 
 <figure>
   <img src="assets/diagrams/run-modes.svg" alt="The three run modes and the processes each one starts.">
@@ -18,7 +18,7 @@ three roles — robot, neuronavigation and stimulator.
 | Command | `neuropilot sim` | `neuropilot real` | `neuropilot manual` |
 | Relay | `sim_relay` (started) | production `relay_server.py` | production `relay_server.py` |
 | Neuronavigation | virtual (`sim_nav`) | InVesalius + your tracker | InVesalius + your tracker |
-| Robot | virtual MuJoCo (`sim_robot`) | your robot via `tms-robot-control` | **none** — operator moves the coil |
+| Robot | virtual MuJoCo (`sim_robot`) | your robot via `tms-robot-control` | **none**: operator moves the coil |
 | Stimulator | virtual | your stimulator via `magicpy` | your stimulator via `magicpy` |
 | EMG | virtual | your EMG PC's share | your EMG PC's share |
 | Hardware needed | none | all of it | stimulator, EMG, tracking |
@@ -29,6 +29,11 @@ The hardware entries name the integration point, not a required device: the
 robot driver in `tms-robot-control`, the stimulator driver `magicpy`, and the
 SMB share of your EMG acquisition. Any device that speaks those interfaces
 works the same way.
+
+!!! note "Mixed backends are not a mode"
+    The mode selects the stimulator and the EMG together. Real TMS with
+    simulated MEPs is described in [Use cases](start/use-cases.md), including
+    what is still missing.
 
 ## Simulation
 
@@ -80,7 +85,7 @@ neuropilot real --launch-relay
 which requires `TMS_ROBOT_CONTROL_PATH` to point at a `tms-robot-control`
 checkout. InVesalius and `main_loop.py` are never started by NeuroPilot.
 
-!!! danger "Safety — real stimulation"
+!!! danger "Safety: real stimulation"
     Real mode fires a stimulator at a person. Do not start it without ethics
     approval, a trained operator, the stimulator's own limits and a consented
     subject. The checklist is in [Real session checklist](run/real.md).
