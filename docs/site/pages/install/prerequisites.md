@@ -47,7 +47,7 @@ simulator; the site explains what each file is for.
 
 ## For a real session only
 
-The full hardware list is on [Lab and hardware setup](install/hardware.md). In
+The full hardware list is on [Hardware setup](install/hardware.md). In
 short: the TMS robot, the neuronavigation camera and PCs, the stimulator, the
 EMG amplifier and a network that connects them. None of it is needed to install
 or explore the software.
@@ -60,4 +60,4 @@ or explore the software.
 ## Next
 
 - [Install the suite](install/install.md)
-- [Lab and hardware setup](install/hardware.md)
+- [Hardware setup](install/hardware.md)

@@ -148,6 +148,6 @@ update.
 
 ## Next
 
-- [Lab and hardware setup](install/hardware.md) — only needed for real hardware.
+- [Hardware setup](install/hardware.md) — only needed for real hardware.
 - [Verify the installation](install/verify.md) — prove that everything works.
 - [Quick start](start/quickstart.md) — run the simulator.

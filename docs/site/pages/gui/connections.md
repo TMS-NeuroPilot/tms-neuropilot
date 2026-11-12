@@ -83,7 +83,7 @@ current error; the message says what failed and the fix is on the hardware side
 
 If the robot card is red with a connection message, check that `main_loop.py` is
 running and that the robot's Modbus/listen services are enabled. See
-[Lab and hardware setup](install/hardware.md).
+[Hardware setup](install/hardware.md).
 
 !!! tip "Force sensor"
     `Awaiting valid pressure data` comes from the robot side when the force

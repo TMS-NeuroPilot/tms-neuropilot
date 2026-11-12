@@ -18,7 +18,7 @@ title = "Install"
 pages = [
   ["Prerequisites", "install/prerequisites.md", "Python, Qt, SimNIBS, a display and the hardware a real session needs."],
   ["Install the suite", "install/install.md", "Conda environment, editable install, SimNIBS and the .env bootstrap file."],
-  ["Lab and hardware setup", "install/hardware.md", "Relay, stimulator, EMG computer, robot and neuronavigation wiring."],
+  ["Hardware setup", "install/hardware.md", "Connect your own relay, neuronavigation, robot, stimulator and EMG PC."],
   ["Verify the installation", "install/verify.md", "Checks that prove every component, solver and serial port works."],
 ]
 

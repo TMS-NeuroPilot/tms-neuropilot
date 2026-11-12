@@ -1,134 +1,276 @@
-# Lab and hardware setup
+# Hardware setup
 
-Nothing on this page is needed for the simulator. It documents how the four
-components are wired in the lab and which settings point at which device.
+Nothing on this page is needed for the simulator. It explains how to connect
+*your* hardware to NeuroPilot: which pieces exist, which endpoints NeuroPilot
+needs, and how to check each one before a subject arrives.
 
-## Network map
+The suite does not assume a particular lab. One PC can host everything, or each
+piece can live on its own machine — what matters is that the relay is reachable
+from every peer and that the settings below point at the right devices.
 
-The lab network is `192.168.1.0/24`:
+## The pieces
 
-| Address | Device | Notes |
+| Role | What runs there | What NeuroPilot needs from it |
 |---|---|---|
-| `192.168.1.2` | ANT PC (neuronavigation) | InVesalius and the CED/Signal share |
-| `192.168.1.3` | NDI camera | optical tracker |
-| `192.168.1.5` | Pavian PC | the controller and the relay |
-| `192.168.1.10` | Omron cobot | TCP `5890` for movement commands, `502` for Modbus |
+| **Control PC** | controller + relay | a display, the `pipeline` environment, a writable data folder |
+| **Neuronavigation PC** | InVesalius (group fork) | `--remote-host` pointed at the relay; the coil tracked |
+| **Robot controller** | `tms-robot-control` | the driver for your arm; a working force sensor |
+| **Stimulator** | MagVenture + `magicpy` | a serial port and a TTL line on the control PC |
+| **EMG acquisition** | CED 1401 + Signal | an SMB share the control PC can read |
 
-The controller talks only to the relay (`RELAY_HOST` / `RELAY_PORT`, default
-`127.0.0.1:5000`); every other connection is the relay's business.
+The relay is the only network service NeuroPilot itself requires. Everything
+else is either a local device or a file share.
 
-!!! warning "Two services must be enabled on the Omron"
-    The robot needs the **Modbus Slave** setting and a **TMFlow listen node**,
-    otherwise `5890`/`502` are closed and the robot controller reports a health
-    error. Enable both before a session; they survive a reboot only if the
-    TMFlow project is saved.
+## 1. Write down your addresses
 
-## Devices on the control PC
+Fill this in before touching a configuration file; every value has a home in
+`.env` or the lab profile.
 
-| Device | Default | Setting |
+| Item | Example | Your value |
 |---|---|---|
-| MagVenture stimulator, serial control | `/dev/ttyS1` | `STIMULATOR_PORT` |
-| Stimulator TTL trigger | `/dev/parport0` | `STIMULATOR_TTL_PORT` |
-| Robot force sensor | `/dev/ttyUSB0` | fixed in `tms-robot-control` |
-| NDI tracker ROM files | probe `NT-115`, head `NT-103`, coil `NT-112` | InVesalius |
+| Relay host | `relay.lab.example` (or `192.0.2.10`) | |
+| Relay port | `5000` | |
+| Controller PC | the machine with the display | |
+| Neuronavigation PC | `nav.lab.example` | |
+| Robot controller | same PC as the relay, or another | |
+| Stimulator serial device | `/dev/ttyUSB0` | |
+| Stimulator TTL device | `/dev/parport0` | |
+| EMG PC address | `192.0.2.20` | |
+| EMG SMB user / password | a dedicated account | |
+| Data folder | `/data/neuropilot` | |
 
-Your user must be allowed to open the serial and parallel ports:
+`192.0.2.0/24` is the documentation range; replace the examples with your
+addresses. Avoid reusing the defaults (`127.0.0.1`, `192.168.1.2`) unless they
+really are your machines.
+
+## 2. Network
+
+- Put the control PC, the neuronavigation PC and the robot controller on the
+  same network, or on networks that can reach each other.
+- Give the relay host a **stable address** (static or DNS), not a DHCP lease
+  that changes between sessions.
+- Allow inbound **TCP 5000** (or your `RELAY_PORT`) on the relay host, and
+  outbound connections from every peer.
+- Allow **TCP 445** from the control PC to the EMG PC for the SMB share.
+- Keep the clocks synchronised (NTP). The results CSV and the logs use
+  timestamps from different machines.
+
+Check reachability from each peer before a session:
 
 ```bash
-sudo usermod -aG dialout,lp $USER      # log out and back in afterwards
-ls -l /dev/ttyS1 /dev/parport0
+nc -vz relay.lab.example 5000
+smbclient -L //192.0.2.20 -U <user>
 ```
 
-If the stimulator is on a USB-serial adapter, the device name is usually
-`/dev/ttyUSB0`; set it in **Config › Lab** rather than editing `.env`.
+## 3. Control PC
 
-## The EMG computer
+```bash
+conda activate pipeline
+cp .env.example .env
+```
 
-The CED 1401 PC shares its Signal data folder over SMB. The controller mounts
-it with the credentials from the lab profile:
+Set at least:
 
-| Key | Meaning | Default |
+```bash
+RELAY_HOST=relay.lab.example     # or 127.0.0.1 when the relay runs here
+RELAY_PORT=5000
+ROOT_FOLDER=/data/neuropilot
+```
+
+The relay is `relay_server.py` from `tms-robot-control`; with
+
+```bash
+TMS_ROBOT_CONTROL_PATH=/opt/tms-robot-control
+```
+
+`neuropilot real --launch-relay` starts it for you. For a dry run without
+hardware, `neuropilot relay` starts the simulated relay instead.
+
+## 4. Neuronavigation PC
+
+Use the group's InVesalius build: it adds the PubSub topics NeuroPilot relies on
+(`External Controller to Neuronavigation: Create Marker`,
+`From Neuronavigation: Coil at target`, …). Stock upstream InVesalius does not
+have them.
+
+Start it pointed at the relay:
+
+```bash
+python app.py --remote-host http://relay.lab.example:5000
+```
+
+On that PC:
+
+1. Configure the optical tracker and load the ROM files for your probe, head
+   reference and coil.
+2. Run the registration and accept it.
+3. Confirm the coil is tracked and visible in the 3-D view.
+
+The controller creates a marker per target and waits for *Coil at target*; it
+never talks to the camera directly.
+
+## 5. Robot controller
+
+`tms-robot-control` contains the relay server and the robot driver. Install the
+driver for **your** arm, and enable whatever remote interface it needs. For
+example, an Omron arm needs its Modbus slave and a TMFlow listen node enabled;
+other vendors have their own equivalent. The robot's manual is the authority
+here, not this page.
+
+Before the first session:
+
+- **Tool point** — the driver's tool centre point must be the coil's
+  stimulation point, not the flange or the handle. Re-measure it if the coil
+  mount changed.
+- **Force sensor** — the driver must publish a force reading; NeuroPilot uses
+  it as the contact gate before a pulse.
+- **Reach and collisions** — teach the approach pose and verify that the first
+  target is reachable without self-collision.
+- **Speeds** — the controller sends the default and tuning speeds at Start;
+  confirm they are the values you expect.
+
+```bash
+python main_loop.py        # after the relay; then Connect to robot
+```
+
+In InVesalius, press *Connect to robot* only after `main_loop.py` is running.
+
+!!! danger "Safety — order matters"
+    Start the relay, then InVesalius, then the robot driver, then the
+    controller — and press *Connect to robot* in InVesalius only after the
+    driver is running. Connecting to a robot whose driver is not running leaves
+    it uninitialised and the first target will not move it.
+
+## 6. Stimulator
+
+The MagVenture is driven over a serial port and triggered over a TTL line, both
+on the control PC.
+
+```bash
+sudo usermod -aG dialout,lp "$USER"    # log out and back in afterwards
+ls -l /dev/ttyUSB0 /dev/parport0
+```
+
+Set the devices in **Config › Lab** (or `STIMULATOR_PORT` /
+`STIMULATOR_TTL_PORT` in `.env`). USB-serial adapters usually appear as
+`/dev/ttyUSB0`; the parallel port may be `/dev/parport0` or a different device
+depending on the card. Use the stable `/dev/serial/by-id/...` path if the
+adapter enumerates differently across reboots.
+
+!!! danger "Safety — test pulses"
+    Test the stimulator with the coil away from people and according to your
+    local rules. Check the displayed amplitude on the device itself before the
+    first pulse of a session; the GUI value is not a substitute.
+
+## 7. EMG acquisition
+
+The CED 1401 PC writes Signal files to a folder it shares over SMB. The
+controller reads those files; it does not record EMG itself.
+
+| Setting | Meaning | Default |
 |---|---|---|
-| `EMG_COMPUTER_IP` | address of the CED PC | `192.168.1.2` |
+| `EMG_COMPUTER_IP` | address of the EMG PC | `192.168.1.2` |
 | `EMG_COMPUTER_USERNAME` | SMB user | `neuro` |
 | `EMG_COMPUTER_PASSWORD` | SMB password | `<set in .env>` |
 
-Test the share before a session:
+The share name is fixed in the acquisition setup, not in NeuroPilot. Confirm
+that the control PC can list it, and that new files appear there when you tap
+the electrodes:
 
 ```bash
-smbclient //192.168.1.2/<share> -U neuro
+smbclient //192.0.2.20/<share> -U <user>
 ```
 
-The exact share name is configured in `tms-robot-control`/the EMG system, not
-in NeuroPilot — the controller only reads the files the acquisition writes.
+Then set `EMG_CHANNELS`, `SAMPLING_RATE` and the MEP window for your amplifier
+(see [EMG channels and MEP windows](prepare/emg.md)).
 
-## Software on the other PCs
+## 8. Start everything
 
-### Neuronavigation (ANT PC)
-
-InVesalius must run with the remote-control server enabled and pointed at the
-same relay:
+On the control PC (or the machines that host each role), in this order:
 
 ```bash
-python app.py --remote-host http://192.168.1.5:5000
-```
-
-The group's InVesalius fork adds the PubSub topics NeuroPilot uses
-(`External Controller to Neuronavigation: Create Marker`,
-`From Neuronavigation: Coil at target`, …). Stock upstream InVesalius does not
-have them; use the fork.
-
-### Robot control (Pavian PC)
-
-```bash
-python relay_server.py 5000        # production relay
-python main_loop.py                # robot driver
-```
-
-Both live in a `tms-robot-control` checkout (the MPI branch for the Omron). If
-you set `TMS_ROBOT_CONTROL_PATH` to that checkout, `neuropilot real
---launch-relay` starts `relay_server.py` for you.
-
-!!! danger "Safety — order matters"
-    Start the relay, then InVesalius, then `main_loop.py`, then the controller.
-    Pressing *Connect to robot* in InVesalius before `main_loop.py` is running
-    leaves the robot uninitialised and the first target will not move it.
-
-## Starting a real session
-
-Four terminals on the Pavian PC, in this order:
-
-```bash
-# 1. relay (skip if `neuropilot real --launch-relay` starts it)
+# 1. relay
 python relay_server.py 5000
 
 # 2. neuronavigation
-python app.py --remote-host http://localhost:5000
+python app.py --remote-host http://relay.lab.example:5000
 
-# 3. robot
+# 3. robot driver
 python main_loop.py
 
 # 4. controller
 neuropilot real
 ```
 
-Then, in InVesalius: *Connect to robot*, check the tracking, and confirm the
-coil is visible. In the controller, open **Connections** and confirm the three
-cards are green before **Start**.
+Then:
 
-!!! tip "Force sensor says nothing"
-    `Awaiting valid pressure data` on the robot side means the force sensor has
-    not produced a reading yet. Touch the sensor once with a finger; the stream
-    starts and the message disappears.
+1. In InVesalius: *Connect to robot*, verify tracking, confirm the coil.
+2. In the controller: **Connections** — the stimulator, EMG and robot cards must
+   be green; **Project** — the subject is loaded; **Control** — the E-field mode
+   is selected and Start is enabled.
+
+## 9. Verify each system
+
+| Check | Where |
+|---|---|
+| relay reachable from every peer | `nc -vz <relay> 5000` |
+| stimulator answers on its port | **Connections › Stimulator** details |
+| EMG share readable | **Connections › EMG**, or `smbclient` |
+| robot health and force sensor | **Connections › Robot** details |
+| InVesalius creates a marker | press Start; the marker appears |
+| coil reaches the target | the robot moves and *Coil at target* arrives |
+| a test pulse produces an MEP | **MEP results** after one pulse |
+
+`Awaiting valid pressure data` on the robot side means the force sensor has not
+produced a reading yet: touch it once and the stream starts.
+
+## Example configuration
+
+A minimal `.env` for a lab where the relay and controller run on the same PC
+and the other pieces are remote:
+
+```bash
+RELAY_HOST=127.0.0.1
+RELAY_PORT=5000
+ROOT_FOLDER=/data/neuropilot
+STIMULATOR_PORT=/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A10K...-if00-port0
+STIMULATOR_TTL_PORT=/dev/parport0
+EMG_COMPUTER_IP=192.0.2.20
+EMG_COMPUTER_USERNAME=emg
+EMG_COMPUTER_PASSWORD=change-me
+EMG_CHANNELS=FDI,APB,ADM
+SAMPLING_RATE=4000
+CUTOFF_FREQ=500
+TMS_PULSE_TIME=5
+START_MEP=10
+END_MEP=100
+ONLINE_FEM_SOLVER=pardiso
+ONLINE_FEM_ANISOTROPY=scalar
+```
+
+The same values can be set in **Config › Lab** and then live in
+`~/.neuropilot/lab.yaml`; `.env` pins a value and wins over the profile (see
+[Settings model](config/model.md)).
+
+## Migrating an existing installation
+
+- Keep the old `.env` and compare it with `.env.example`; the keys are
+  documented in the [`.env` reference](config/env.md).
+- Move the hardware values you want to edit in the GUI into `lab.yaml`
+  (**Config › Lab › Save lab profile**), and leave the bootstrap keys in
+  `.env`.
+- If a value refuses to change, it is still pinned in `.env` or exported in the
+  shell; the status line on Config › Lab counts those overrides.
 
 ## What the relay does *not* carry
 
 Images, meshes and EMG files are read from disk, not sent over the relay. The
 relay carries poses, topic strings and small status payloads only. A fast
-network is therefore nice but not critical; a *reliable* one is, because a lost
-message is not retried (see [Relay protocol](reference/relay.md)).
+network is nice; a *reliable* one matters, because a lost message is not
+retried (see [Relay protocol](reference/relay.md)).
 
 ## Next
 
 - [Verify the installation](install/verify.md)
 - [Real session checklist](run/real.md)
+- [Troubleshooting](reference/troubleshooting.md)
