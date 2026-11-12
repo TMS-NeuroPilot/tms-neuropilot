@@ -61,7 +61,7 @@ or, identically:
 scripts/run_tests.sh
 ```
 
-Expect roughly 700 tests passing in a few minutes. The GUI tests are separate:
+The non-GUI set runs in well under a minute. The GUI tests are separate:
 
 ```bash
 pytest -m gui -q           # needs DISPLAY or WAYLAND_DISPLAY
@@ -90,73 +90,6 @@ In the terminal you should see four components connect, and no traceback:
 
 The controller window opens with the six tabs. A MuJoCo viewer window opens for
 the virtual robot. Ctrl+C stops everything.
-
-## 6. GUI smoke test
-
-Open each tab once. Every page must render without a traceback in the terminal:
-
-| Page | What proves it works |
-|---|---|
-| Project | the file rows are editable, **Load** opens a dialog |
-| Connections | three cards, each with a status LED |
-| Control | the E-field radios, the transport buttons (Start disabled until a mode is chosen) |
-| MEP results | two empty plots with axes |
-| Cortical results | the empty 3-D viewport and the Results / Mapping / Display / Selection cards |
-| Config | three sub-tabs: Lab, Study, Subject |
-
-## 7. Online solver (optional)
-
-With the simulator running and a project loaded:
-
-1. Open **Control** and click **Online E-Field**.
-2. The hint under the radios changes to *"Warming up the online solver (about a
-   minute) — pulses wait until it is ready."*
-3. After the solver load, it changes to *"Online solver ready."*
-
-If it says *"Online solver unavailable — switch to Precomputed"*, SimNIBS or
-`petsc4py` is not importable in `pipeline`. Check step 1 and the MKL note in
-[Install the suite](install/install.md).
-
-## 8. Data files (optional)
-
-If you already have a subject:
-
-```bash
-python - <<'PY'
-import h5py
-for path in ["/path/to/roi.hdf5", "/path/to/e.hdf5", "/path/to/placements.hdf5"]:
-    with h5py.File(path) as f:
-        print(path, list(f.keys()))
-PY
-```
-
-A valid ROI has `mesh/nodes/node_coord` and `mesh/elm/triangle_number_list`; a
-valid E-field library has `E_mag` with shape `(placements, roi_elements)`. See
-[Subject data](prepare/subject-data.md).
-
-## 9. Documentation build
-
-```bash
-python docs/site/build.py --check
-```
-
-This builds the site, verifies every internal link and anchor and removes the
-output again. It needs nothing but the standard library, so it also works on a
-machine without the GUI stack.
-
-## What "verified" means
-
-- [ ] imports ok
-- [ ] `neuropilot` on the PATH
-- [ ] `robots --check omron` ok
-- [ ] `pytest -m "not gui"` green
-- [ ] `neuropilot sim` shows four components and no traceback
-- [ ] all six GUI pages render
-- [ ] (optional) online solver reaches *ready*
-- [ ] (optional) `docs/site/build.py --check` returns 0
-
-Only the first four are needed before you start preparing subject data; the rest
-confirm the environment is complete.
 
 ## Next
 
