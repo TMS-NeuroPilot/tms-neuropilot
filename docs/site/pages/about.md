@@ -1,10 +1,12 @@
 # About the project
 
-NeuroPilot is research software from the **TMS Localisation group at the Max
-Planck Institute for Human Cognitive and Brain Sciences (MPI CBS), Leipzig**.
-It runs robot-assisted TMS mapping experiments with a per-pulse electric field
-and ships a complete virtual twin of the hardware, so the workflow can be
-developed, taught and tested without a subject or a robot.
+NeuroPilot is research software from the **Brain Networks** and **Neural Data
+Science and Statistical Computing** groups at the Max Planck Institute for
+Human Cognitive and Brain Sciences (*MPI CBS*) and the Center for Scalable Data
+Analytics and Artificial Intelligence (*ScaDS.AI*), Leipzig, Germany. It runs
+optimized TMS mapping experiments based on per-pulse electric fields, allows
+for robot integration and ships a complete virtual twin to test and debug
+workflows without hardware and subjects.
 
 It is not a medical device. Real stimulation needs ethics approval, a trained
 operator and the stimulator's own safety limits.
@@ -20,9 +22,9 @@ operator and the stimulator's own safety limits.
   surface mesh as the pulses accumulate.
 - **A twin for everything else.** Relay, neuronavigation and robot have virtual
   counterparts that speak the same topics, so a new user can learn the
-  workflow and a developer can change it without hardware.
+  workflow and a developer can change it without hardware or a subject.
 
-## Who works on it
+## Contributors
 
 | Contributor | Role |
 |---|---|
@@ -120,7 +122,8 @@ used:
 
 ```text
 NeuroPilot — guided online TMS mapping with online field optimization.
-TMS Localisation group, MPI CBS Leipzig.
+Brain Networks and Neural Data Science and Statistical Computing groups,
+MPI CBS Leipzig / ScaDS.AI.
 https://gitlab.gwdg.de/tms-localization/papers/neuropilot
 ```
 
