@@ -6,8 +6,8 @@ online analysis, InVesalius neuronavigation and a complete virtual twin.</p>
   <span class="badge accent">Python 3.11</span>
   <span class="badge">PyQt5 + asyncio</span>
   <span class="badge">SimNIBS 4.5</span>
+  <span class="badge">InVesalius 3.1</span>
   <span class="badge">CC BY-NC-SA 4.0</span>
-  <span class="badge">730+ tests</span>
 </div>
 </div>
 
