@@ -42,6 +42,14 @@ workflow, and a developer can change it, without touching hardware.
   </a>
 </div>
 
+<figure class="screenshot-wide">
+  <img src="assets/screenshots/control-precomputed.png" alt="The NeuroPilot Control page: transport buttons and stimulation settings on the left, the E-field mode and the virtual robot in the middle, robot speeds and the session log on the right.">
+  <figcaption>The Control page during a simulated session: transport and
+  stimulation on the left, the E-field mode and the virtual robot in the
+  middle, the session log underneath. The other five pages cover the project,
+  the connections, the MEPs, the cortical map and the configuration.</figcaption>
+</figure>
+
 ## What it does
 
 <figure>
