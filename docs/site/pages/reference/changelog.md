@@ -7,6 +7,13 @@ suite is used.
 
 ## Unreleased
 
+### GUI
+
+- Large project files (head mesh, ROI surface, coil placements, E-field
+  library and EMG source config) are read in background workers. The window
+  stays interactive while they load, each row shows **loading...**, and Start
+  waits until the reads finish. Changing a path supersedes the older read.
+
 ### Documentation
 
 - This site: 44 pages covering installation, subject data, every GUI page,

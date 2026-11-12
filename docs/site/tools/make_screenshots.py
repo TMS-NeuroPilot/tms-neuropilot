@@ -282,6 +282,12 @@ def run(args, project: Path) -> None:
         if error:
             raise SystemExit(error)
 
+        # Heavy project files are read in the window's background loaders;
+        # start the pipeline only after those paths have been applied.
+        deadline = time.time() + 240
+        while win.has_pending_loads() and time.time() < deadline:
+            await asyncio.sleep(0.1)
+
         # Start the pipeline only after the project is loaded: run() marks the
         # session as running, and loading is refused from then on.
         asyncio.create_task(controller.run())

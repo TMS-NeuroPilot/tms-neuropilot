@@ -72,13 +72,12 @@ def stamped_results_filename(path, stamp):
     return f"{base}{stamp}{ext or '.csv'}"
 
 
-def read_simnibs_targets(path):
-    """Coil targets from a SimNIBS placements file, in InVesalius convention.
+def read_simnibs_targets_data(path):
+    """Read coil placements once and return ``(targets, matsimnibs)``.
 
-    Returns a list of ``(position_mm, euler_xyz_deg)`` tuples.  Raises
-    ``ValueError`` with an operator-readable message when the file is
-    missing, is not HDF5, or does not hold a (4, 4, n) ``matsimnibs``
-    dataset -- the callers show that message instead of dying mid-run.
+    The matrices are kept so the caller can cache them for the GUI
+    consistency check and the start of a run; ``read_simnibs_targets`` is the
+    queue-only wrapper used by older callers.
     """
     validate_simnibs_targets_file(path)
     try:
@@ -104,7 +103,100 @@ def read_simnibs_targets(path):
         m[:3, 0], m[:3, 1] = m[:3, 1].copy(), m[:3, 0].copy()
         euler_angles = np.degrees(tr.euler_from_matrix(m, "sxyz"))
         target_queue.append((m[:3, 3], euler_angles))
-    return target_queue
+    return target_queue, mats
+
+
+def read_simnibs_targets(path):
+    """Coil targets from a SimNIBS placements file, in InVesalius convention.
+
+    Returns a list of ``(position_mm, euler_xyz_deg)`` tuples.  Raises
+    ``ValueError`` with an operator-readable message when the file is
+    missing, is not HDF5, or does not hold a (4, 4, n) ``matsimnibs``
+    dataset -- the callers show that message instead of dying mid-run.
+    """
+    return read_simnibs_targets_data(path)[0]
+
+
+def read_e_matrix_file(path):
+    """Read a precomputed E-field library (worker-safe, no Qt).
+
+    Returns ``(E_mag, matsimnibs_or_None)``.  Raises ``ValueError`` for a
+    missing/odd dataset so the GUI can report the reason without leaving a
+    half-loaded matrix behind.
+    """
+    with h5py.File(path, 'r') as f:
+        if 'E_mag' not in f:
+            raise ValueError(f"{os.path.basename(path)} has no 'E_mag' dataset "
+                             f"(keys: {list(f.keys())}).")
+        data = np.asarray(f['E_mag'][:])
+        mats = f['matsimnibs'][:] if 'matsimnibs' in f else None
+    if data.ndim != 2 or data.shape[0] < 1 or data.shape[1] < 1:
+        raise ValueError(f"E_mag must be (placements, elements), got {data.shape}.")
+    if not np.issubdtype(data.dtype, np.number):
+        raise ValueError(f"E_mag has non-numeric dtype {data.dtype}.")
+    if mats is not None:
+        mats = np.asarray(mats)
+    return data, mats
+
+
+def _file_signature(path):
+    """Cheap change detector for the target cache (mtime + size)."""
+    try:
+        stat = os.stat(path)
+        return stat.st_mtime_ns, stat.st_size
+    except OSError:
+        return None
+
+
+def read_emg_config_elements(path, roi_fn=None):
+    """Read an EMG source YAML and return one ROI element per channel.
+
+    Runs without Qt so the GUI can load the config (and, for ``xyz`` entries,
+    project onto the ROI) in a worker.  Raises ``ValueError`` with an
+    operator-readable reason; direct callers keep the previous channels.
+    """
+    try:
+        with open(path, "r") as f:
+            data = yaml.safe_load(f) or {}
+    except (OSError, yaml.YAMLError) as e:
+        raise ValueError(f"EMG config unreadable: {e}") from e
+
+    entries = data.get("sources", data) if isinstance(data, dict) else data
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("EMG config has no 'sources' list.")
+
+    # ROI triangle centers for the xyz projection (the E-matrix columns
+    # follow the ROI element order of the geo file).
+    centers = None
+    if roi_fn and os.path.isfile(roi_fn):
+        try:
+            with h5py.File(roi_fn, "r") as f:
+                nodes = f["mesh/nodes/node_coord"][:]
+                tris = f["mesh/elm/triangle_number_list"][:]
+            centers = nodes[tris].mean(axis=1)
+        except (OSError, KeyError, IndexError) as e:
+            raise ValueError(
+                f"EMG config: ROI unreadable ({e}) -- cannot project xyz sources.") from e
+
+    elements = []
+    for i, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            raise ValueError(f"EMG source {i}: invalid entry {entry}")
+        if entry.get("element_id") is not None:
+            elements.append(int(entry["element_id"]))
+        elif entry.get("xyz") is not None:
+            if centers is None:
+                raise ValueError(
+                    "EMG source uses xyz but no ROI surface is loaded -- cannot project.")
+            xyz = np.asarray(entry["xyz"], dtype=float)
+            elem = int(np.argmin(np.linalg.norm(centers - xyz, axis=1)))
+            dist = float(np.linalg.norm(centers[elem] - xyz))
+            print(f"EMG source {i}: xyz {xyz.tolist()} -> element {elem} "
+                  f"(distance {dist:.2f} mm)")
+            elements.append(elem)
+        else:
+            raise ValueError(f"EMG source {i}: needs 'element_id' or 'xyz'.")
+    return elements
 
 
 def parse_target_order_file(path):
@@ -295,6 +387,7 @@ class PipelineController:
         self.targets_file = None
         self.target_order_fn = None
         self.target_order = None
+        self._targets_cache = None      # (path, signature, queue, matsimnibs)
         self.results_fn = None # TODO: Expose and sset via GUI
 
         # we need this attribute for log that shows current steps
@@ -488,55 +581,44 @@ class PipelineController:
     #                      dataType=[1])
 
         # <--- NEW: Loader for the E-Matrix File --->
-    def set_e_matrix_file(self, path: str):
-        """Called by GUI when user loads the E-Matrix HDF5."""
-        print(f"Controller: Loading E-Matrix from {path}...")
-
+    def clear_e_matrix(self):
+        """Drop the precomputed matrix before a new file is read."""
         self.e_matrix = None
         self.n_elms = None
         self.n_positions = None
+        self._library_mats = None
+
+    def apply_e_matrix_file(self, path, data, mats=None):
+        """Install an E-field matrix already read by a worker.
+
+        The GUI calls this on the GUI thread after ``read_e_matrix_file``
+        returned; direct callers can keep using ``set_e_matrix_file``.
+        """
+        self.e_matrix = np.asarray(data)
+        self._library_mats = None if mats is None else np.asarray(mats)
+        print(f" -> E-Matrix loaded. Shape: {self.e_matrix.shape}")
+        self.n_elms = self.e_matrix.shape[1]
+        self.n_positions = self.e_matrix.shape[0]
+        self.set_map_elms(self.map_elms)
+        if isinstance(self.emg_computer, VirtualEMG):
+            self.emg_computer.set_e_matrix(self.e_matrix)
+        self._check_library_consistency()
+        return True
+
+    def set_e_matrix_file(self, path: str):
+        """Called by GUI when user loads the E-Matrix HDF5."""
+        print(f"Controller: Loading E-Matrix from {path}...")
+        self.clear_e_matrix()
 
         if not path:
             print("Controller: Path cleared. E-Matrix removed from memory.")
             return
 
         try:
-            with h5py.File(path, 'r') as f:
-                # CHECK YOUR FILE KEY HERE: Is it 'e_matrix', 'E', 'magnE', or '/mesh/elm/data'?
-                # specific to your data structure
-                if 'E_mag' not in f:
-                    print(f"Error: Keys found in file: {list(f.keys())}")
-                    return
-                data = f['E_mag'][:]
-            # A wrong file must not leave a half-loaded matrix behind: the
-            # analysis would then fail far away from the cause.
-            data = np.asarray(data)
-            if data.ndim != 2 or data.shape[0] < 1 or data.shape[1] < 1:
-                print(f"Error: E_mag must be (placements, elements), got {data.shape}")
-                return
-            if not np.issubdtype(data.dtype, np.number):
-                print(f"Error: E_mag has non-numeric dtype {data.dtype}")
-                return
-            self.e_matrix = data
-            self._library_mats = None
-            try:
-                with h5py.File(path, 'r') as f:
-                    if 'matsimnibs' in f:
-                        self._library_mats = f['matsimnibs'][:]
-            except (OSError, KeyError):
-                self._library_mats = None
-            print(f" -> E-Matrix loaded. Shape: {self.e_matrix.shape}")
-            self.n_elms = self.e_matrix.shape[1]
-            self.n_positions = self.e_matrix.shape[0]
-            self.set_map_elms(self.map_elms)
-            # pass e-matrix to the virtual emg computer
-            if isinstance(self.emg_computer, VirtualEMG):
-                self.emg_computer.set_e_matrix(self.e_matrix)
-            self._check_library_consistency()
+            data, mats = read_e_matrix_file(path)
+            self.apply_e_matrix_file(path, data, mats)
         except Exception as e:
-            self.e_matrix = None
-            self.n_elms = None
-            self.n_positions = None
+            self.clear_e_matrix()
             print(f"Critical Error loading E-Matrix: {e}")
 
     def set_map_elms(self, map_elms):
@@ -652,9 +734,28 @@ class PipelineController:
         self.n_repetitions = value
         print(f"n_repetitions set to: {value}")
 
-    def set_targets_file(self, path: str):
+    def set_targets_file_header(self, path: str, n_targets):
+        """Record a placements path and its header count without reading it.
+
+        ``validate_simnibs_targets_file`` already knows the count from the
+        HDF5 header.  The GUI shows that immediately and reads the matrices in
+        a worker; the full :meth:`set_targets_file` then fills the cache used
+        by the consistency check and by the start of a run.
+        """
         print(f"Targets file set to: {path}")
         self.targets_file = path
+        self._targets_cache = None
+        if self.control_panel is not None:
+            self.control_panel.totaltargets3.setText("")
+        if not path:
+            return
+        if self.control_panel is not None:
+            self.control_panel.totaltargets3.setText(f"{int(n_targets)}")
+
+    def set_targets_file(self, path: str, target_queue=None, target_mats=None):
+        print(f"Targets file set to: {path}")
+        self.targets_file = path
+        self._targets_cache = None
 
         # Empty counters when nothing is loaded or the file cannot be read —
         # never show a bare 0.
@@ -664,12 +765,26 @@ class PipelineController:
             return
 
         try:
-            n_coil_placements = len(self.get_initial_targets()[0])
+            if target_queue is None:
+                target_queue, target_mats = read_simnibs_targets_data(path)
+            n_coil_placements = len(target_queue)
         except (ValueError, OSError) as e:
             print(f"Could not set targets_file to {path}: {e}")
             self.targets_file = None
+            self._targets_cache = None
             return
 
+        self._targets_cache = (path, _file_signature(path),
+                               target_queue, target_mats)
+        try:
+            # Keep the old side effect: the target order is read and
+            # validated as soon as the placement file is usable.
+            _, self.target_order = self.get_initial_targets()
+        except (ValueError, OSError) as e:
+            print(f"Could not set targets_file to {path}: {e}")
+            self.targets_file = None
+            self._targets_cache = None
+            return
         if self.control_panel is not None:
             self.control_panel.totaltargets3.setText(f"{n_coil_placements}")
         self._check_library_consistency()
@@ -706,6 +821,21 @@ class PipelineController:
         if path:
             self.remote.send_message(TOPIC_SET_HEAD_MESH, {"mesh_path": path})
 
+    def apply_emg_config_elements(self, elements):
+        """Apply already-projected channel elements on the GUI thread."""
+        if not isinstance(self.emg_computer, VirtualEMG):
+            return False
+        try:
+            self.emg_computer.set_channel_elements(elements)
+        except ValueError as e:
+            print(f"EMG config rejected: {e}")
+            return False
+        if self.control_panel:
+            publish = getattr(self.control_panel, "set_emg_channels", None)
+            if publish is not None:
+                publish(self.emg_computer.display_names)
+        return True
+
     def set_emg_config(self, path: str):
         """Load the EMG channel sources from a project config file.
 
@@ -721,62 +851,13 @@ class PipelineController:
         if not path or not os.path.isfile(path):
             print(f"EMG config not found: {path}")
             return
-        try:
-            with open(path, "r") as f:
-                data = yaml.safe_load(f) or {}
-        except (OSError, yaml.YAMLError) as e:
-            print(f"EMG config unreadable: {e}")
-            return
-
-        entries = data.get("sources", data) if isinstance(data, dict) else data
-        if not isinstance(entries, list) or not entries:
-            print("EMG config has no 'sources' list.")
-            return
-
-        # ROI triangle centers for the xyz projection (the E-matrix columns
-        # follow the ROI element order of the geo file).
         roi_fn = self.control_panel.loadroilabel.text().strip() if self.control_panel else None
-        centers = None
-        if roi_fn and os.path.isfile(roi_fn):
-            try:
-                with h5py.File(roi_fn, "r") as f:
-                    nodes = f["mesh/nodes/node_coord"][:]
-                    tris = f["mesh/elm/triangle_number_list"][:]
-                centers = nodes[tris].mean(axis=1)
-            except (OSError, KeyError, IndexError) as e:
-                print(f"EMG config: ROI unreadable ({e}) -- cannot project xyz sources.")
-                return
-
-        elements = []
-        for i, entry in enumerate(entries):
-            if not isinstance(entry, dict):
-                print(f"EMG source {i}: invalid entry {entry}")
-                return
-            if entry.get("element_id") is not None:
-                elements.append(int(entry["element_id"]))
-            elif entry.get("xyz") is not None:
-                if centers is None:
-                    print("EMG source uses xyz but no ROI surface is loaded -- cannot project.")
-                    return
-                xyz = np.asarray(entry["xyz"], dtype=float)
-                elem = int(np.argmin(np.linalg.norm(centers - xyz, axis=1)))
-                dist = float(np.linalg.norm(centers[elem] - xyz))
-                print(f"EMG source {i}: xyz {xyz.tolist()} -> element {elem} "
-                      f"(distance {dist:.2f} mm)")
-                elements.append(elem)
-            else:
-                print(f"EMG source {i}: needs 'element_id' or 'xyz'.")
-                return
-
         try:
-            self.emg_computer.set_channel_elements(elements)
-        except ValueError as e:
-            print(f"EMG config rejected: {e}")
+            elements = read_emg_config_elements(path, roi_fn)
+        except (OSError, ValueError, yaml.YAMLError) as e:
+            print(f"EMG config ignored: {e}")
             return
-        if self.control_panel:
-            publish = getattr(self.control_panel, "set_emg_channels", None)
-            if publish is not None:
-                publish(self.emg_computer.display_names)
+        self.apply_emg_config_elements(elements)
 
     async def run(self):
         """
@@ -1211,7 +1292,16 @@ class PipelineController:
             A list of targets, where each target is a tuple (position, euler_angles). Euler angles in degrees.
         """
         print(f"hdf5_file_path: {self.targets_file}")
-        target_queue = read_simnibs_targets(self.targets_file)
+        target_queue = None
+        cache = getattr(self, "_targets_cache", None)
+        if cache and cache[0] == self.targets_file \
+                and cache[1] == _file_signature(self.targets_file):
+            target_queue = cache[2]
+        if target_queue is None:
+            target_queue, target_mats = read_simnibs_targets_data(self.targets_file)
+            self._targets_cache = (self.targets_file,
+                                   _file_signature(self.targets_file),
+                                   target_queue, target_mats)
 
         print(f"target_order_fn: {self.target_order_fn}")
         if self.target_order_fn is not None:
@@ -1963,10 +2053,14 @@ class PipelineController:
             self._log_step(f"[WARN] {self.library_warning}")
             return False
         if self._library_mats is not None:
-            try:
-                with h5py.File(self.targets_file, "r") as f:
-                    placements = f['matsimnibs'][:]
-            except (OSError, KeyError):
+            placements = None
+            cache = getattr(self, "_targets_cache", None)
+            if cache and cache[0] == self.targets_file \
+                    and cache[1] == _file_signature(self.targets_file):
+                placements = cache[3]
+            if placements is None:
+                # The GUI loads the placements in a worker; report the
+                # count-only warning now and compare matrices when they land.
                 return True
             # SimNIBS writes placements as (4, 4, n); some E-field libraries
             # store the same matrices as (n, 4, 4).  Normalise before the

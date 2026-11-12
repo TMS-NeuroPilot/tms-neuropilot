@@ -13,6 +13,115 @@ import numpy as np
 HOME_VIEW_DIRECTION = np.array([-0.75, -0.30, 0.58])
 
 
+class LoadCancelled(Exception):
+    """Raised when a worker is stopped before it builds a VTK object."""
+
+
+def _read_simnibs_msh_file(file_path):
+    """Read a SimNIBS .msh without touching Qt (safe in a worker thread).
+
+    Returns ``(nodes, triangles, tissue_tags, n_tets)`` or ``None`` when the
+    file cannot be read.  The caller gets the readable error message from the
+    log; the worker path turns ``None`` into an exception instead.
+    """
+    try:
+        from simnibs import mesh_io
+        m = mesh_io.read_msh(file_path)
+        tri_mask = m.elm.elm_type == 2  # surface triangles (tets are 4)
+        n_tet = int((m.elm.elm_type == 4).sum())
+        nodes = m.nodes.node_coord[:, :3]
+        tr_con = m.elm.node_number_list[tri_mask][:, :3].astype(int) - 1
+        tri_tissue_type = m.elm.tag1[tri_mask].astype(int) % 1000  # 1001..1005 -> 1..5
+        return nodes, tr_con, tri_tissue_type, n_tet
+    except Exception as e:
+        print(f"Error reading SimNIBS mesh {file_path}: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+
+def _read_hdf5_mesh_arrays(file_path):
+    """Read the arrays of a pynibs/ROI geo HDF5 (no Qt, worker-safe)."""
+    with h5py.File(file_path, 'r') as f:
+        nodes = f['mesh/nodes/node_coord'][:]
+        tr_con = f['/mesh/elm/triangle_number_list'][:]
+        tri_tissue_type = (f['/mesh/elm/tri_tissue_type'][:]
+                           if '/mesh/elm/tri_tissue_type' in f else None)
+    return nodes, tr_con, tri_tissue_type
+
+
+def _mesh_from_arrays(nodes, tr_con, tri_tissue_type, mesh_type,
+                      stop_event=None):
+    """Build the display PolyData from mesh arrays.
+
+    No Qt and no renderer access: the caller may run this in a worker thread
+    and hand the finished object to the GUI thread.  The optional 90 %
+    decimation of a large head surface is part of the read rather than the
+    first paint, because it is the expensive part of opening a head mesh.
+    ``stop_event`` is checked before any VTK object is created so closing the
+    window during a long read does not leave a worker using VTK after the
+    Qt application has gone away.
+    """
+    if stop_event is not None and stop_event.is_set():
+        raise LoadCancelled()
+    n_faces = tr_con.shape[0]
+    padding = np.full((n_faces, 1), 3)
+    faces_flat = np.hstack((padding, tr_con)).flatten().astype(int)
+    loaded_mesh = pv.PolyData(nodes, faces_flat)
+
+    if tri_tissue_type is not None:
+        n_data = len(tri_tissue_type)
+        n_points = loaded_mesh.n_points
+        n_cells = loaded_mesh.n_cells
+        print(f"Data mapping: {n_data} values -> {n_points} Points / {n_cells} Cells")
+        if n_data == n_points:
+            loaded_mesh.point_data["Tissue Type"] = tri_tissue_type
+        elif n_data == n_cells:
+            loaded_mesh.cell_data["Tissue Type"] = tri_tissue_type
+        else:
+            print(f"[WARNING] Data length ({n_data}) matches neither Points nor Cells.")
+
+    if mesh_type == "head" and loaded_mesh.n_cells > 200000:
+        if stop_event is not None and stop_event.is_set():
+            raise LoadCancelled()
+        try:
+            loaded_mesh = loaded_mesh.decimate(0.9)
+            print(f"Head mesh decimated for display: {loaded_mesh.n_cells} triangles")
+        except Exception as e:
+            print(f"[WARN] head decimation skipped: {e}")
+    if stop_event is not None and stop_event.is_set():
+        raise LoadCancelled()
+    return loaded_mesh, n_faces
+
+
+def read_mesh_file(file_path, mesh_type="head", stop_event=None):
+    """Read a display mesh and return ``(PolyData, summary)``.
+
+    This is the worker-thread entry point used by the GUI.  It handles both
+    SimNIBS ``*.msh`` files and pynibs/ROI HDF5 files and never touches a
+    widget, so the window stays responsive while a large mesh is read and
+    decimated.
+    """
+    if str(file_path).lower().endswith(".msh"):
+        loaded = _read_simnibs_msh_file(file_path)
+        if loaded is None:
+            raise ValueError(f"could not read SimNIBS mesh: {file_path}")
+        if stop_event is not None and stop_event.is_set():
+            raise LoadCancelled()
+        nodes, tr_con, tri_tissue_type, n_tet = loaded
+        mesh, n_faces = _mesh_from_arrays(nodes, tr_con, tri_tissue_type,
+                                          mesh_type, stop_event=stop_event)
+        summary = f"{n_tet:,} tets · {n_faces:,} tris"
+    else:
+        nodes, tr_con, tri_tissue_type = _read_hdf5_mesh_arrays(file_path)
+        if stop_event is not None and stop_event.is_set():
+            raise LoadCancelled()
+        mesh, n_faces = _mesh_from_arrays(nodes, tr_con, tri_tissue_type,
+                                          mesh_type, stop_event=stop_event)
+        summary = f"{n_faces:,} triangles"
+    return mesh, summary
+
+
 class _ScalarLegend(QWidget):
     """Compact legend: large title, thin bar, values at the bar ends."""
 
@@ -1010,6 +1119,10 @@ class MeshWidget(QWidget):
           m2m folder) — triangles and their tissue tags
         - ``*.hdf5`` meshes with ``/mesh/nodes/node_coord`` and
           ``/mesh/elm/triangle_number_list`` (ROI geo files)
+
+        The GUI uses :func:`read_mesh_file` in a worker and then
+        :meth:`set_loaded_mesh`; this synchronous entry point remains for
+        tests, tools and scripts that already run off the GUI thread.
         """
         # 1. Guard Clause: Handle the empty state
         if not file_path:
@@ -1030,70 +1143,11 @@ class MeshWidget(QWidget):
                     return
                 nodes, tr_con, tri_tissue_type = loaded_mesh
             else:
-                with h5py.File(file_path, 'r') as f:
-                    # Expected shape: (N, 3)
-                    nodes = f['mesh/nodes/node_coord'][:]
-                    # Expected shape: (M, 3)
-                    tr_con = f['/mesh/elm/triangle_number_list'][:]
-                    # Optional: one value per triangle
-                    tri_tissue_type = (f['/mesh/elm/tri_tissue_type'][:]
-                                       if '/mesh/elm/tri_tissue_type' in f else None)
+                nodes, tr_con, tri_tissue_type = _read_hdf5_mesh_arrays(file_path)
 
-            # --- CONVERT TO PYVISTA (The efficient way) ---
-
-            # VTK requires the faces array to be flat and prefixed with the number of points per face.
-            # For triangles, it must look like: [3, p0, p1, p2, 3, p3, p4, p5, ...]
-
-            # Create a column of 3s (because they are triangles)
-            n_faces = tr_con.shape[0]
-            padding = np.full((n_faces, 1), 3)
-
-            # Stack [3, p1, p2, p3] horizontally
-            faces_concatenated = np.hstack((padding, tr_con))
-
-            # Flatten to 1D array for VTK
-            faces_flat = faces_concatenated.flatten().astype(int)
-
-            # Create the PyVista PolyData object
-            loaded_mesh = pv.PolyData(nodes, faces_flat)
-
-            # --- ADD DATA (Tissue Type) ---
-            if tri_tissue_type is not None:
-                n_data = len(tri_tissue_type)
-                n_points = loaded_mesh.n_points
-                n_cells = loaded_mesh.n_cells
-
-                print(f"Data mapping: {n_data} values -> {n_points} Points / {n_cells} Cells")
-
-                if n_data == n_points:
-                    print("-> MATCH: Assigning data to POINTS (Vertices)")
-                    loaded_mesh.point_data["Tissue Type"] = tri_tissue_type
-                elif n_data == n_cells:
-                    print("-> MATCH: Assigning data to CELLS (Triangles)")
-                    loaded_mesh.cell_data["Tissue Type"] = tri_tissue_type
-                else:
-                    print(f"[WARNING] Data length ({n_data}) matches neither Points nor Cells.")
-
-            # The SimNIBS head surface has >1M triangles; that is fine for
-            # data but too heavy to rotate interactively.  A 90 % decimation
-            # is invisible at display zoom and keeps the GPU idle.
-            if mesh_type == "head" and loaded_mesh.n_cells > 200000:
-                try:
-                    loaded_mesh = loaded_mesh.decimate(0.9)
-                    print(f"Head mesh decimated for display: {loaded_mesh.n_cells} triangles")
-                except Exception as e:
-                    print(f"[WARN] head decimation skipped: {e}")
-
-            # Assign to the corresponding mesh property
-            if mesh_type == "head":
-                self.mesh_head = loaded_mesh
-                self.radio_head.setChecked(True)
-            elif mesh_type == "roi":
-                self.mesh_roi = loaded_mesh
-                self.radio_roi.setChecked(True)
-
-            # Update the UI
-            self.toggle_mesh_view()
+            loaded_mesh, n_faces = _mesh_from_arrays(
+                nodes, tr_con, tri_tissue_type, mesh_type)
+            self.set_loaded_mesh(loaded_mesh, mesh_type)
 
             print(f"Successfully loaded HDF5 {mesh_type} Mesh: {n_faces} triangles.")
 
@@ -1102,27 +1156,33 @@ class MeshWidget(QWidget):
             import traceback
             traceback.print_exc()
 
+    def set_loaded_mesh(self, loaded_mesh, mesh_type="head", select=True):
+        """Install a mesh prepared by :func:`read_mesh_file`.
+
+        ``select=False`` stores the surface without switching the radio: when
+        a project loads the head and ROI concurrently the completion order is
+        not the request order, and the last requested surface must stay the
+        visible one.
+        """
+        if mesh_type == "head":
+            self.mesh_head = loaded_mesh
+            if select:
+                self.radio_head.setChecked(True)
+        elif mesh_type == "roi":
+            self.mesh_roi = loaded_mesh
+            if select:
+                self.radio_roi.setChecked(True)
+        if select:
+            self.toggle_mesh_view()
+
     def _load_simnibs_msh(self, file_path):
         """Read a SimNIBS ``*.msh`` mesh: returns ``(nodes, triangles,
         tissue_tags)`` or ``None`` on failure. The tags (1001..1005 for the
         five SimNIBS tissues) are remapped to 1..5 so both mesh sources
         color consistently, and the 1-based node numbers are converted to
         0-based for VTK."""
-        try:
-            # Imported lazily: simnibs is slow to import and only needed
-            # for .msh files (the ROI geo meshes come as HDF5).
-            from simnibs import mesh_io
-            m = mesh_io.read_msh(file_path)
-            tri_mask = m.elm.elm_type == 2  # surface triangles (tets are 4)
-            nodes = m.nodes.node_coord[:, :3]
-            tr_con = m.elm.node_number_list[tri_mask][:, :3].astype(int) - 1
-            tri_tissue_type = m.elm.tag1[tri_mask].astype(int) % 1000  # 1001..1005 -> 1..5
-            return nodes, tr_con, tri_tissue_type
-        except Exception as e:
-            print(f"Error reading SimNIBS mesh {file_path}: {e}")
-            import traceback
-            traceback.print_exc()
-            return None
+        loaded = _read_simnibs_msh_file(file_path)
+        return loaded[:3] if loaded is not None else None
 
     def refresh_dropdown(self):
         """Populates the dropdown with the available mapping results.

@@ -38,6 +38,11 @@ Each row is validated when you leave the field: a missing or malformed file is
 reported in the tooltip and in the log, and the path is kept so you can fix it
 without retyping.
 
+Large meshes, coil placements and E-field libraries are read in the
+background. The row shows **loading...** while the read runs, the rest of the
+window stays usable, and Start remains disabled until the file has been
+applied. Changing a path starts a new read and discards the old result.
+
 !!! tip "Browse buttons"
     Every row's browse button opens the dialog in the folder of the *current*
     value, or in your home folder. The head-mesh dialog filters for `.msh` and
@@ -45,7 +50,8 @@ without retyping.
 
 ## Reading the page at a glance
 
-- A filled row is a file the controller has accepted.
+- A filled row is a file the controller has accepted, or one that is still
+  being read in the background.
 - A red hint under a row means the file is missing or failed validation.
 - The *Results file* row shows where the CSV will be written; its folder must
   exist.

@@ -297,6 +297,7 @@ def test_paste_e_field_loads_a_valid_matrix(window, controller, e_matrix_hdf5):
     path = e_matrix_hdf5(4, 12)
     window.load_e_matrix_label.setText(str(path))
     window.paste_e_field_path()
+    assert window.wait_for_loads()
     assert controller.e_matrix.shape == (4, 12)
     assert controller.n_elms == 12
 

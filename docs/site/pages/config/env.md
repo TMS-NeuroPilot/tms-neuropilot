@@ -33,6 +33,7 @@ cp .env.example .env
 |---|---|---|---|
 | `NEUROPILOT_UI_SCALE` | empty (from the screen) | force the GUI scale | yes |
 | `UI_THEME` | `Workstation Light` | colour theme; also editable in Config › Lab | no |
+| `NEUROPILOT_SESSION_FILE` | `~/.neuropilot/last_session.yaml` | session cache; tests and screenshot tools redirect it | no |
 
 ### Virtual EMG (simulation)
 

@@ -5,10 +5,18 @@ import math
 import re
 import sys
 import os
+import queue
+import threading
+import time
+import traceback
 from .systems.system import SystemStatus
 from .theme import DEFAULT_THEME, THEMES, build_stylesheet, tokens as theme_tokens
+from .meshwidget import read_mesh_file
+from .pipeline_controller import (
+    read_e_matrix_file, read_emg_config_elements,
+    read_simnibs_targets_data, validate_simnibs_targets_file,
+)
 import pynibs
-import time
 import yaml
 import numpy as np
 
@@ -175,6 +183,104 @@ def _relative_project_paths(data, base_dir):
             continue
         result[key] = os.path.relpath(path, base)
     return result
+
+
+def _path_signature(path):
+    """Cheap change detector for a file that may be rewritten in place."""
+    try:
+        stat = os.stat(path)
+        return stat.st_mtime_ns, stat.st_size
+    except OSError:
+        return None
+
+
+class _FileLoader:
+    """One daemon worker that keeps only the newest submitted job.
+
+    Heavy file reads run here, never on the GUI thread.  The worker pushes
+    finished jobs onto a queue; the window drains that queue from a QTimer
+    (see ``_drain_load_results``), so no widget is touched off the GUI thread.
+    If the operator changes a path while the old file is still being read,
+    the pending job is replaced and the old result is ignored by its token.
+    """
+
+    def __init__(self, name, load_fn):
+        self.name = name
+        self._load_fn = load_fn
+        self._condition = threading.Condition()
+        self._job = None
+        self._active_event = None
+        self._stopping = False
+        self._results = queue.Queue()
+        self._thread = threading.Thread(
+            target=self._run, name=f"neuropilot-load-{name}", daemon=True)
+        self._thread.start()
+
+    def submit(self, token, path, **meta):
+        """Queue a job, replacing any job that has not started yet."""
+        job = None
+        if path:
+            job = dict(meta)
+            job.update(token=token, path=path)
+        with self._condition:
+            if self._active_event is not None:
+                self._active_event.set()
+            self._job = job
+            self._condition.notify()
+
+    def cancel(self):
+        """Drop the pending job; a read already in progress still finishes."""
+        with self._condition:
+            self._job = None
+            if self._active_event is not None:
+                self._active_event.set()
+            self._condition.notify()
+
+    def stop(self):
+        with self._condition:
+            self._stopping = True
+            self._job = None
+            if self._active_event is not None:
+                self._active_event.set()
+            self._condition.notify()
+
+    def poll(self):
+        results = []
+        while True:
+            try:
+                results.append(self._results.get_nowait())
+            except queue.Empty:
+                break
+        return results
+
+    def is_busy(self):
+        with self._condition:
+            return self._active_event is not None or self._job is not None
+
+    def _run(self):
+        while True:
+            with self._condition:
+                while self._job is None and not self._stopping:
+                    self._condition.wait()
+                if self._stopping:
+                    return
+                job = self._job
+                self._job = None
+                stop_event = threading.Event()
+                self._active_event = stop_event
+                job["stop_event"] = stop_event
+            try:
+                payload = self._load_fn(job["path"], job)
+                result = dict(job, payload=payload, error=None, detail="")
+            except Exception as e:             # noqa: BLE001 - reported in GUI
+                result = dict(job, payload=None, error=str(e),
+                              detail=traceback.format_exc(),
+                              error_type=type(e).__name__)
+            finally:
+                with self._condition:
+                    if self._active_event is stop_event:
+                        self._active_event = None
+            self._results.put(result)
 
 
 class _TargetValueLabel(QtWidgets.QLabel):
@@ -644,6 +750,29 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.savePathLineEdit, self.coilspathlineedit,
                     self.emg_config_label):
             _le.textChanged.connect(lambda *_: self._info_timer.start())
+        # Heavy files are read in daemon workers; their results arrive on the
+        # GUI thread through this poll timer.  The window (and every other
+        # tab) stays interactive while a head mesh or E-field library loads.
+        self._loaders = {}
+        self._pending_loads = {}
+        self._load_tokens = {}
+        self._load_current = {}
+        self._load_serial = 0
+        self._mesh_view_request = None
+        self._load_timer = QtCore.QTimer(self)
+        self._load_timer.setInterval(40)
+        self._load_timer.timeout.connect(self._drain_load_results)
+        self._load_timer.start()
+        # Closing while a worker is inside VTK (head decimation) must keep
+        # the Qt application alive until that thread is done; destroying it
+        # under a running VTK call segfaults.
+        self._close_requested = False
+        self._close_prepared = False
+        self._close_force = False
+        self._close_deadline = None
+        self._close_timer = QtCore.QTimer(self)
+        self._close_timer.setInterval(100)
+        self._close_timer.timeout.connect(self._retry_close)
         self._update_file_infos()
 
         # Restore the last session's project fields. The values are only
@@ -778,8 +907,250 @@ class MainWindow(QtWidgets.QMainWindow):
         except RuntimeError:                 # window already destroyed
             pass
 
+    # ── Asynchronous file loading ─────────────────────────────────────────
+    _LOAD_INFO_LABELS = {
+        "head": "info_mesh",
+        "roi": "info_roi",
+        "efield": "info_efield",
+        "targets": "info_placements",
+        "emg": "info_emg",
+    }
+
+    def _loader_for(self, kind):
+        loader = self._loaders.get(kind)
+        if loader is not None:
+            return loader
+        if kind in ("head", "roi"):
+            load_fn = lambda path, job: read_mesh_file(
+                path, job.get("mesh_type", kind),
+                stop_event=job.get("stop_event"))
+        elif kind == "efield":
+            load_fn = lambda path, job: read_e_matrix_file(path)
+        elif kind == "targets":
+            load_fn = lambda path, job: read_simnibs_targets_data(path)
+        elif kind == "emg":
+            load_fn = lambda path, job: read_emg_config_elements(
+                path, job.get("roi_path"))
+        else:
+            raise ValueError(f"unknown loader kind: {kind}")
+        loader = _FileLoader(kind, load_fn)
+        self._loaders[kind] = loader
+        return loader
+
+    def _set_load_info(self, kind, text):
+        label = getattr(self, self._LOAD_INFO_LABELS.get(kind, ""), None)
+        if label is not None:
+            label.setText(text or "")
+
+    def _start_load(self, kind, path, force=False, **meta):
+        """Start a background read, replacing an older one of the same kind.
+
+        Returns the token, or ``None`` when the exact same file is already
+        loaded or in flight.  The caller has already put the path in the
+        line edit; this method only schedules the read and updates the
+        summary label.
+        """
+        if not path:
+            self._cancel_load(kind)
+            return None
+        signature = _path_signature(path)
+        current = self._load_current.get(kind)
+        if (not force and current and current.get("path") == path
+                and current.get("signature") == signature
+                and (current.get("loaded") or current.get("pending"))):
+            if current.get("pending"):
+                self._set_load_info(kind, "loading...")
+            return None
+
+        # Tokens are compared per kind, but the pending map is global; keep
+        # the serial unique so a fast E-field read cannot clear a mesh job.
+        self._load_serial += 1
+        token = self._load_serial
+        self._load_tokens[kind] = token
+        for old_token, old_job in list(self._pending_loads.items()):
+            if old_job.get("kind") == kind:
+                self._pending_loads.pop(old_token, None)
+        self._load_current[kind] = {
+            "token": token, "path": path, "signature": signature,
+            "loaded": False, "pending": True,
+        }
+        self._pending_loads[token] = {"kind": kind, "path": path}
+        self._loader_for(kind).submit(token, path, **meta)
+        self._set_load_info(kind, "loading...")
+        self.update_button_states()
+        return token
+
+    def _cancel_load(self, kind):
+        """Forget the current request and drop whatever has not started."""
+        self._load_tokens[kind] = self._load_tokens.get(kind, 0) + 1
+        self._load_current.pop(kind, None)
+        for old_token, old_job in list(self._pending_loads.items()):
+            if old_job.get("kind") == kind:
+                self._pending_loads.pop(old_token, None)
+        loader = self._loaders.get(kind)
+        if loader is not None:
+            loader.cancel()
+        self._set_load_info(kind, "")
+        self.update_button_states()
+
+    def _drain_load_results(self):
+        """Deliver finished background reads to the GUI thread."""
+        if getattr(self, "_closing", False):
+            return
+        changed = False
+        for kind, loader in list(self._loaders.items()):
+            for result in loader.poll():
+                token = result.get("token")
+                self._pending_loads.pop(token, None)
+                current = self._load_current.get(kind)
+                if not current or current.get("token") != token:
+                    continue       # the operator changed the path meanwhile
+                current["pending"] = False
+                if result.get("error"):
+                    current["loaded"] = False
+                    self._handle_load_error(kind, result)
+                else:
+                    current["loaded"] = True
+                    self._handle_load_success(kind, result)
+                changed = True
+        if changed:
+            self._check_paths_ready()
+
+    def _handle_load_success(self, kind, result):
+        path = result.get("path", "")
+        signature = _path_signature(path)
+        if kind in ("head", "roi"):
+            field = self.loadmeshlabel if kind == "head" else self.loadroilabel
+            if field.text().strip() != path:
+                return
+            payload = result.get("payload")
+            if not payload:
+                return
+            loaded_mesh, summary = payload
+            select = self._mesh_view_request in (None, kind)
+            self.widget_3d_viewer.set_loaded_mesh(
+                loaded_mesh, mesh_type=kind, select=select)
+            self._set_load_info(kind, summary)
+            cache_key = "mesh" if kind == "head" else "roi"
+            self._info_cache[(path, cache_key, signature)] = summary
+            if kind == "roi" and self.emg_config_label.text().strip():
+                # The xyz sources project onto the ROI element order; a new
+                # ROI can change the nearest element.  Reload off the GUI.
+                self._start_load("emg", self.emg_config_label.text().strip(),
+                                 force=True,
+                                 roi_path=self.loadroilabel.text().strip())
+        elif kind == "efield":
+            if self.load_e_matrix_label.text().strip() != path:
+                return
+            data, mats = result.get("payload")
+            if self.controller:
+                self.controller.apply_e_matrix_file(path, data, mats)
+            summary = (f"{data.shape[0]:,} × {data.shape[1]:,} "
+                       "placements × elements")
+            self._set_load_info(kind, summary)
+            self._info_cache[(path, "e", signature)] = summary
+        elif kind == "targets":
+            if self.loadplacementlabel.text().strip() != path:
+                return
+            target_queue, target_mats = result.get("payload")
+            if self.controller:
+                self.controller.set_targets_file(
+                    path, target_queue=target_queue, target_mats=target_mats)
+            summary = f"{len(target_queue):,} placements"
+            self._set_load_info(kind, summary)
+            self.loadplacementlabel.setToolTip(summary)
+            self._info_cache[(path, "pl", signature)] = summary
+        elif kind == "emg":
+            if self.emg_config_label.text().strip() != path:
+                return
+            elements = result.get("payload") or []
+            applied = True
+            if self.controller:
+                applied = self.controller.apply_emg_config_elements(elements)
+                if applied is None:      # non-Qt test doubles
+                    applied = True
+            summary = f"{len(elements)} sources" if applied else "ignored"
+            self._set_load_info(kind, summary)
+            self._info_cache[(path, "emg", signature)] = summary
+        self._refresh_subject_summary()
+
+    def _handle_load_error(self, kind, result):
+        path = result.get("path", "")
+        error = result.get("error") or "unreadable file"
+        detail = result.get("detail") or ""
+        error_type = result.get("error_type") or type(error).__name__
+        print(f"[WARN] could not load {kind} file {path}: {error}")
+        if detail:
+            print(detail)
+        if kind == "targets":
+            if self.loadplacementlabel.text().strip() == path:
+                self._reject_path(self.loadplacementlabel, error)
+            if self.controller:
+                self.controller.set_targets_file(None)
+            return
+        if kind == "emg":
+            label = getattr(self, "info_emg", None)
+            if label is not None:
+                label.setText(f"unreadable ({error_type})")
+                label.setToolTip(error)
+            if self.emg_config_label.text().strip() == path:
+                self.emg_config_label.setToolTip(error)
+            return
+        if kind == "efield":
+            if self.controller:
+                self.controller.clear_e_matrix()
+            field = self.load_e_matrix_label
+        elif kind == "head":
+            field = self.loadmeshlabel
+        else:
+            field = self.loadroilabel
+        if field.text().strip() == path:
+            field.setToolTip(error)
+        label = getattr(self, self._LOAD_INFO_LABELS.get(kind, ""), None)
+        if label is not None:
+            label.setText(f"unreadable ({error_type})")
+            label.setToolTip(error)
+
+    def has_pending_loads(self):
+        return bool(self._pending_loads)
+
+    def wait_for_loads(self, timeout=30.0):
+        """Process events until all background reads finish (tests/tools)."""
+        app = QtWidgets.QApplication.instance()
+        deadline = time.monotonic() + max(0.0, float(timeout))
+        while self._pending_loads and time.monotonic() < deadline:
+            if app is not None:
+                app.processEvents()
+            self._drain_load_results()
+            time.sleep(0.01)
+        if app is not None:
+            app.processEvents()
+        self._drain_load_results()
+        return not self._pending_loads
+
     def closeEvent(self, event):
         """Stop timers/threads that would otherwise outlive the window."""
+        busy = [loader for kind, loader in getattr(self, "_loaders", {}).items()
+                if kind in ("head", "roi") and loader.is_busy()]
+        if busy and not self._close_force:
+            if not self._close_requested:
+                self._close_requested = True
+                self._close_deadline = time.monotonic() + 30.0
+                self._closing = True
+                self._prepare_close()
+                self.setEnabled(False)
+                self.setWindowTitle(f"{self.windowTitle()}  (stopping loads...)")
+                self._close_timer.start()
+            event.ignore()
+            return
+        self._prepare_close()
+        super().closeEvent(event)
+
+    def _prepare_close(self):
+        """One-time teardown; safe to call again after a deferred close."""
+        if getattr(self, "_close_prepared", False):
+            return
+        self._close_prepared = True
         self._closing = True
         controller = getattr(self, "controller", None)
         if controller is not None and getattr(controller, "is_running", False):
@@ -797,20 +1168,39 @@ class MainWindow(QtWidgets.QMainWindow):
                 stimulator.disarm()
             except Exception:                 # pragma: no cover - hardware
                 pass
-        for attr in ("_info_timer", "_styles_timer"):
+        for attr in ("_info_timer", "_styles_timer", "_load_timer",
+                     "_close_timer"):
             timer = getattr(self, attr, None)
             if timer is not None:
                 try:
                     timer.stop()
                 except RuntimeError:
                     pass
+        for loader in list(getattr(self, "_loaders", {}).values()):
+            try:
+                loader.stop()
+            except Exception:
+                pass
+        self._pending_loads.clear()
         view = getattr(self, "_robot_scene_view", None)
         if view is not None:
             try:
                 view.stop()
             except Exception as e:           # pragma: no cover - GL teardown
                 print(f"[WARN] robot view stop: {e}")
-        super().closeEvent(event)
+
+    def _retry_close(self):
+        """Finish a close that waited for a background VTK read."""
+        if any(loader.is_busy() for kind, loader in self._loaders.items()
+               if kind in ("head", "roi")):
+            if (self._close_deadline is not None
+                    and time.monotonic() < self._close_deadline):
+                return
+            print("[WARN] background file read did not stop; closing anyway.")
+            self._close_force = True
+        self._close_timer.stop()
+        self._close_requested = False
+        self.close()
 
     def _place_tab_corner(self):
         """Size the LED corner to its (scaled) contents.  QTabWidget only
@@ -2253,27 +2643,46 @@ class MainWindow(QtWidgets.QMainWindow):
         mesh_fn = self.loadmeshlabel.text().strip()
         if mesh_fn.lower().endswith(".msh") and os.path.isfile(mesh_fn):
             sig = signature(mesh_fn)
-            pending = self._info_cache.get((mesh_fn, "mesh_pending", sig))
-            done = self._info_cache.get((mesh_fn, "mesh", sig))
-            if done is not None:
-                set_info("info_mesh", done)
-            elif pending is None:
-                self._info_cache[(mesh_fn, "mesh_pending", sig)] = True
-                def _mesh_worker():
-                    try:
-                        from simnibs import mesh_io
-                        m = mesh_io.read_msh(mesh_fn)
-                        n_tet = int((m.elm.elm_type == 4).sum())
-                        n_tri = int((m.elm.elm_type == 2).sum())
-                        text = f"{n_tet:,} tets · {n_tri:,} tris"
-                    except Exception as e:
-                        text = f"unreadable ({type(e).__name__})"
-                    self._info_cache[(mesh_fn, "mesh", sig)] = text
-                    self._emit_file_info("info_mesh", text)
-                import threading
-                threading.Thread(target=_mesh_worker, daemon=True).start()
+            active = self._load_current.get("head")
+            if (active and active.get("path") == mesh_fn
+                    and active.get("signature") == sig):
+                if active.get("pending"):
+                    set_info("info_mesh", "loading...")
+                else:
+                    set_info("info_mesh",
+                             self._info_cache.get((mesh_fn, "mesh", sig), ""))
+            else:
+                pending = self._info_cache.get((mesh_fn, "mesh_pending", sig))
+                done = self._info_cache.get((mesh_fn, "mesh", sig))
+                if done is not None:
+                    set_info("info_mesh", done)
+                elif pending is None:
+                    self._info_cache[(mesh_fn, "mesh_pending", sig)] = True
+                    def _mesh_worker():
+                        try:
+                            from simnibs import mesh_io
+                            m = mesh_io.read_msh(mesh_fn)
+                            n_tet = int((m.elm.elm_type == 4).sum())
+                            n_tri = int((m.elm.elm_type == 2).sum())
+                            text = f"{n_tet:,} tets · {n_tri:,} tris"
+                        except Exception as e:
+                            text = f"unreadable ({type(e).__name__})"
+                        self._info_cache[(mesh_fn, "mesh", sig)] = text
+                        self._emit_file_info("info_mesh", text)
+                    import threading
+                    threading.Thread(target=_mesh_worker, daemon=True).start()
         else:
-            set_info("info_mesh", "")
+            active = self._load_current.get("head")
+            sig = signature(mesh_fn) if mesh_fn else None
+            if (mesh_fn and active and active.get("path") == mesh_fn
+                    and active.get("signature") == sig):
+                if active.get("pending"):
+                    set_info("info_mesh", "loading...")
+                else:
+                    set_info("info_mesh",
+                             self._info_cache.get((mesh_fn, "mesh", sig), ""))
+            else:
+                set_info("info_mesh", "")
 
         roi_fn = self.loadroilabel.text().strip()
         set_info("info_roi", cached(roi_fn, "roi", lambda fn: h5_shape(
@@ -2745,17 +3154,6 @@ class MainWindow(QtWidgets.QMainWindow):
         field.setToolTip(str(error))
         self._set_selection_info(f"Ignored file:\n  {error}")
 
-    def _reject_path(self, field, error):
-        """Clear a path field that points at an unusable file and say why.
-
-        The message goes to the log and to the field's tooltip; nothing
-        modal, because this can fire while a project is being restored.
-        """
-        print(f"[WARN] {error}")
-        field.setText("")
-        field.setToolTip(str(error))
-        self._set_selection_info(f"Ignored file:\n  {error}")
-
     def _check_paths_ready(self):
         mgr = self.controller.online_fem_mgr if self.controller else None
         s_mgr = self.controller.surrogate_mgr if self.controller else None
@@ -2799,6 +3197,7 @@ class MainWindow(QtWidgets.QMainWindow):
         running = bool(self.controller
                        and getattr(self.controller, "start_of_experiment", None)
                        and not getattr(self.controller, "is_finished", False))
+        loads_pending = bool(getattr(self, "_pending_loads", None)) and not running
 
         if not self.efield_mode_selected:
             for button in (self.start_btn, self.skiptarget, self.back_btn,
@@ -2826,8 +3225,8 @@ class MainWindow(QtWidgets.QMainWindow):
         robot_ok = ((self.controller is not None and getattr(self.controller, "manual", False))
                     or self.robot_ready)
 
-        ready = (self.relay_ready and robot_ok and self.stim_ready
-                 and self.emg_ready and fem_ok)
+        ready = (not loads_pending and self.relay_ready and robot_ok
+                 and self.stim_ready and self.emg_ready and fem_ok)
         for button in (self.start_btn, self.skiptarget, self.back_btn,
                        self.move_coil_up):
             button.setEnabled(ready)
@@ -2844,6 +3243,18 @@ class MainWindow(QtWidgets.QMainWindow):
         online = bool(mgr is not None and mgr.is_online)
         surrogate = bool(getattr(self.controller, "efield_mode", None) == "surrogate"
                          and s_mgr is not None)
+        if getattr(self, "_pending_loads", None):
+            count = len(self._pending_loads)
+            text = ("Loading file..." if count == 1
+                    else f"Loading {count} files...")
+            role = "busy"
+            if label.text() != text:
+                label.setText(text)
+            if label.property("tone") != role:
+                label.setProperty("tone", role)
+                label.style().unpolish(label)
+                label.style().polish(label)
+            return
         if mgr is not None and online:
             if mgr.is_ready:
                 text, role = "Online solver ready.", "ok"
@@ -3380,6 +3791,27 @@ class MainWindow(QtWidgets.QMainWindow):
 
     # functions for the elements in the second Tap
     # === BEGIN: Handlers for loading the Mesh ===
+    def _load_mesh_async(self, file_path, mesh_type):
+        """Schedule a display mesh read; the window stays interactive."""
+        self._mesh_view_request = mesh_type
+        token = self._start_load(mesh_type, file_path, mesh_type=mesh_type)
+        if token is None:
+            # The same file is already in memory.  Still honour the request
+            # to show it (project reloads and re-entering the same path).
+            current = self._load_current.get(mesh_type)
+            if current and current.get("loaded"):
+                view = getattr(self, "widget_3d_viewer", None)
+                mesh = (view.mesh_head if mesh_type == "head"
+                        else view.mesh_roi) if view is not None else None
+                if mesh is not None:
+                    view.set_loaded_mesh(mesh, mesh_type=mesh_type, select=True)
+        return token
+
+    def _clear_mesh(self, mesh_type):
+        self._cancel_load(mesh_type)
+        if hasattr(self, 'widget_3d_viewer'):
+            self.widget_3d_viewer.load_hdf5_mesh("", mesh_type=mesh_type)
+
     def pick_mesh(self):
         """Opens file dialog and loads mesh into the 3D widget."""
         file_path = self._file_dialog(
@@ -3392,8 +3824,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # just show path in QLineEdit
             self.loadmeshlabel.setText(file_path)
             print(f"Loading mesh: {file_path}")
-            if hasattr(self, 'widget_3d_viewer'):
-                self.widget_3d_viewer.load_hdf5_mesh(file_path, mesh_type="head")
+            self._load_mesh_async(file_path, "head")
             if self.controller:
                 self.controller.online_fem_mgr.set_mesh_fn_msh(file_path)
             self._check_paths_ready()
@@ -3402,8 +3833,7 @@ class MainWindow(QtWidgets.QMainWindow):
         file_path = self.loadmeshlabel.text().strip()
         if not file_path:
             print("No file path given.")
-            if hasattr(self, 'widget_3d_viewer'):
-                self.widget_3d_viewer.load_hdf5_mesh(file_path, mesh_type="head")
+            self._clear_mesh("head")
             if self.controller:
                 self.controller.online_fem_mgr.set_mesh_fn_msh(None)
             self._check_paths_ready()
@@ -3411,8 +3841,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Check if the file actually exists on the drive
         elif os.path.isfile(file_path):
             print(f"Loading mesh: {file_path}")
-            if hasattr(self, 'widget_3d_viewer'):
-                self.widget_3d_viewer.load_hdf5_mesh(file_path, mesh_type="head")
+            self._load_mesh_async(file_path, "head")
             if self.controller:
                 self.controller.online_fem_mgr.set_mesh_fn_msh(file_path)
                 self.controller.set_head_mesh(file_path)
@@ -3421,6 +3850,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # The file is missing or the user typed a directory instead of a file
             print(f"Wrong path: The file '{file_path}' does not exist.")
             self.loadmeshlabel.setText("")
+            self._clear_mesh("head")
             if self.controller:
                 self.controller.online_fem_mgr.set_mesh_fn_msh(None)
             self._check_paths_ready()
@@ -3469,15 +3899,19 @@ class MainWindow(QtWidgets.QMainWindow):
     def paste_emg_config(self):
         file_path = self.emg_config_label.text().strip()
         if not file_path:
+            self._cancel_load("emg")
             return
         if not os.path.isfile(file_path):
             # Same behaviour as the mesh/ROI/coil fields: do not keep a path
             # that cannot be used.
             self._reject_path(self.emg_config_label,
                               f"EMG config not found: {file_path}")
+            self._cancel_load("emg")
             return
-        if self.controller:
-            self.controller.set_emg_config(file_path)
+        # Reading the YAML is cheap, but xyz sources are projected onto the
+        # ROI; keep that file read off the GUI thread as well.
+        self._start_load("emg", file_path, force=True,
+                         roi_path=self.loadroilabel.text().strip())
 
     def set_emg_channels(self, names):
         """Propagate the configured EMG channel display names to the MEP
@@ -3527,9 +3961,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # just show path in QLineEdit
             self.loadroilabel.setText(file_path)
             print(f"Loading ROI: {file_path}")
-            if hasattr(self, 'widget_3d_viewer'):
-                # Call the new HDF5 loader
-                self.widget_3d_viewer.load_hdf5_mesh(file_path, mesh_type="roi")
+            self._load_mesh_async(file_path, "roi")
             if self.controller:
                 self.controller.online_fem_mgr.set_roi_fn_hdf5(file_path)
                 self.controller.surrogate_mgr.set_roi_fn_hdf5(file_path)
@@ -3539,8 +3971,7 @@ class MainWindow(QtWidgets.QMainWindow):
         file_path = self.loadroilabel.text().strip()
         if not file_path:
             print("No file path given.")
-            if hasattr(self, 'widget_3d_viewer'):
-                self.widget_3d_viewer.load_hdf5_mesh(file_path, mesh_type="roi")
+            self._clear_mesh("roi")
             if self.controller:
                 self.controller.online_fem_mgr.set_roi_fn_hdf5(None)
                 self.controller.surrogate_mgr.set_roi_fn_hdf5(None)
@@ -3549,20 +3980,19 @@ class MainWindow(QtWidgets.QMainWindow):
         # Check if the file actually exists on the drive
         elif os.path.isfile(file_path):
             print(f"Loading ROI: {file_path}")
-            if hasattr(self, 'widget_3d_viewer'):
-                self.widget_3d_viewer.load_hdf5_mesh(file_path, mesh_type="roi")
+            self._load_mesh_async(file_path, "roi")
             if self.controller:
                 self.controller.online_fem_mgr.set_roi_fn_hdf5(file_path)
                 self.controller.surrogate_mgr.set_roi_fn_hdf5(file_path)
                 # The EMG source projection runs against this ROI: re-apply
-                # the channel config so xyz sources re-project.
-                if self.emg_config_label.text().strip():
-                    self.controller.set_emg_config(self.emg_config_label.text().strip())
+                # the channel config so xyz sources re-project.  Do it after
+                # the ROI read finishes, not on the GUI thread in this slot.
             self._check_paths_ready()
         else:
             # The file is missing or the user typed a directory instead of a file
             print(f"Wrong path: The file '{file_path}' does not exist.")
             self.loadroilabel.setText("")
+            self._clear_mesh("roi")
             if self.controller:
                 self.controller.online_fem_mgr.set_roi_fn_hdf5(None)
                 self.controller.surrogate_mgr.set_roi_fn_hdf5(None)
@@ -3623,38 +4053,57 @@ class MainWindow(QtWidgets.QMainWindow):
         if file_path_coil_placement:
             # just show path in QLineEdit
             self.loadplacementlabel.setText(file_path_coil_placement)
-            if self.controller:
-                self.controller.set_targets_file(file_path_coil_placement)
+            self.paste_coil_placements_path()
 
     def paste_coil_placements_path(self):
         file_path = self.loadplacementlabel.text().strip()
         if not file_path:
             print("No file path given.")
+            self._cancel_load("targets")
             if self.controller:
                 self.controller.set_targets_file(None)
 
         # Check if the file actually exists on the drive
         elif os.path.isfile(file_path):
-            # Vet the HDF5 layout before the run depends on it.
-            from .pipeline_controller import validate_simnibs_targets_file
+            # Vet the HDF5 layout before the run depends on it.  This reads
+            # only the header and is fast; the matrices are read in a worker.
             try:
                 n = validate_simnibs_targets_file(file_path)
             except ValueError as e:
                 self._reject_path(self.loadplacementlabel, e)
+                self._cancel_load("targets")
                 if self.controller:
                     self.controller.set_targets_file(None)
                 return
             self.loadplacementlabel.setToolTip(f"{n:,} coil placements")
             if self.controller:
-                self.controller.set_targets_file(file_path)
+                if hasattr(self.controller, "set_targets_file_header"):
+                    self.controller.set_targets_file_header(file_path, n)
+                else:
+                    self.controller.set_targets_file(file_path)
+            self._start_load("targets", file_path)
         else:
             # The file is missing or the user typed a directory instead of a file
             print(f"Wrong path: The file '{file_path}' does not exist.")
             self.loadplacementlabel.setText("")
-            # Optional: UI popup here to warn the user visually
+            self._cancel_load("targets")
+            if self.controller:
+                self.controller.set_targets_file(None)
     # === END: Handlers for loading the coil placements ===
 
     # === BEGIN: Handlers for loading the E-Field ===
+    def _begin_e_field_load(self, file_path):
+        """Schedule the precomputed matrix read and clear stale state now."""
+        if self.controller:
+            if hasattr(self.controller, "clear_e_matrix"):
+                self.controller.clear_e_matrix()
+            else:
+                self.controller.e_matrix = None
+                self.controller.n_elms = None
+                self.controller.n_positions = None
+        self._start_load("efield", file_path)
+        self._check_paths_ready()
+
     def pick_e_field(self):
         """Opens file dialog and loads HDF5 E Field."""
         file_path = self._file_dialog(
@@ -3667,26 +4116,35 @@ class MainWindow(QtWidgets.QMainWindow):
             # just show path in QLineEdit
             self.load_e_matrix_label.setText(file_path)
             print(f"Loading E Field: {file_path}")
-            if self.controller:
-                self.controller.set_e_matrix_file(file_path)
+            self._begin_e_field_load(file_path)
 
     def paste_e_field_path(self):
         file_path = self.load_e_matrix_label.text().strip()
         if not file_path:
             print("No file path given.")
+            self._cancel_load("efield")
             if self.controller:
-                self.controller.set_e_matrix_file(file_path)
+                if hasattr(self.controller, "clear_e_matrix"):
+                    self.controller.clear_e_matrix()
+                else:
+                    self.controller.e_matrix = None
+            self._check_paths_ready()
 
         # Check if the file actually exists on the drive
         elif os.path.isfile(file_path):
-            if self.controller:
-                print(f"Loading E Field: {file_path}")
-                self.controller.set_e_matrix_file(file_path)
+            print(f"Loading E Field: {file_path}")
+            self._begin_e_field_load(file_path)
         else:
             # The file is missing or the user typed a directory instead of a file
             print(f"Wrong path: The file '{file_path}' does not exist.")
             self.load_e_matrix_label.setText("")
-            # Optional: UI popup here to warn the user visually
+            self._cancel_load("efield")
+            if self.controller:
+                if hasattr(self.controller, "clear_e_matrix"):
+                    self.controller.clear_e_matrix()
+                else:
+                    self.controller.e_matrix = None
+            self._check_paths_ready()
     # === END: Handlers for loading the E-Field ===
 
     # === BEGIN: Handlers for the interpolated (surrogate) library ===
