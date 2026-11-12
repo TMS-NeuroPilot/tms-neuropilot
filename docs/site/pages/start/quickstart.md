@@ -118,9 +118,9 @@ E-field library, the EMG sources and the output paths. Two ways to get one:
 
 === "Example subject (if you have it)"
 
-    The repository can carry the SimNIBS example subject under `data/ernie`
-    (several GB; not tracked). If you have it, build a project file whose
-    paths contain no home directory:
+    The repository carries the SimNIBS example subject under `data/ernie`
+    through Git LFS. Run `git lfs pull` after cloning. Build a project file
+    whose paths are relative to the project:
 
     ```bash
     python docs/site/tools/make_demo_project.py
