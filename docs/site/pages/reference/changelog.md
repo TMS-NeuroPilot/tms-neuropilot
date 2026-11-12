@@ -25,6 +25,20 @@ suite is used.
   either layout (`(4, 4, n)` or `(n, 4, 4)`) instead of skipping the comparison
   when the shapes differ.
 
+### Workflows
+
+- **E-field library generation**: `scripts/02_create_roi_efield_library.py`
+  centres the search on the ROI centroid and derives the radius from the ROI
+  extent (+ margin) automatically; `--n-placements 0` keeps the full grid;
+  node-based dA/dt makes a solve ~4× faster; the output carries provenance
+  attributes (mesh, ROI, coil, target/radius source, grid settings).
+- **E-field surrogate prototype**: `EFieldSurrogate` (PCA + pose
+  interpolation with an explicit domain guard), a validation script and a
+  ParaView time-series export. Not wired into the GUI yet; the planned
+  outside policy is skip-and-exclude with NaN rows.
+- The per-pulse regression drops NaN rows (a skipped surrogate pulse) exactly
+  like missing ones.
+
 ### Earlier unreleased work
 
 - **Training mode**: `neuropilot training` runs the real stimulator and

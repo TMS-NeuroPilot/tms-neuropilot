@@ -140,15 +140,21 @@ def read_target_order(path, n_targets):
 def assemble_analysis_matrix(pulse_e_fields, valid_indices):
     """Regression matrix built from the per-pulse E-field rows.
 
-    A pulse whose E-field is missing (None) is dropped, and the returned
-    indices follow it, so the MEP history stays aligned with the matrix rows.
-    ``pulse_e_fields`` is indexed by pulse number, exactly like the MEP
-    history. Returns ``(kept_indices, matrix)`` with ``matrix is None`` when
-    no pulse carries an E-field.
+    A pulse whose E-field is missing (None) or not finite (all-NaN, as written
+    for a surrogate pulse outside the trained domain) is dropped, and the
+    returned indices follow it, so the MEP history stays aligned with the
+    matrix rows. ``pulse_e_fields`` is indexed by pulse number, exactly like
+    the MEP history. Returns ``(kept_indices, matrix)`` with ``matrix is
+    None`` when no pulse carries an E-field.
     """
-    usable = [int(i) for i in valid_indices
-              if 0 <= int(i) < len(pulse_e_fields)
-              and pulse_e_fields[int(i)] is not None]
+    usable = []
+    for i in valid_indices:
+        i = int(i)
+        if not (0 <= i < len(pulse_e_fields)) or pulse_e_fields[i] is None:
+            continue
+        row = np.asarray(pulse_e_fields[i], dtype=float)
+        if np.all(np.isfinite(row)):
+            usable.append(i)
     if not usable:
         return np.empty(0, dtype=int), None
     # A session that mixed two E-field sources of different width (another ROI

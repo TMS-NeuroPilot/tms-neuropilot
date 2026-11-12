@@ -50,6 +50,23 @@ class TestAssembleAnalysisMatrix:
         np.testing.assert_array_equal(kept, [0, 2, 4])
         np.testing.assert_allclose(matrix[:, 0], [1.0, 2.0, 4.0])
 
+    def test_all_nan_rows_are_dropped_like_missing_rows(self):
+        # A surrogate pulse outside the trained domain is recorded as a NaN
+        # row so the pulse indices stay aligned; the analysis must treat it
+        # exactly like a missing field.
+        rows = [np.ones(3), np.full(3, np.nan), np.full(3, 2.0)]
+        kept, matrix = assemble_analysis_matrix(rows, np.arange(3))
+        np.testing.assert_array_equal(kept, [0, 2])
+        np.testing.assert_allclose(matrix[:, 0], [1.0, 2.0])
+
+    def test_partially_nan_rows_are_dropped(self):
+        # A single NaN would poison the whole regression, so any non-finite
+        # row is excluded, not just all-NaN ones.
+        rows = [np.array([1.0, np.nan, 3.0]), np.ones(3)]
+        kept, matrix = assemble_analysis_matrix(rows, [0, 1])
+        np.testing.assert_array_equal(kept, [1])
+        np.testing.assert_allclose(matrix, [[1.0, 1.0, 1.0]])
+
     def test_mixed_sources_are_kept_in_pulse_order(self):
         # One pulse from the precomputed matrix, one from the online solver,
         # one more from the precomputed matrix.
