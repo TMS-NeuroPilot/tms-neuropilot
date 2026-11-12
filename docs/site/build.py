@@ -57,7 +57,8 @@ def _resolve_link(href: str, ctx: dict) -> tuple[str, bool]:
     if re.match(r"^(https?:|mailto:|#|data:)", href):
         return href, href.startswith("http")
     if href.startswith("assets/"):
-        return ctx["root"] + href, False
+        suffix = f'?v={ctx["version"]}' if ctx.get("version") else ""
+        return ctx["root"] + href + suffix, False
     if href.startswith("/"):
         return href, False
     target = (PAGES / href).resolve()
@@ -316,6 +317,11 @@ def render_blocks(lines: list[str], ctx: dict) -> str:
             markup = "\n".join(block)
             markup = markup.replace('src="assets/', f'src="{ctx["root"]}assets/')
             markup = markup.replace('href="assets/', f'href="{ctx["root"]}assets/')
+            if ctx.get("version"):
+                prefix = re.escape(ctx["root"] + "assets/")
+                markup = re.sub(
+                    r'((?:src|href)="' + prefix + r'[^"?]+)"',
+                    rf'\1?v={ctx["version"]}"', markup)
             out.append(markup)
             continue
 
@@ -478,10 +484,13 @@ def build(out_dir: Path, strict: bool = True) -> list[str]:
         shutil.rmtree(out_dir)
     out_dir.mkdir(parents=True)
     shutil.copytree(ASSETS, out_dir / "assets")
-    # Cache-busting: a redeployed site must not serve yesterday's stylesheet.
+    # Cache-busting: a redeployed site must not serve yesterday's stylesheet
+    # or diagram.  Hash every asset so any change invalidates the URLs.
     digest = hashlib.sha1()
-    for name in ("assets/css/site.css", "assets/js/site.js"):
-        digest.update((ASSETS.parent / name).read_bytes())
+    for path in sorted(ASSETS.rglob("*")):
+        if path.is_file():
+            digest.update(path.relative_to(ASSETS).as_posix().encode())
+            digest.update(path.read_bytes())
     version = digest.hexdigest()[:8]
 
     search_index = []

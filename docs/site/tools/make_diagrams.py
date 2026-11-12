@@ -95,42 +95,49 @@ def note(x, y, value, size=12, fill=MUTED, anchor="middle"):
 
 def architecture():
     b = []
-    b.append(multiline(480, 30, ["Four processes, one relay"],
-                       17, "700"))
+    b.append(multiline(480, 30, ["Four processes, one relay"], 17, "700"))
     # relay hub
-    b.append(box(380, 175, 200, 92, ["Relay", "Socket.IO :5000",
+    b.append(box(370, 175, 210, 92, ["Relay", "Socket.IO :5000",
                                      "from_*  →  to_*"],
                  ACCENT_SOFT, ACCENT, 14))
     # controller
-    b.append(box(40, 165, 210, 112, ["Controller", "PyQt5 + asyncio",
+    b.append(box(40, 150, 220, 120, ["Controller", "PyQt5 + asyncio",
                                      "state machine · analysis",
                                      "online FEM"], BLUE_SOFT, BLUE, 14))
     # nav
-    b.append(box(700, 70, 220, 84, ["Neuronavigation", "InVesalius  /  sim_nav"],
-                 OK_SOFT, OK, 13))
+    b.append(box(700, 75, 220, 80, ["Neuronavigation",
+                                   "InVesalius  /  sim_nav"], OK_SOFT, OK, 13))
     # robot
-    b.append(box(700, 190, 220, 84, ["Robot", "tms-robot-control  /  sim_robot"],
-                 OK_SOFT, OK, 13))
-    # devices
-    b.append(box(700, 310, 220, 62, ["Stimulator (serial · TTL)"],
+    b.append(box(700, 195, 220, 80, ["Robot",
+                                    "tms-robot-control  /  sim_robot"], OK_SOFT, OK, 13))
+    # devices (direct links, no relay)
+    b.append(box(40, 330, 220, 66, ["Stimulator", "serial + TTL"],
                  FILL, LINE, 12, "500"))
-    b.append(box(700, 386, 220, 62, ["EMG computer (SMB)"],
+    b.append(box(320, 330, 220, 66, ["EMG computer", "CED 1401 · SMB"],
                  FILL, LINE, 12, "500"))
 
-    b.append(arrow(250, 210, 378, 210))
-    b.append(arrow(378, 236, 250, 236))
-    b.append(arrow(580, 200, 698, 118))
-    b.append(arrow(698, 138, 580, 220))
-    b.append(arrow(580, 240, 698, 232))
-    b.append(arrow(698, 252, 580, 252))
-    b.append(arrow(810, 274, 810, 308))
-    b.append(arrow(810, 372, 810, 384, dashed=True))
-    b.append(label(330, 200, "topics"))
-    b.append(label(330, 254, "health"))
-    b.append(label(640, 130, "markers"))
-    b.append(label(640, 222, "targets"))
-    b.append(note(480, 440, "Dashed: direct device links on the control PC. "
-                            "Everything else goes through the relay."))
+    # relay links (solid)
+    b.append(arrow(262, 195, 368, 195))
+    b.append(arrow(368, 235, 262, 235))
+    b.append(label(315, 185, "topics"))
+    b.append(label(315, 252, "health / poses"))
+    b.append(arrow(582, 190, 698, 120))
+    b.append(arrow(698, 145, 582, 215))
+    b.append(label(645, 120, "markers"))
+    b.append(arrow(582, 235, 698, 228))
+    b.append(arrow(698, 250, 582, 250))
+    b.append(label(645, 215, "targets"))
+
+    # device links (dashed): both devices sit on the control PC
+    b.append(arrow(120, 272, 120, 326, dashed=True))
+    b.append(label(196, 303, "serial / TTL", 11, MUTED, "start"))
+    b.append(arrow(410, 328, 258, 276, dashed=True))
+    b.append(label(438, 305, "SMB", 11, MUTED, "start"))
+
+    b.append(note(480, 428, "Solid: relay topics.  Dashed: direct device links "
+                            "on the control PC."))
+    b.append(note(480, 448, "In simulation the relay, neuronavigation and robot "
+                            "are NeuroPilot's virtual twin."))
     return svg(960, 470, "".join(b), "NeuroPilot architecture")
 
 
