@@ -1658,6 +1658,9 @@ class MainWindow(QtWidgets.QMainWindow):
             label.setTextFormat(QtCore.Qt.RichText)
             label.setOpenExternalLinks(True)
             label.setText(f'<a href="{url}">{text}</a>')
+            # Same body size as every card (role="cap"); the anchor colour
+            # comes from the theme recolour below.
+            label.setProperty("role", "cap")
             self._about_links.append(label)
             return label
 
@@ -1740,7 +1743,7 @@ class MainWindow(QtWidgets.QMainWindow):
             "InVesalius neuronavigation, supports robot assistance and ships "
             "a complete virtual twin (relay, virtual robot, virtual "
             "navigation) to develop and train the workflow without hardware "
-            "or subjects.")
+            "or subjects.", role="cap")
         org = QtWidgets.QLabel()
         org.setTextFormat(QtCore.Qt.RichText)
         org.setOpenExternalLinks(True)
@@ -1748,6 +1751,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     " and <a href='https://scads.ai/'>ScaDS.AI</a>, Leipzig.")
         self._about_links.append(org)
         org.setWordWrap(True)
+        org.setProperty("role", "cap")
         left.addWidget(card("About", [about, org]))
 
         sci = wrap(
@@ -1758,12 +1762,27 @@ class MainWindow(QtWidgets.QMainWindow):
             "mode uses the surrogate method of Grosshagauer et al. (2025). "
             "The R² map is an explanatory localization fitted to the "
             "collected pulses — not a significance map, a causal source "
-            "reconstruction or a clinical diagnosis.")
+            "reconstruction or a clinical diagnosis.", role="cap")
+        papers_note = wrap(
+            "A loose collection of papers from our groups and from others — "
+            "not a complete review of the field.", role="cap")
         papers = [
+            ("Weise & Numssen (2020) — a novel approach to localize cortical TMS",
+             "https://doi.org/10.1016/j.neuroimage.2019.116486"),
             ("Numssen et al. (2021) — element-wise E-field mapping",
              "https://doi.org/10.1016/j.neuroimage.2021.118654"),
             ("Weise et al. (2023) — TMS mapping protocol",
              "https://doi.org/10.1038/s41596-022-00776-6"),
+            ("Jing et al. (2023) — TMS effects on spatial attention",
+             "https://doi.org/10.1088/1361-6560/acff34"),
+            ("Feng et al. (2026) — target-specificity in neuro-cardiac-guided TMS",
+             "https://doi.org/10.1038/s41398-026-03879-w"),
+            ("Feng et al. (2026) — cortical stimulation strength in sgACC (preprint)",
+             "https://doi.org/10.64898/2026.05.10.724073"),
+            ("Qiu et al. (2026) — optimal pre-experimental coil sequences",
+             "https://doi.org/10.1162/IMAG.a.1446"),
+            ("Qiu et al. (2026) — real-time posterior probabilistic TMS",
+             "https://doi.org/10.64898/2026.10.06.757035"),
             ("Schultheiss et al. (2025) — FPS coil placement",
              "https://doi.org/10.1162/IMAG.a.1056"),
             ("Numssen, Qiu et al. (2026) — D-optimal coil placement",
@@ -1772,7 +1791,8 @@ class MainWindow(QtWidgets.QMainWindow):
              "https://doi.org/10.1016/j.brs.2025.102990"),
         ]
         left.addWidget(
-            card("Scientific background", [sci, *[link(t, u) for t, u in papers]]))
+            card("Scientific background",
+                 [sci, papers_note, *[link(t, u) for t, u in papers]]))
 
         resources = [
             ("Documentation", "https://neuropilot-94ad2d.pages.gwdg.de/"),
@@ -1789,7 +1809,8 @@ class MainWindow(QtWidgets.QMainWindow):
         lic = wrap(
             "Released under <b>CC BY-NC-SA 4.0</b>: free for non-commercial "
             "use (research and clinical science) with attribution and "
-            "share-alike; commercial use needs permission from the authors.")
+            "share-alike; commercial use needs permission from the authors.",
+            role="cap")
         right.addWidget(card("License", [
             lic,
             link("Creative Commons BY-NC-SA 4.0",
@@ -1807,10 +1828,9 @@ class MainWindow(QtWidgets.QMainWindow):
             "NeuroPilot: guided online TMS mapping with online field "
             "optimization. MPI CBS Leipzig / ScaDS.AI.", role="mono")
         right.addWidget(card("How to cite", [cite_thesis, cite_software]))
-
         credits = wrap(
             "Maintained by Ole Numssen (MPI CBS / ScaDS.AI) with the group "
-            "and external collaborators — full list in")
+            "and external collaborators — full list in", role="cap")
         right.addWidget(card("Credits", [
             credits,
             link("CONTRIBUTORS.md",
@@ -1821,6 +1841,10 @@ class MainWindow(QtWidgets.QMainWindow):
         scroll = QtWidgets.QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
+        # Vertical scrolling only: the two-column layout is designed for the
+        # window width, so a horizontal scrollbar would never help.
+        scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
         scroll.setWidget(content)
         page_layout.addWidget(scroll)
         self.tabWidget.addTab(page, "About")
