@@ -89,6 +89,21 @@ def _mesh_from_arrays(nodes, tr_con, tri_tissue_type, mesh_type,
             print(f"Head mesh decimated for display: {loaded_mesh.n_cells} triangles")
         except Exception as e:
             print(f"[WARN] head decimation skipped: {e}")
+    if mesh_type == "head":
+        # The SimNIBS head surface carries an open scalp seam. Decimation
+        # leaves the triangles along the seam with inconsistent normals, and
+        # smooth shading then renders them as wide dark bands ("cracks"
+        # across the face) that look like cast shadows. Consistent outward
+        # normals fix the shading without touching the geometry; the seam
+        # itself stays visible as the thin line it is.
+        if stop_event is not None and stop_event.is_set():
+            raise LoadCancelled()
+        try:
+            loaded_mesh = loaded_mesh.compute_normals(
+                consistent_normals=True, auto_orient_normals=True,
+                split_vertices=False, inplace=False)
+        except Exception as e:
+            print(f"[WARN] head normal fix skipped: {e}")
     if stop_event is not None and stop_event.is_set():
         raise LoadCancelled()
     return loaded_mesh, n_faces
