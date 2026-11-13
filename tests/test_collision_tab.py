@@ -204,9 +204,43 @@ def test_controls_fit_before_the_3d_view_at_the_design_size(window, qapp):
     scroll = next(s for s in tab.findChildren(QtWidgets.QScrollArea)
                   if s.widget() is not None
                   and tab.isAncestorOf(s.widget()))
-    assert scroll.width() >= 650
-    assert tab.view_label.width() >= 420
-    assert tab.view_label.minimumWidth() == 420
-    assert scroll.maximumWidth() == 680
+    assert scroll.width() >= 750
+    assert tab.view_label.width() >= 360
+    assert tab.view_label.minimumWidth() == 360
+    assert scroll.maximumWidth() == 1000
     assert scroll.verticalScrollBar().maximum() == 0
     assert not scroll.verticalScrollBar().isVisible()
+
+
+def test_failed_enable_keeps_the_button_label(window, qapp, monkeypatch):
+    from neuropilot.controller import collision_tab as collision_tab_module
+
+    def fail(self):
+        raise RuntimeError("floor is lava")
+
+    monkeypatch.setattr(collision_tab_module.CollisionTestSession,
+                        "ensure_ready", fail)
+    tab = window.collision_tab
+    tab._enable()
+    qapp.processEvents()
+
+    assert tab.session is None
+    assert not tab.enable_btn.isChecked()
+    assert tab.enable_btn.text() == "Enable collision test"
+
+
+def test_adding_a_placement_file_clears_the_stale_error(
+        window, qapp, tmp_path):
+    tab = window.collision_tab
+    tab._placement_error = True
+    tab._set_status("Load a coil placement file on the Project page first.",
+                    True)
+    path = tmp_path / "placements.hdf5"
+    path.write_bytes(b"placeholder")
+
+    window.loadplacementlabel.setText(str(path))
+    qapp.processEvents()
+
+    assert tab.status_label.text() == tab._ready_status
+    assert tab.status_label.styleSheet() == ""
+    assert tab._placement_error is False

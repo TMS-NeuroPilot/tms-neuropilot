@@ -132,6 +132,20 @@ NEUROPILOT_UI_SCALE=1.25
 The colour theme is chosen in **Config › Lab › Theme** and stored in the lab
 profile; see [Themes and display](gui/themes.md).
 
+## 8. Optional: desktop entry and Alt+Tab icon
+
+GNOME on Wayland takes the window icon from the desktop file named by
+`QApplication.setDesktopFileName("neuropilot")`, not only from the icon set on
+the window. An older copy of the icon can therefore survive a code update.
+Install the current icon and desktop entry with:
+
+```bash
+scripts/install_desktop_entry.sh
+```
+
+Then restart NeuroPilot. The script installs the icon under a new theme name,
+so GNOME does not reuse its cached placeholder.
+
 ## InVesalius (real, manual and training modes)
 
 The simulator does not need InVesalius. Real, manual and training sessions use

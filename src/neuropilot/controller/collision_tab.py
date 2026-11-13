@@ -114,6 +114,8 @@ class CollisionTestTab(QtWidgets.QWidget):
         self._enabled = False
         self._pending_config: Optional[dict] = None
         self._head_error: Optional[str] = None
+        self._ready_status = "Collision test is off."
+        self._placement_error = False
         self._scan_placements: List = []
 
         self._scan_timer = QtCore.QTimer(self)
@@ -125,6 +127,9 @@ class CollisionTestTab(QtWidgets.QWidget):
         self._pending_config = self._lab_config()
         self._has_setup = self._pending_config is not None
         self._set_controls_enabled(False)
+        placement_label = getattr(self.window, "loadplacementlabel", None)
+        if placement_label is not None:
+            placement_label.textChanged.connect(self._placement_path_changed)
 
     # ── UI ──────────────────────────────────────────────────────────
     def _build_ui(self):
@@ -161,15 +166,16 @@ class CollisionTestTab(QtWidgets.QWidget):
         top.addWidget(self.save_lab_btn)
         root.addLayout(top)
 
-        body = QtWidgets.QHBoxLayout()
-        body.setSpacing(10)
+        splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+        splitter.setChildrenCollapsible(False)
+        splitter.setHandleWidth(8)
         scroll = QtWidgets.QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        # Keep the whole control stack visible at the design size; the 3D
-        # view yields width when the window is narrowed.
-        scroll.setMinimumWidth(560)
-        scroll.setMaximumWidth(680)
+        # The control stack gets the larger share; the 3D view yields width.
+        # The handle stays draggable for an operator who wants more room.
+        scroll.setMinimumWidth(720)
+        scroll.setMaximumWidth(1000)
         controls = QtWidgets.QWidget()
         left = QtWidgets.QVBoxLayout(controls)
         left.setContentsMargins(0, 0, 6, 0)
@@ -296,20 +302,24 @@ class CollisionTestTab(QtWidgets.QWidget):
         left.addWidget(scan)
         left.addStretch(1)
         scroll.setWidget(controls)
-        body.addWidget(scroll)
+        splitter.addWidget(scroll)
 
         self.view_label = QtWidgets.QLabel()
         self.view_label.setProperty("role", "bed")
         # The view is the flexible side: it shrinks before the controls do.
-        self.view_label.setMinimumSize(420, 300)
+        self.view_label.setMinimumSize(360, 300)
         self.view_label.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         self.view_label.setAlignment(QtCore.Qt.AlignCenter)
         self.view_label.setStyleSheet(
             'QLabel[role="bed"] { background: #101317; border-radius: 8px; }')
         self.view_label.setText("Enable the collision test to load the 3D view.")
-        body.addWidget(self.view_label, 1)
-        root.addLayout(body, 1)
+        splitter.addWidget(self.view_label)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([800, 420])
+        self.splitter = splitter
+        root.addWidget(splitter, 1)
 
         self.model_label.setText(
             f"{sim_config.ROBOT_SPEC.label}  |  {sim_config.ROBOT_SPEC.ee_site}")
@@ -541,7 +551,6 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.enable_btn.blockSignals(True)
         self.enable_btn.setChecked(True)
         self.enable_btn.blockSignals(False)
-        self.enable_btn.setText("Disable collision test")
         self._set_status("Building the collision-test world...")
         self._head_error = None
         QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
@@ -598,12 +607,14 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.enable_btn.setText("Disable collision test")
         self._set_controls_enabled(True)
         if view_error:
-            self._set_status("Ready without a 3D view.", True)
+            self._ready_status = "Ready without a 3D view."
+            self._set_status(self._ready_status, True)
             self.status_label.setToolTip(view_error)
         else:
             phantom = "subject head" if head_stl else "default phantom"
-            self._set_status(
+            self._ready_status = (
                 f"Ready: {sim_config.ROBOT_SPEC.label}, {phantom}.")
+            self._set_status(self._ready_status)
             self.status_label.setToolTip(
                 "Move the base/head, jog the coil, then run the placement scan.")
 
@@ -625,6 +636,8 @@ class CollisionTestTab(QtWidgets.QWidget):
             self.session.dispose()
             self.session = None
         self._enabled = False
+        self._ready_status = "Collision test is off."
+        self._placement_error = False
         self.enable_btn.blockSignals(True)
         self.enable_btn.setChecked(False)
         self.enable_btn.blockSignals(False)
@@ -732,6 +745,19 @@ class CollisionTestTab(QtWidgets.QWidget):
         self._update_collision()
 
     # ── scan ────────────────────────────────────────────────────────
+    def _placement_path_changed(self, text: str):
+        """Clear stale placement/enable errors once a file is now present."""
+        path = (text or "").strip()
+        if not path or not os.path.isfile(path):
+            return
+        if not (self._placement_error or self.status_label.styleSheet()):
+            return
+        self._placement_error = False
+        self._set_status(self._ready_status)
+        if self.scan_status.text().startswith("Load a coil placement"):
+            self.scan_status.setText(
+                "Placement file loaded." if self._enabled else "Idle.")
+
     def _start_scan(self):
         if self.session is None:
             return
@@ -749,15 +775,19 @@ class CollisionTestTab(QtWidgets.QWidget):
             return
         path = self.window.loadplacementlabel.text().strip()
         if not path or not os.path.isfile(path):
+            self._placement_error = True
             self._set_status("Load a coil placement file on the Project page first.", True)
             return
         try:
             from .pipeline_controller import read_simnibs_targets_data
             placements, _ = read_simnibs_targets_data(path)
         except Exception as e:
-            self._set_status(f"Could not read the placements: {e}", True)
+            self._placement_error = True
+            self._set_status("The placement file could not be read.", True)
+            self.status_label.setToolTip(str(e))
             return
         if not placements:
+            self._placement_error = True
             self._set_status("The placement file is empty.", True)
             return
         self._scan_placements = placements
