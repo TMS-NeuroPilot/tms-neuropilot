@@ -1678,7 +1678,19 @@ class MainWindow(QtWidgets.QMainWindow):
                 label.setProperty("role", role)
             return label
 
-        # ── header: logo + title ─────────────────────────────────────
+        # ── two columns: header + cards on the left, the right-hand
+        #    cards starting at the very top ────────────────────────────
+        columns = QtWidgets.QHBoxLayout()
+        columns.setSpacing(14)
+        root.addLayout(columns, 1)
+        left = QtWidgets.QVBoxLayout()
+        left.setSpacing(12)
+        right = QtWidgets.QVBoxLayout()
+        right.setSpacing(12)
+        columns.addLayout(left, 1)
+        columns.addLayout(right, 1)
+
+        # ── header: logo + title + version, top of the left column ──
         header = QtWidgets.QHBoxLayout()
         header.setSpacing(16)
         icon_path = resource_path(os.path.join("gui", "icon.png"))
@@ -1701,26 +1713,15 @@ class MainWindow(QtWidgets.QMainWindow):
                         "optimization.", role="cap")
         title_col.addWidget(title)
         title_col.addWidget(subtitle)
-        header.addLayout(title_col, 1)
-        root.addLayout(header)
         try:
             from .. import __version__ as _np_version
         except Exception:                            # pragma: no cover
             _np_version = "?"
-        byline = wrap(f"Version {_np_version}  ·  MPI CBS Leipzig / ScaDS.AI",
-                      role="cap")
-        root.addWidget(byline)
-
-        # ── two columns of cards ─────────────────────────────────────
-        columns = QtWidgets.QHBoxLayout()
-        columns.setSpacing(14)
-        root.addLayout(columns, 1)
-        left = QtWidgets.QVBoxLayout()
-        left.setSpacing(12)
-        right = QtWidgets.QVBoxLayout()
-        right.setSpacing(12)
-        columns.addLayout(left, 1)
-        columns.addLayout(right, 1)
+        version = wrap(f"Version {_np_version}  ·  MPI CBS Leipzig / ScaDS.AI",
+                       role="cap")
+        title_col.addWidget(version)
+        header.addLayout(title_col, 1)
+        left.addLayout(header)
 
         warn = wrap(
             "<b>Research software — not a medical device.</b> NeuroPilot is "
