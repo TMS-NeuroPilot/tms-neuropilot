@@ -1778,15 +1778,7 @@ class MainWindow(QtWidgets.QMainWindow):
             "a complete virtual twin (relay, virtual robot, virtual "
             "navigation) to develop and train the workflow without hardware "
             "or subjects.", role="cap")
-        org = QtWidgets.QLabel()
-        org.setTextFormat(QtCore.Qt.RichText)
-        org.setOpenExternalLinks(True)
-        org.setText("Groups: <a href='https://www.cbs.mpg.de/en'>MPI CBS</a>"
-                    " and <a href='https://scads.ai/'>ScaDS.AI</a>, Leipzig.")
-        self._about_links.append(org)
-        org.setWordWrap(True)
-        org.setProperty("role", "cap")
-        left.addWidget(card("About", [about, org]))
+        left.addWidget(card("About", [about]))
 
         sci = wrap(
             "Per-pulse E-field mapping follows Numssen et al. (2021); the "
@@ -1900,10 +1892,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         credits = wrap(
             "Maintained by Ole Numssen (MPI CBS / ScaDS.AI) with the group "
-            "and external collaborators — full list in", role="cap")
+            "and external collaborators.", role="cap")
         left.addWidget(card("Credits", [
             credits,
-            link("CONTRIBUTORS.md",
+            link("Contact: numssen@cbs.mpg.de",
+                 "mailto:numssen@cbs.mpg.de"),
+            link("Full contributor list: CONTRIBUTORS.md",
                  "https://gitlab.gwdg.de/tms-localization/papers/"
                  "neuropilot/-/blob/main/CONTRIBUTORS.md"),
         ]))
