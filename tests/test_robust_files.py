@@ -350,4 +350,4 @@ def test_apply_config_dict_survives_every_yaml_shape(window, qapp):
     """Whatever a truncated cache holds, the window must stay usable."""
     for bad in (None, [], [1, 2], "text", 42, {}, {"map_elms": None}):
         window.apply_config_dict(bad)
-    assert window.tabWidget.count() == 7
+    assert window.tabWidget.count() == 8   # 6 .ui pages + Collision test + About

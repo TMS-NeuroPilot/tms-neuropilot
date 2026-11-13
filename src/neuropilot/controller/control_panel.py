@@ -660,6 +660,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._setup_config_tab()
         self._collision_test_config = None
         self._setup_collision_tab()
+        self._setup_about_tab()
 
         # Mapping-results panel: state, table and wiring.
         self._mapping_scores = {}        # channel key -> R2 per ROI element
@@ -919,6 +920,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for system, status in list(getattr(self, "_system_status", {}).items()):
             self.update_system_status(system, status)
         self._update_efield_hint()
+        self._recolour_about_links()
 
     @QtCore.pyqtSlot(str, str)
     def _on_file_info_ready(self, name, text):
@@ -1630,6 +1632,209 @@ class MainWindow(QtWidgets.QMainWindow):
                 break
         self.tabWidget.insertTab(index, page, "Collision test")
         self.collision_tab = page
+
+    def _setup_about_tab(self):
+        """Build the About page as the last tab.
+
+        The text condenses ``docs/site/pages/about.md`` (that page is the
+        source of truth; keep the two in step). External links are QLabel
+        anchors, never buttons: the generic "click every button" interaction
+        test sweeps every page and must not launch a browser.
+        """
+        self._about_links = []
+        page = QtWidgets.QWidget()
+        page_layout = QtWidgets.QVBoxLayout(page)
+        page_layout.setContentsMargins(0, 0, 0, 0)
+        # A scroll area keeps every card readable on smaller windows instead
+        # of clipping the last row of the tallest column.
+        content = QtWidgets.QWidget()
+        content.setMinimumWidth(1040)
+        root = QtWidgets.QVBoxLayout(content)
+        root.setContentsMargins(18, 14, 18, 14)
+        root.setSpacing(12)
+
+        def link(text, url):
+            label = QtWidgets.QLabel()
+            label.setTextFormat(QtCore.Qt.RichText)
+            label.setOpenExternalLinks(True)
+            label.setText(f'<a href="{url}">{text}</a>')
+            self._about_links.append(label)
+            return label
+
+        def card(title, children):
+            box = QtWidgets.QGroupBox(title)
+            box.setProperty("card", True)
+            col = QtWidgets.QVBoxLayout(box)
+            col.setContentsMargins(14, 6, 14, 10)
+            col.setSpacing(6)
+            for child in children:
+                col.addWidget(child)
+            return box
+
+        def wrap(text, role=None):
+            label = QtWidgets.QLabel(text)
+            label.setWordWrap(True)
+            if role:
+                label.setProperty("role", role)
+            return label
+
+        # ── header: logo + title ─────────────────────────────────────
+        header = QtWidgets.QHBoxLayout()
+        header.setSpacing(16)
+        icon_path = resource_path(os.path.join("gui", "icon.png"))
+        if os.path.exists(icon_path):
+            pix = QPixmap(icon_path).scaled(
+                96, 96, QtCore.Qt.KeepAspectRatio,
+                QtCore.Qt.SmoothTransformation)
+            logo = QtWidgets.QLabel()
+            logo.setPixmap(pix)
+            logo.setAlignment(QtCore.Qt.AlignTop)
+            header.addWidget(logo)
+        title_col = QtWidgets.QVBoxLayout()
+        title_col.setSpacing(2)
+        title = QtWidgets.QLabel("NeuroPilot")
+        font = title.font()
+        font.setPointSize(20)
+        font.setBold(True)
+        title.setFont(font)
+        subtitle = wrap("Guided online TMS mapping with online field "
+                        "optimization.", role="cap")
+        title_col.addWidget(title)
+        title_col.addWidget(subtitle)
+        header.addLayout(title_col, 1)
+        root.addLayout(header)
+        try:
+            from .. import __version__ as _np_version
+        except Exception:                            # pragma: no cover
+            _np_version = "?"
+        byline = wrap(f"Version {_np_version}  ·  MPI CBS Leipzig / ScaDS.AI",
+                      role="cap")
+        root.addWidget(byline)
+
+        # ── two columns of cards ─────────────────────────────────────
+        columns = QtWidgets.QHBoxLayout()
+        columns.setSpacing(14)
+        root.addLayout(columns, 1)
+        left = QtWidgets.QVBoxLayout()
+        left.setSpacing(12)
+        right = QtWidgets.QVBoxLayout()
+        right.setSpacing(12)
+        columns.addLayout(left, 1)
+        columns.addLayout(right, 1)
+
+        warn = wrap(
+            "<b>Research software — not a medical device.</b> NeuroPilot is "
+            "intended for research use only and is not approved or cleared "
+            "for clinical or therapeutic use. It must not be used for "
+            "clinical decisions or to stimulate patients. Real TMS requires "
+            "ethics approval, a trained operator and the stimulator "
+            "manufacturer's safety limits.", role="cap")
+        left.addWidget(card("Research use only", [warn]))
+
+        about = wrap(
+            "NeuroPilot runs E-field-optimized TMS mapping experiments: each "
+            "pulse is paired with the electric field at its realized coil "
+            "pose, a regression is fitted per ROI element and EMG channel, "
+            "and the results guide the next placement. It integrates with "
+            "InVesalius neuronavigation, supports robot assistance and ships "
+            "a complete virtual twin (relay, virtual robot, virtual "
+            "navigation) to develop and train the workflow without hardware "
+            "or subjects.")
+        org = QtWidgets.QLabel()
+        org.setTextFormat(QtCore.Qt.RichText)
+        org.setOpenExternalLinks(True)
+        org.setText("Groups: <a href='https://www.cbs.mpg.de/en'>MPI CBS</a>"
+                    " and <a href='https://scads.ai/'>ScaDS.AI</a>, Leipzig.")
+        self._about_links.append(org)
+        org.setWordWrap(True)
+        left.addWidget(card("About", [about, org]))
+
+        sci = wrap(
+            "Per-pulse E-field mapping follows Numssen et al. (2021); the "
+            "mapping protocol follows Weise et al. (2023). Coil placement "
+            "optimization can use FPS (Schultheiss et al., 2025) or D-optimal "
+            "design (Numssen, Qiu et al., 2026). The interpolated E-field "
+            "mode uses the surrogate method of Grosshagauer et al. (2025). "
+            "The R² map is an explanatory localization fitted to the "
+            "collected pulses — not a significance map, a causal source "
+            "reconstruction or a clinical diagnosis.")
+        papers = [
+            ("Numssen et al. (2021) — element-wise E-field mapping",
+             "https://doi.org/10.1016/j.neuroimage.2021.118654"),
+            ("Weise et al. (2023) — TMS mapping protocol",
+             "https://doi.org/10.1038/s41596-022-00776-6"),
+            ("Schultheiss et al. (2025) — FPS coil placement",
+             "https://doi.org/10.1162/IMAG.a.1056"),
+            ("Numssen, Qiu et al. (2026) — D-optimal coil placement",
+             "https://doi.org/10.64898/2026.10.24.761539"),
+            ("Grosshagauer et al. (2025) — surrogate E-field mode",
+             "https://doi.org/10.1016/j.brs.2025.102990"),
+        ]
+        left.addWidget(
+            card("Scientific background", [sci, *[link(t, u) for t, u in papers]]))
+
+        resources = [
+            ("Documentation", "https://neuropilot-94ad2d.pages.gwdg.de/"),
+            ("Source code",
+             "https://gitlab.gwdg.de/tms-localization/papers/neuropilot"),
+            ("InVesalius", "https://invesalius.github.io/"),
+            ("tms-robot-control",
+             "https://gitlab.gwdg.de/tms-localization/cobot/tms-robot-control"),
+            ("pynibs", "https://gitlab.gwdg.de/tms-localization/pynibs"),
+            ("SimNIBS", "https://simnibs.github.io/simnibs/"),
+        ]
+        right.addWidget(card("Resources", [link(t, u) for t, u in resources]))
+
+        lic = wrap(
+            "Released under <b>CC BY-NC-SA 4.0</b>: free for non-commercial "
+            "use (research and clinical science) with attribution and "
+            "share-alike; commercial use needs permission from the authors.")
+        right.addWidget(card("License", [
+            lic,
+            link("Creative Commons BY-NC-SA 4.0",
+                 "https://creativecommons.org/licenses/by-nc-sa/4.0/"),
+            link("Full license text",
+                 "https://gitlab.gwdg.de/tms-localization/papers/"
+                 "neuropilot/-/blob/main/LICENSE"),
+        ]))
+
+        cite_thesis = wrap(
+            "Yaseen, A. (2026). A Virtual Twin and Real-Time E-Field Approach "
+            "for Robot-Assisted TMS Motor Cortex Mapping. Master's thesis, "
+            "Ernst Abbe University of Applied Sciences Jena.", role="mono")
+        cite_software = wrap(
+            "NeuroPilot: guided online TMS mapping with online field "
+            "optimization. MPI CBS Leipzig / ScaDS.AI.", role="mono")
+        right.addWidget(card("How to cite", [cite_thesis, cite_software]))
+
+        credits = wrap(
+            "Maintained by Ole Numssen (MPI CBS / ScaDS.AI) with the group "
+            "and external collaborators — full list in")
+        right.addWidget(card("Credits", [
+            credits,
+            link("CONTRIBUTORS.md",
+                 "https://gitlab.gwdg.de/tms-localization/papers/"
+                 "neuropilot/-/blob/main/CONTRIBUTORS.md"),
+        ]))
+
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
+        scroll.setWidget(content)
+        page_layout.addWidget(scroll)
+        self.tabWidget.addTab(page, "About")
+        self._recolour_about_links()
+
+    def _recolour_about_links(self):
+        """Colour the About page anchors with the active theme's accent."""
+        theme = getattr(self, "_theme", None)
+        if not theme:
+            return
+        for label in list(getattr(self, "_about_links", [])):
+            try:
+                label.setStyleSheet(f"a {{ color: {theme['accent']}; }}")
+            except Exception:                       # pragma: no cover
+                pass
 
     def _setup_simulation_page(self):
         """Build Config › Simulation (the .ui has no page for it)."""

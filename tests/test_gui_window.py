@@ -12,7 +12,7 @@ import pytest
 QtWidgets = pytest.importorskip("PyQt5.QtWidgets")
 
 EXPECTED_TABS = ["Project", "Connections", "Control", "MEP results",
-                 "Cortical results", "Collision test", "Config"]
+                 "Cortical results", "Collision test", "Config", "About"]
 
 
 def test_window_constructs_and_is_a_main_window(window):
