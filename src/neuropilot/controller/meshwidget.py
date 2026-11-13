@@ -102,6 +102,10 @@ def _mesh_from_arrays(nodes, tr_con, tri_tissue_type, mesh_type,
             loaded_mesh = loaded_mesh.compute_normals(
                 consistent_normals=True, auto_orient_normals=True,
                 split_vertices=False, inplace=False)
+            # NOTE: keep the "Normals" arrays -- the smooth-shaded render
+            # averages them, and without them the open scalp seam renders
+            # as wide dark bands again. The Colour-by selector filters them
+            # out instead.
         except Exception as e:
             print(f"[WARN] head normal fix skipped: {e}")
     if stop_event is not None and stop_event.is_set():
@@ -1185,7 +1189,10 @@ class MeshWidget(QWidget):
             keys = []
             for data in (self.current_mesh.point_data, self.current_mesh.cell_data):
                 for name in data.keys():
-                    if name == "Tissue Type":
+                    # "Normals" stays on the mesh (the smooth-shaded render
+                    # averages it; without it the open scalp seam renders as
+                    # dark bands) but is meaningless for colouring.
+                    if name in ("Tissue Type", "Normals"):
                         continue
                     keys.append(name)
             for raw_name in sorted(set(keys), key=lambda n: self._display_name(n).lower()):
