@@ -1754,6 +1754,9 @@ class MainWindow(QtWidgets.QMainWindow):
         version = wrap(f"Version {_np_version}  ·  MPI CBS Leipzig / ScaDS.AI",
                        role="cap")
         title_col.addWidget(version)
+        # Without a trailing stretch the layout spreads the logo's extra
+        # height between the title lines; the stretch keeps them together.
+        title_col.addStretch(1)
         header.addLayout(title_col, 1)
         left.addLayout(header)
 
