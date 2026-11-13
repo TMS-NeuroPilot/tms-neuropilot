@@ -4,6 +4,7 @@ import json
 
 import numpy as np
 import pytest
+from PyQt5 import QtWidgets
 from scipy.spatial.transform import Rotation
 
 pytest.importorskip("PyQt5.QtWidgets")
@@ -187,3 +188,25 @@ def test_fixed_mjcf_base_rotation_is_divided_out():
         assert orientation_distance_deg(local[1], target[1]) < 0.5
     finally:
         session.dispose()
+
+
+def test_controls_fit_before_the_3d_view_at_the_design_size(window, qapp):
+    window.resize(1244, 960)
+    window.show()
+    for index in range(window.tabWidget.count()):
+        if window.tabWidget.tabText(index) == "Collision test":
+            window.tabWidget.setCurrentIndex(index)
+            break
+    qapp.processEvents()
+    qapp.processEvents()
+
+    tab = window.collision_tab
+    scroll = next(s for s in tab.findChildren(QtWidgets.QScrollArea)
+                  if s.widget() is not None
+                  and tab.isAncestorOf(s.widget()))
+    assert scroll.width() >= 650
+    assert tab.view_label.width() >= 420
+    assert tab.view_label.minimumWidth() == 420
+    assert scroll.maximumWidth() == 680
+    assert scroll.verticalScrollBar().maximum() == 0
+    assert not scroll.verticalScrollBar().isVisible()

@@ -36,17 +36,21 @@ class PoseEditor(QtWidgets.QGroupBox):
         self._step_deg = 5.0
         self._spins: List[QtWidgets.QDoubleSpinBox] = []
         grid = QtWidgets.QGridLayout(self)
-        grid.setContentsMargins(8, 8, 8, 8)
-        grid.setHorizontalSpacing(6)
-        grid.setVerticalSpacing(4)
-        for row, (label, unit) in enumerate(self.AXES):
+        grid.setContentsMargins(6, 4, 6, 4)
+        grid.setHorizontalSpacing(8)
+        grid.setVerticalSpacing(2)
+        for index, (label, unit) in enumerate(self.AXES):
+            row, column = divmod(index, 3)
+            cell = QtWidgets.QHBoxLayout()
+            cell.setSpacing(4)
             cap = QtWidgets.QLabel(label)
             cap.setProperty("role", "cap")
-            cap.setMinimumWidth(26)
+            cap.setFixedWidth(24)
             spin = QtWidgets.QDoubleSpinBox()
             spin.setDecimals(1)
             spin.setSingleStep(1.0)
             spin.setKeyboardTracking(False)
+            spin.setMinimumWidth(78)
             if unit == "mm":
                 spin.setRange(-5000.0, 5000.0)
                 spin.setSuffix(" mm")
@@ -57,16 +61,18 @@ class PoseEditor(QtWidgets.QGroupBox):
             minus = QtWidgets.QPushButton("−")
             plus = QtWidgets.QPushButton("+")
             for button in (minus, plus):
-                button.setFixedWidth(28)
+                button.setFixedWidth(24)
                 button.setProperty("role", "transport")
             minus.clicked.connect(
                 lambda _=False, s=spin, u=unit: self._nudge(s, u, -1))
             plus.clicked.connect(
                 lambda _=False, s=spin, u=unit: self._nudge(s, u, +1))
-            grid.addWidget(cap, row, 0)
-            grid.addWidget(spin, row, 1)
-            grid.addWidget(minus, row, 2)
-            grid.addWidget(plus, row, 3)
+            cell.addWidget(cap)
+            cell.addWidget(spin, 1)
+            cell.addWidget(minus)
+            cell.addWidget(plus)
+            grid.addLayout(cell, row, column)
+            grid.setColumnStretch(column, 1)
             self._spins.append(spin)
         self.set_values(position_m, orientation_deg)
 
@@ -160,12 +166,14 @@ class CollisionTestTab(QtWidgets.QWidget):
         scroll = QtWidgets.QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        scroll.setMinimumWidth(430)
-        scroll.setMaximumWidth(490)
+        # Keep the whole control stack visible at the design size; the 3D
+        # view yields width when the window is narrowed.
+        scroll.setMinimumWidth(560)
+        scroll.setMaximumWidth(680)
         controls = QtWidgets.QWidget()
         left = QtWidgets.QVBoxLayout(controls)
         left.setContentsMargins(0, 0, 6, 0)
-        left.setSpacing(8)
+        left.setSpacing(5)
 
         self.base_editor = PoseEditor(
             "Robot base", sim_config.ROBOT_BASE_POSITION,
@@ -181,8 +189,8 @@ class CollisionTestTab(QtWidgets.QWidget):
         jog = QtWidgets.QGroupBox("Jog coil (world XYZ / tool rotations)")
         jog.setProperty("card", True)
         jog_layout = QtWidgets.QVBoxLayout(jog)
-        jog_layout.setContentsMargins(8, 8, 8, 8)
-        jog_layout.setSpacing(5)
+        jog_layout.setContentsMargins(6, 4, 6, 4)
+        jog_layout.setSpacing(3)
         row = QtWidgets.QHBoxLayout()
         row.addWidget(QtWidgets.QLabel("Step"))
         self.step_combo = QtWidgets.QComboBox()
@@ -192,11 +200,16 @@ class CollisionTestTab(QtWidgets.QWidget):
         row.addWidget(self.step_combo)
         row.addStretch(1)
         jog_layout.addLayout(row)
-        for axis in ("X", "Y", "Z", "RX", "RY", "RZ"):
+        jog_grid = QtWidgets.QGridLayout()
+        jog_grid.setHorizontalSpacing(8)
+        jog_grid.setVerticalSpacing(4)
+        for index, axis in enumerate(("X", "Y", "Z", "RX", "RY", "RZ")):
+            row, column = divmod(index, 3)
             line = QtWidgets.QHBoxLayout()
+            line.setSpacing(4)
             cap = QtWidgets.QLabel(axis)
             cap.setProperty("role", "cap")
-            cap.setMinimumWidth(26)
+            cap.setFixedWidth(24)
             line.addWidget(cap)
             minus = QtWidgets.QPushButton("−")
             plus = QtWidgets.QPushButton("+")
@@ -208,14 +221,16 @@ class CollisionTestTab(QtWidgets.QWidget):
                 lambda _=False, a=axis: self._jog(a, +1))
             line.addWidget(minus, 1)
             line.addWidget(plus, 1)
-            jog_layout.addLayout(line)
+            jog_grid.addLayout(line, row, column)
+            jog_grid.setColumnStretch(column, 1)
+        jog_layout.addLayout(jog_grid)
         left.addWidget(jog)
 
         start = QtWidgets.QGroupBox("Start pose")
         start.setProperty("card", True)
         start_layout = QtWidgets.QVBoxLayout(start)
-        start_layout.setContentsMargins(8, 8, 8, 8)
-        start_layout.setSpacing(5)
+        start_layout.setContentsMargins(6, 4, 6, 4)
+        start_layout.setSpacing(3)
         branch_row = QtWidgets.QGridLayout()
         self.branch_buttons = []
         for i, (label, shoulder, elbow) in enumerate((
@@ -250,8 +265,8 @@ class CollisionTestTab(QtWidgets.QWidget):
         scan = QtWidgets.QGroupBox("Placement scan")
         scan.setProperty("card", True)
         scan_layout = QtWidgets.QVBoxLayout(scan)
-        scan_layout.setContentsMargins(8, 8, 8, 8)
-        scan_layout.setSpacing(5)
+        scan_layout.setContentsMargins(6, 4, 6, 4)
+        scan_layout.setSpacing(3)
         scan_actions = QtWidgets.QHBoxLayout()
         self.scan_btn = QtWidgets.QPushButton("Start collision scan")
         self.scan_btn.setProperty("role", "primary")
@@ -285,7 +300,10 @@ class CollisionTestTab(QtWidgets.QWidget):
 
         self.view_label = QtWidgets.QLabel()
         self.view_label.setProperty("role", "bed")
-        self.view_label.setMinimumSize(640, 480)
+        # The view is the flexible side: it shrinks before the controls do.
+        self.view_label.setMinimumSize(420, 300)
+        self.view_label.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         self.view_label.setAlignment(QtCore.Qt.AlignCenter)
         self.view_label.setStyleSheet(
             'QLabel[role="bed"] { background: #101317; border-radius: 8px; }')
