@@ -7,6 +7,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **About tab.** The controller's last tab condenses the project description,
+  research-use notice, scientific references, resources, license and citation
+  information.
+
 - **Collision test page.** A local MuJoCo world checks the selected robot and
   coil holder against the subject head for every project placement. It can
   move the head and robot base, jog the coil in world XYZ, select a

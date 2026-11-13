@@ -168,7 +168,7 @@ analysis assembly, the virtual EMG channels, robot health parsing, the
 coil-target axis convention, the relay-topic contract and the placements CSV
 export.
 
-The GUI tests build a real `MainWindow` and drive it: all seven pages,
+The GUI tests build a real `MainWindow` and drive it: all eight pages,
 resizing, the results table and readout, project load/save with corrupt,
 empty, missing and binary files, project files whose folder was deleted,
 the Config tab against a temporary `.env`, the study profile, exports and

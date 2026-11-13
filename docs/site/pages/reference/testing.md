@@ -26,7 +26,7 @@ scripts/run_tests.sh            # headless, with the CI interpreter
 |---|---|
 | `gui` | builds a real `MainWindow`; skipped without `DISPLAY`/`WAYLAND_DISPLAY` |
 
-The GUI tests cover all seven pages, resizing, the results table, project
+The GUI tests cover all eight pages, resizing, the results table, project
 load/save with corrupt/empty/missing/binary files, the Config tab against a
 temporary `.env`, the study profile, exports and screenshots into deleted
 folders, manual mode, the status LEDs and recovery buttons, every button on
@@ -44,7 +44,7 @@ Tests never touch your data:
 ## GUI snapshots
 
 `tests/test_gui_snapshots.py` captures a 32×24 grey fingerprint and the geometry
-of every named widget on the seven pages, and compares them against
+of every named widget on the seven main pages, and compares them against
 `tests/baselines/gui_pages.json`. A `.ui` or style-sheet regression fails; the
 current rendering is left in pytest's `tmp_path` for comparison.
 
