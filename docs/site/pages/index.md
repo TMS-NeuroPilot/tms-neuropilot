@@ -24,10 +24,11 @@ It integrates with [InVesalius](https://invesalius.github.io/) neuronavigation t
 guide the coil across many placements, controls the stimulator, and uses
 [SimNIBS](https://simnibs.github.io/simnibs/) for online E-field calculations.
 Experiments can use different optimization schemes, for example
-[FPS](https://en.wikipedia.org/wiki/Farthest-first_traversal) or
-[D-optimal](https://en.wikipedia.org/wiki/Optimal_design), and the analysis
+FPS ([Schultheiss et al., 2025](https://doi.org/10.1162/IMAG.a.1056)) or
+D-optimal ([Numssen, Qiu et al., 2026](https://doi.org/10.64898/2026.10.24.761539)),
+and the analysis
 runs online; single trials can be excluded by hand and the full data set
-exported. The software is open source and adapts easily to local hardware,
+exported. The software is open source and can be adapted to local hardware,
 outcome metrics and new optimization schemes.
 
 A full virtual-twin mode allows extensive testing of new optimization schemes
@@ -80,12 +81,15 @@ A mapping session is a loop over pulses:
 3. The robot, or the operator in manual mode, moves the coil there.
 4. The stimulator fires.
 5. The EMG is cut into a window around the pulse and reduced to a peak-to-peak MEP.
-6. The E-field for that pulse is read from the precomputed library or solved
+6. The pulse's E-field is read from the precomputed library or solved
    online for the realised coil pose.
-7. The MEP is regressed against that E-field, and the R² map is updated.
+7. For each ROI element, the MEPs are regressed against |E| at that cortical
+   location across all trials, and the R² map is updated. The map supports
+   localisation of the cortical source; it is not a significance test.
 
-Because the field is the one the pulse actually delivered, the map does not
-assume that every pulse hit the same spot.
+This 'voxel-wise' mapping approach can also be applied to map other responses,
+such as phosphene production, reaction time, or heart-brain coupling in other
+functions and brain regions.
 
 ## Run the simulator in three commands
 
@@ -98,7 +102,7 @@ neuropilot sim                      # relay → nav + robot → controller
 When the NeuroPilot GUI has loaded, load the `ernie` example project and press
 **Start**.
 
-!!! tip "No hardware, no risk"
+!!! tip "No hardware required"
     The simulated stack is the recommended way to learn the interface. It runs
     the same controller code, the same relay protocol and the same state
     machine as a real session; only the relay, neuronavigation and robot are
