@@ -1500,7 +1500,11 @@ class MainWindow(QtWidgets.QMainWindow):
             " border-radius: 6px; }"
             "QWidget#target_overlay QLabel { background: transparent;"
             " color: #F8FAFC; }"
-            "QWidget#target_overlay QLabel[role=\"cap\"] { color: #CBD5E1; }"
+            # Captions share the value size: the small cap next to a long
+            # bold value ("pulse 0 · 1/1 · target 44") read like a different
+            # font. Same size; the muted colour keeps the hierarchy.
+            "QWidget#target_overlay QLabel[role=\"cap\"] { color: #CBD5E1;"
+            " font-size: 15px; }"
             "QWidget#target_overlay QLabel[role=\"value\"] { color: #FFFFFF;"
             " font-weight: 600; }")
 
