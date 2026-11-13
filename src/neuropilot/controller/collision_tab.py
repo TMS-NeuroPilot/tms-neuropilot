@@ -35,6 +35,8 @@ class PoseEditor(QtWidgets.QGroupBox):
         self._step_mm = 5.0
         self._step_deg = 5.0
         self._spins: List[QtWidgets.QDoubleSpinBox] = []
+        self._caps: List[QtWidgets.QLabel] = []
+        self._nudge_buttons: List[QtWidgets.QPushButton] = []
         grid = QtWidgets.QGridLayout(self)
         grid.setContentsMargins(6, 4, 6, 4)
         grid.setHorizontalSpacing(8)
@@ -45,12 +47,14 @@ class PoseEditor(QtWidgets.QGroupBox):
             cell.setSpacing(4)
             cap = QtWidgets.QLabel(label)
             cap.setProperty("role", "cap")
-            cap.setFixedWidth(24)
+            self._caps.append(cap)
             spin = QtWidgets.QDoubleSpinBox()
             spin.setDecimals(1)
             spin.setSingleStep(1.0)
             spin.setKeyboardTracking(False)
-            spin.setFixedWidth(140)
+            spin.setMinimumWidth(110)
+            spin.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
+                               QtWidgets.QSizePolicy.Fixed)
             if unit == "mm":
                 spin.setRange(-5000.0, 5000.0)
                 spin.setSuffix(" mm")
@@ -61,22 +65,35 @@ class PoseEditor(QtWidgets.QGroupBox):
             minus = QtWidgets.QPushButton("−")
             plus = QtWidgets.QPushButton("+")
             for button in (minus, plus):
-                button.setFixedWidth(24)
-                button.setFixedHeight(22)
-                button.setProperty("role", "transport")
+                button.setSizePolicy(QtWidgets.QSizePolicy.Fixed,
+                                     QtWidgets.QSizePolicy.Fixed)
+                button.setProperty("role", "nudge")
+                self._nudge_buttons.append(button)
             minus.clicked.connect(
                 lambda _=False, s=spin, u=unit: self._nudge(s, u, -1))
             plus.clicked.connect(
                 lambda _=False, s=spin, u=unit: self._nudge(s, u, +1))
             cell.addWidget(cap)
             cell.addWidget(spin, 1)
-            cell.addWidget(minus)
-            cell.addWidget(plus)
-            cell.addStretch(1)
+            cell.addWidget(minus, 0, QtCore.Qt.AlignVCenter)
+            cell.addWidget(plus, 0, QtCore.Qt.AlignVCenter)
             grid.addLayout(cell, row, column)
             grid.setColumnStretch(column, 1)
             self._spins.append(spin)
         self.set_values(position_m, orientation_deg)
+        self.apply_ui_scale()
+
+    def apply_ui_scale(self):
+        """Keep the axis labels and nudge buttons aligned after a font rescale."""
+        if self._caps:
+            label_width = max(cap.sizeHint().width() for cap in self._caps)
+            for cap in self._caps:
+                cap.setFixedWidth(label_width)
+        if self._nudge_buttons:
+            button_width = max(button.sizeHint().width()
+                               for button in self._nudge_buttons)
+            for button in self._nudge_buttons:
+                button.setFixedWidth(button_width)
 
     def _nudge(self, spin, unit, sign):
         step = self._step_mm if unit == "mm" else self._step_deg
@@ -104,6 +121,57 @@ class PoseEditor(QtWidgets.QGroupBox):
             spin.blockSignals(False)
 
 
+class BranchChoice(QtWidgets.QWidget):
+    """Two exclusive radio buttons for one IK branch axis.
+
+    The checks stay visible: unlike the former dropdowns, a popup cannot hide
+    the second option, and the labels name the axis and value together.
+    """
+
+    def __init__(self, options, parent=None):
+        super().__init__(parent)
+        self._buttons: List[QtWidgets.QRadioButton] = []
+        self._data: List[str] = []
+        self._group = QtWidgets.QButtonGroup(self)
+        self._group.setExclusive(True)
+        layout = QtWidgets.QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+        for index, (text, data) in enumerate(options):
+            button = QtWidgets.QRadioButton(text)
+            button.setProperty("role", "choice")
+            self._group.addButton(button, index)
+            layout.addWidget(button)
+            self._buttons.append(button)
+            self._data.append(data)
+        layout.addStretch(1)
+        self._buttons[0].setChecked(True)
+
+    def currentIndex(self) -> int:
+        return self._group.checkedId()
+
+    def currentData(self) -> Optional[str]:
+        index = self.currentIndex()
+        return self._data[index] if 0 <= index < len(self._data) else None
+
+    def setCurrentIndex(self, index: int) -> None:
+        if 0 <= index < len(self._buttons):
+            self._buttons[index].setChecked(True)
+
+    def findData(self, data: str) -> int:
+        try:
+            return self._data.index(data)
+        except ValueError:
+            return -1
+
+    def count(self) -> int:
+        return len(self._buttons)
+
+    def buttons(self) -> List[QtWidgets.QRadioButton]:
+        """The radio buttons, for accessibility and regression checks."""
+        return list(self._buttons)
+
+
 class CollisionTestTab(QtWidgets.QWidget):
     """The Collision test page."""
 
@@ -119,6 +187,8 @@ class CollisionTestTab(QtWidgets.QWidget):
         self._ready_status = "Collision test is off."
         self._placement_error = False
         self._scan_placements: List = []
+        self._last_ui_scale = None
+        self._last_scan_render_key = None
 
         self._scan_timer = QtCore.QTimer(self)
         self._scan_timer.setInterval(30)
@@ -182,10 +252,11 @@ class CollisionTestTab(QtWidgets.QWidget):
         # The handle stays draggable for an operator who wants more room.
         scroll.setMinimumWidth(760)
         scroll.setMaximumWidth(1000)
+        self.scroll = scroll
         controls = QtWidgets.QWidget()
         left = QtWidgets.QVBoxLayout(controls)
         left.setContentsMargins(0, 0, 6, 0)
-        left.setSpacing(5)
+        left.setSpacing(4)
 
         self.base_editor = PoseEditor(
             "Robot base", sim_config.ROBOT_BASE_POSITION,
@@ -197,7 +268,9 @@ class CollisionTestTab(QtWidgets.QWidget):
         jog.setProperty("card", True)
         jog_layout = QtWidgets.QVBoxLayout(jog)
         jog_layout.setContentsMargins(6, 4, 6, 4)
-        jog_layout.setSpacing(3)
+        jog_layout.setSpacing(2)
+        self._jog_nudges: List[QtWidgets.QPushButton] = []
+        self._jog_caps: List[QtWidgets.QLabel] = []
         row = QtWidgets.QHBoxLayout()
         step_caption = QtWidgets.QLabel("Step")
         step_caption.setProperty("role", "cap")
@@ -218,19 +291,23 @@ class CollisionTestTab(QtWidgets.QWidget):
             line.setSpacing(4)
             cap = QtWidgets.QLabel(axis)
             cap.setProperty("role", "cap")
-            cap.setFixedWidth(24)
+            self._jog_caps.append(cap)
             line.addWidget(cap)
             minus = QtWidgets.QPushButton("−")
             plus = QtWidgets.QPushButton("+")
             for button in (minus, plus):
-                button.setFixedHeight(22)
-                button.setProperty("role", "transport")
+                button.setProperty("role", "nudge")
+                button.setSizePolicy(QtWidgets.QSizePolicy.Fixed,
+                                     QtWidgets.QSizePolicy.Fixed)
+                self._jog_nudges.append(button)
             minus.clicked.connect(
                 lambda _=False, a=axis: self._jog(a, -1))
             plus.clicked.connect(
                 lambda _=False, a=axis: self._jog(a, +1))
-            line.addWidget(minus, 1)
-            line.addWidget(plus, 1)
+            line.addStretch(1)
+            line.addWidget(minus, 0, QtCore.Qt.AlignVCenter)
+            line.addWidget(plus, 0, QtCore.Qt.AlignVCenter)
+            line.addStretch(1)
             jog_grid.addLayout(line, row, column)
             jog_grid.setColumnStretch(column, 1)
         jog_layout.addLayout(jog_grid)
@@ -246,31 +323,23 @@ class CollisionTestTab(QtWidgets.QWidget):
         start.setProperty("card", True)
         start_layout = QtWidgets.QVBoxLayout(start)
         start_layout.setContentsMargins(6, 4, 6, 4)
-        start_layout.setSpacing(3)
+        start_layout.setSpacing(2)
         branch_row = QtWidgets.QGridLayout()
         branch_row.setHorizontalSpacing(8)
         branch_row.setVerticalSpacing(3)
-        self.shoulder_combo = QtWidgets.QComboBox()
-        self.shoulder_combo.addItem("Left", "left")
-        self.shoulder_combo.addItem("Right", "right")
-        self.arm_combo = QtWidgets.QComboBox()
-        self.arm_combo.addItem("Up", "up")
-        self.arm_combo.addItem("Down", "down")
-        self.wrist_combo = QtWidgets.QComboBox()
-        self.wrist_combo.addItem("Normal", "normal")
-        self.wrist_combo.addItem("Flipped", "flipped")
-        for column, (label, combo) in enumerate((
-                ("Shoulder", self.shoulder_combo),
-                ("Arm", self.arm_combo),
-                ("Wrist", self.wrist_combo))):
-            cell = QtWidgets.QHBoxLayout()
-            cell.setSpacing(4)
-            cap = QtWidgets.QLabel(label)
-            cap.setProperty("role", "cap")
-            cap.setFixedWidth(58)
-            cell.addWidget(cap)
-            cell.addWidget(combo, 1)
-            branch_row.addLayout(cell, 0, column)
+        self.shoulder_choice = BranchChoice(
+            (("Shoulder left", "left"), ("Shoulder right", "right")))
+        self.arm_choice = BranchChoice(
+            (("Arm up", "up"), ("Arm down", "down")))
+        self.wrist_choice = BranchChoice(
+            (("Wrist normal", "normal"), ("Wrist flipped", "flipped")))
+        for column, choice in enumerate((self.shoulder_choice,
+                                         self.arm_choice,
+                                         self.wrist_choice)):
+            choice.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
+                                 QtWidgets.QSizePolicy.Fixed)
+            branch_row.addWidget(choice, 0, column)
+            branch_row.setColumnStretch(column, 1)
         self.apply_branch_btn = QtWidgets.QPushButton(
             "Set start pose from selection")
         self.apply_branch_btn.setProperty("role", "branch")
@@ -284,6 +353,8 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.set_start_btn.setToolTip(
             "Store the current six joint angles as the start pose.")
         self.go_start_btn = QtWidgets.QPushButton("Move to current start pose")
+        self.go_start_btn.setToolTip(
+            "Return the local robot to the saved six-joint start pose.")
         for button in (self.set_start_btn, self.go_start_btn):
             button.setProperty("role", "branch")
         self.set_start_btn.clicked.connect(self._capture_start)
@@ -301,7 +372,7 @@ class CollisionTestTab(QtWidgets.QWidget):
         scan.setProperty("card", True)
         scan_layout = QtWidgets.QVBoxLayout(scan)
         scan_layout.setContentsMargins(6, 4, 6, 4)
-        scan_layout.setSpacing(3)
+        scan_layout.setSpacing(2)
         scan_actions = QtWidgets.QHBoxLayout()
         self.scan_btn = QtWidgets.QPushButton("Start collision scan")
         self.scan_btn.setProperty("role", "primary")
@@ -350,14 +421,238 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.splitter = splitter
         root.addWidget(splitter, 1)
 
+        # The same counter layout as the Control page's robot view, but for
+        # the local collision scan. It is deliberately a child of the label,
+        # not a row in the page, so it cannot push the 3D view or the log.
+        self.scan_total_value = QtWidgets.QLabel("—")
+        self.scan_total_value.setProperty("role", "value")
+        self.scan_current_value = QtWidgets.QLabel("idle")
+        self.scan_current_value.setProperty("role", "value")
+        overlay = QtWidgets.QWidget(self.view_label)
+        overlay.setObjectName("scan_overlay")
+        overlay.setAttribute(QtCore.Qt.WA_StyledBackground, True)
+        overlay.setStyleSheet(
+            "QWidget#scan_overlay { background: rgba(15, 23, 42, 0.78);"
+            " border-radius: 6px; }"
+            "QWidget#scan_overlay QLabel { background: transparent;"
+            " color: #F8FAFC; }"
+            "QWidget#scan_overlay QLabel[role=\"cap\"] { color: #CBD5E1;"
+            " font-size: 15px; }"
+            "QWidget#scan_overlay QLabel[role=\"value\"] { color: #FFFFFF;"
+            " font-weight: 600; }")
+        overlay_layout = QtWidgets.QVBoxLayout(overlay)
+        overlay_layout.setContentsMargins(10, 5, 10, 5)
+        overlay_layout.setSpacing(2)
+        total_cap = QtWidgets.QLabel("Total targets")
+        total_cap.setProperty("role", "cap")
+        current_cap = QtWidgets.QLabel("Current")
+        current_cap.setProperty("role", "cap")
+        total_row = QtWidgets.QHBoxLayout()
+        total_row.setSpacing(6)
+        total_row.addWidget(total_cap)
+        total_row.addWidget(self.scan_total_value)
+        total_row.addStretch(1)
+        current_row = QtWidgets.QHBoxLayout()
+        current_row.setSpacing(6)
+        current_row.addWidget(current_cap)
+        current_row.addWidget(self.scan_current_value)
+        current_row.addStretch(1)
+        overlay_layout.addLayout(total_row)
+        overlay_layout.addLayout(current_row)
+        overlay.adjustSize()
+        overlay.hide()
+        self._scan_overlay = overlay
+        self.view_label.installEventFilter(self)
+
         self.model_label.setText(
             f"{sim_config.ROBOT_SPEC.label}  |  {sim_config.ROBOT_SPEC.ee_site}")
+        self.apply_ui_scale(1.0)
+
+    def apply_ui_scale(self, scale=1.0):
+        """Scale the controls/view split with the rest of the window.
+
+        The page is laid out at 1244 px, but the controller opens at up to
+        2x on a large display. Without this, the control column kept its
+        design width while the font doubled, so the axis labels and the
+        millimetre suffixes were clipped. The radio rows and nudge buttons
+        also re-measure their label widths here.
+        """
+        s = max(1.0, float(scale))
+        self.base_editor.apply_ui_scale()
+        self.head_editor.apply_ui_scale()
+        if self._jog_caps:
+            label_width = max(cap.sizeHint().width() for cap in self._jog_caps)
+            for cap in self._jog_caps:
+                cap.setFixedWidth(label_width)
+        if self._jog_nudges:
+            width = max(button.sizeHint().width()
+                        for button in self._jog_nudges)
+            for button in self._jog_nudges:
+                button.setFixedWidth(width)
+        if (self._last_ui_scale is not None
+                and abs(s - self._last_ui_scale) < 0.01):
+            return
+        self._last_ui_scale = s
+        self.scroll.setMinimumWidth(round(760 * s))
+        self.scroll.setMaximumWidth(round(1000 * s))
+        view_min = round(300 * s)
+        self.view_label.setMinimumSize(view_min, view_min)
+        total = self.splitter.width()
+        # Before the first real layout the splitter still reports a
+        # placeholder width; splitting then would pin the controls to their
+        # minimum and the deferred style pass may not run again at 1x.
+        if total >= round(1100 * s):
+            target = min(round(900 * s), max(1, total - view_min))
+            self.splitter.setSizes([target, max(1, total - target)])
+
+    def eventFilter(self, obj, event):
+        if obj is self.view_label and event.type() in (
+                QtCore.QEvent.Resize, QtCore.QEvent.Show):
+            self._place_scan_overlay()
+        return super().eventFilter(obj, event)
+
+    def _place_scan_overlay(self):
+        overlay = getattr(self, "_scan_overlay", None)
+        label = getattr(self, "view_label", None)
+        if overlay is None or label is None or not label.isVisible():
+            return
+        if label.width() <= 0 or label.height() <= 0:
+            return
+        overlay.resize(overlay.sizeHint())
+        scale = getattr(self.window, "_current_scale", lambda: 1.0)()
+        margin = max(8, round(10 * scale))
+        overlay.move(max(0, label.width() - overlay.width() - margin),
+                     margin)
+        overlay.show()
+        overlay.raise_()
+
+    @staticmethod
+    def _branch_text(branch) -> str:
+        return "/".join(str(part) for part in branch)
+
+    def _pulse_text(self, state, last=False) -> str:
+        if last:
+            order = state.get("last_order_index")
+            rep = state.get("last_rep")
+            target = state.get("last_target_id")
+            fallback_order = int(state.get("completed") or 0) - 1
+        else:
+            order = state.get("order_index")
+            rep = state.get("rep")
+            target = state.get("target_id")
+            fallback_order = int(state.get("index") or 0)
+        if order is None:
+            order = fallback_order
+        if target is None:
+            target = int(order) + 1
+        if rep is None:
+            rep = 1
+        reps = int(state.get("repetitions") or 1)
+        return f"pulse {order} · {rep}/{reps} · target {target}"
+
+    def _scan_status_text(self, state, detailed=False) -> str:
+        total = int(state.get("total") or 0)
+        total_targets = int(state.get("total_targets") or total)
+        completed = int(state.get("completed") or 0)
+        message = str(state.get("message") or "")
+        if state.get("active"):
+            current_pulse = self._pulse_text(state)
+            current_pulse = (current_pulse[:1].upper()
+                             + current_pulse[1:])
+            if state.get("preparing"):
+                if completed:
+                    last_pulse = self._pulse_text(state, last=True)
+                    last_pulse = (last_pulse[:1].upper()
+                                  + last_pulse[1:])
+                    text = (f"{last_pulse} reached. Preparing "
+                            f"{self._pulse_text(state)}.")
+                else:
+                    text = (f"{current_pulse}: solving IK and "
+                            f"preparing the path.")
+            else:
+                text = (f"{current_pulse}: checking path "
+                        f"{state.get('path_step', 0)}/"
+                        f"{state.get('path_total', 0)}.")
+            for change in reversed(state.get("branch_changes") or []):
+                if change.get("index") == state.get("index"):
+                    if detailed:
+                        text += (f" Selected "
+                                 f"{self._branch_text(change['selected'])} "
+                                 f"was unreachable; using "
+                                 f"{self._branch_text(change['used'])}.")
+                    else:
+                        text += " (IK branch changed)"
+                    break
+            return text
+        if message.startswith("complete"):
+            text = (f"Complete: {total_targets} targets checked in "
+                    f"{completed} pulses, no collision.")
+        elif message.startswith("no IK solution"):
+            last = self._pulse_text(state, last=True) if completed else "start"
+            text = (f"STOP: no IK solution for {self._pulse_text(state)}. "
+                    f"This is not a collision. The arm remains at {last}.")
+            if detailed:
+                results = state.get("results") or []
+                selected = ((results[-1].get("detail") or {})
+                            .get("selected_branch") if results else None)
+                if selected:
+                    text += (f" Selected branch "
+                             f"{self._branch_text(selected)} and the "
+                             f"simulation IK both failed.")
+        elif message.startswith("collision"):
+            text = (f"STOP: collision at {self._pulse_text(state)}. "
+                    f"The arm is at the first blocking waypoint.")
+        elif message == "stopped":
+            text = f"Stopped at {self._pulse_text(state)}."
+        else:
+            text = message or "Idle."
+        changes = state.get("branch_changes") or []
+        if changes:
+            change = changes[-1]
+            if detailed:
+                text += (f" IK branch changed at pulse "
+                         f"{change['order_index']}: "
+                         f"{self._branch_text(change['selected'])} -> "
+                         f"{self._branch_text(change['used'])}.")
+            else:
+                text += " IK branch changed."
+        return text
+
+    def _update_scan_ui(self, state):
+        total = int(state.get("total") or 0)
+        total_targets = int(state.get("total_targets") or total)
+        if total <= 0:
+            self.scan_total_value.setText("—")
+            self.scan_current_value.setText("idle")
+        else:
+            self.scan_total_value.setText(str(total_targets))
+            message = str(state.get("message") or "")
+            if state.get("active"):
+                if state.get("preparing") and state.get("completed"):
+                    current = self._pulse_text(state, last=True)
+                else:
+                    current = self._pulse_text(state)
+            elif message.startswith("complete"):
+                current = f"{total_targets} targets · complete"
+            else:
+                current = self._pulse_text(state)
+            self.scan_current_value.setText(current)
+        self.scan_status.setText(self._scan_status_text(state))
+        self.scan_status.setToolTip(
+            self._scan_status_text(state, detailed=True))
+        if self._enabled and self.view is not None:
+            self._place_scan_overlay()
+            # The label's size hint follows the scaled font after the layout
+            # has settled; place it once more in the next event-loop turn.
+            QtCore.QTimer.singleShot(0, self._place_scan_overlay)
+        else:
+            self._scan_overlay.hide()
 
     def _set_controls_enabled(self, enabled: bool):
         for widget in (self.base_editor, self.head_editor,
                        self.set_start_btn, self.go_start_btn,
-                       self.apply_branch_btn, self.shoulder_combo,
-                       self.arm_combo, self.wrist_combo,
+                       self.apply_branch_btn, self.shoulder_choice,
+                       self.arm_choice, self.wrist_choice,
                        self.scan_btn, self.stop_btn, self.reset_btn,
                        self.step_combo):
             widget.setEnabled(enabled)
@@ -650,6 +945,8 @@ class CollisionTestTab(QtWidgets.QWidget):
             self._set_status(self._ready_status)
             self.status_label.setToolTip(
                 "Move the base/head, jog the coil, then run the placement scan.")
+        if self.view is not None:
+            self._update_scan_ui(self.session.scan_status())
 
     def shutdown(self):
         """Release the local world before the main window is destroyed."""
@@ -681,6 +978,9 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.progress.setValue(0)
         self.collision_label.clear()
         self.scan_status.clear()
+        self.scan_total_value.setText("—")
+        self.scan_current_value.setText("idle")
+        self._scan_overlay.hide()
         self._set_status("Collision test is off.")
 
     # ── pose / start / jog ──────────────────────────────────────────
@@ -709,9 +1009,9 @@ class CollisionTestTab(QtWidgets.QWidget):
     def _apply_branch(self):
         if self.session is None:
             return
-        shoulder = self.shoulder_combo.currentData()
-        elbow = self.arm_combo.currentData()
-        wrist = self.wrist_combo.currentData()
+        shoulder = self.shoulder_choice.currentData()
+        elbow = self.arm_choice.currentData()
+        wrist = self.wrist_choice.currentData()
         if self._scan_timer.isActive():
             self._stop_scan()
         previous_branch = tuple(self.session.branch)
@@ -761,10 +1061,19 @@ class CollisionTestTab(QtWidgets.QWidget):
     def _go_start(self):
         if self.session is None:
             return
-        self._stop_scan()
+        start = np.asarray(self.session.start_joints, dtype=float)
+        current = np.asarray(self.session.current_joints(), dtype=float)
+        already_there = (current.shape == start.shape
+                         and np.allclose(current, start, atol=1e-6))
+        if self.session.scan_active or self._scan_timer.isActive():
+            self._stop_scan()
         self.session.reset_to_start()
         self._sync_view()
         self._update_collision()
+        self._sync_start_label()
+        self._set_status(
+            "Already at the saved start pose." if already_there
+            else "Moved to the saved start pose.")
 
     def _jog(self, axis, sign):
         if self.session is None:
@@ -804,6 +1113,11 @@ class CollisionTestTab(QtWidgets.QWidget):
     def _start_scan(self):
         if self.session is None:
             return
+        # Clear the previous run's terminal text before the new run can move.
+        self.scan_status.setText("Preparing collision scan...")
+        self.scan_status.setToolTip("")
+        self.scan_total_value.setText("—")
+        self.scan_current_value.setText("preparing")
         # The scan always starts from the stored pose, so validate that pose,
         # not whichever pose the operator happens to hold after jogging.
         self.session.reset_to_start()
@@ -814,15 +1128,18 @@ class CollisionTestTab(QtWidgets.QWidget):
             self.scan_status.setText(
                 "Start pose is already in collision. Choose another branch or "
                 "move the base/head first.")
+            self.scan_current_value.setText("start pose collision")
             self._set_status("Start pose collides.", True)
             return
         path = self.window.loadplacementlabel.text().strip()
         if not path or not os.path.isfile(path):
             self._placement_error = True
+            self.scan_current_value.setText("no placement file")
             self._set_status("Load a coil placement file on the Project page first.", True)
             return
         try:
-            from .pipeline_controller import read_simnibs_targets_data
+            from .pipeline_controller import (read_simnibs_targets_data,
+                                              read_target_order)
             placements, _ = read_simnibs_targets_data(path)
         except Exception as e:
             self._placement_error = True
@@ -833,19 +1150,60 @@ class CollisionTestTab(QtWidgets.QWidget):
             self._placement_error = True
             self._set_status("The placement file is empty.", True)
             return
+        target_ids = None
+        order_path = self.window.target_order_LineEdit.text().strip()
+        if order_path:
+            try:
+                target_ids = read_target_order(order_path, len(placements))
+            except Exception as e:
+                self._placement_error = True
+                self.scan_current_value.setText("target-order error")
+                self._set_status("The target-order file could not be read.", True)
+                self.status_label.setToolTip(str(e))
+                return
+        repetitions = max(1, int(self.window.n_repetitions_spinBox.value()))
         self._scan_placements = placements
-        self.progress.setRange(0, len(placements))
+        self._last_scan_render_key = None
+        try:
+            self.session.start_scan(
+                placements, target_ids=target_ids, repetitions=repetitions)
+        except Exception as e:
+            self._set_status("The target order does not match the placements.", True)
+            self.status_label.setToolTip(str(e))
+            return
+        state = self.session.scan_status()
+        self.progress.setRange(0, max(1, int(state["total"])))
         self.progress.setValue(0)
-        self.session.start_scan(placements)
-        self._scan_timer.start()
-        self._set_status(
-            f"Scanning {len(placements)} placements from the saved start pose...")
+        self._update_scan_ui(state)
+        if state["active"]:
+            self._scan_timer.start()
+            self._set_status(
+                f"Scanning {state['total_targets']} targets in "
+                f"{state['total']} pulses from the saved start pose...")
+        else:
+            self._scan_timer.stop()
+            self._report_scan_end(state)
 
     def _stop_scan(self):
         self._scan_timer.stop()
         if self.session is not None:
             self.session.stop_scan("stopped")
-        self.scan_status.setText("Stopped.")
+            self._update_scan_ui(self.session.scan_status())
+        else:
+            self.scan_status.setText("Stopped.")
+
+    def _report_scan_end(self, state):
+        """Set the top status and error styling for a finished/failed scan."""
+        message = str(state.get("message") or "")
+        if message.startswith("collision"):
+            self._set_status("Collision detected. See the scan report.", True)
+        elif message.startswith("no IK solution"):
+            self._set_status("IK failure (not a collision). See the scan report.", True)
+        elif message.startswith("complete"):
+            self._set_status("Collision scan completed.")
+        else:
+            self._set_status("Collision scan stopped.")
+        self.status_label.setToolTip(self.scan_status.toolTip())
 
     def _scan_tick(self):
         if self.session is None:
@@ -858,26 +1216,22 @@ class CollisionTestTab(QtWidgets.QWidget):
             self.scan_status.setText(f"Scan stopped by an error: {e}")
             self._set_status("Collision scan failed.", True)
             return
-        self.progress.setValue(int(state["index"]))
+        self.progress.setValue(int(state.get("completed") or 0))
         self._sync_view()
         self._update_collision()
-        if state["active"]:
-            self.scan_status.setText(f"{state['message']}: checking path...")
+        # One synchronous frame at every boundary (target reached, next
+        # target being prepared, stop, failure) keeps the rendered arm from
+        # lagging behind the status text.
+        render_key = (state.get("index"), state.get("completed"),
+                      state.get("active"), state.get("path_total") == 0)
+        if render_key != self._last_scan_render_key:
+            self._last_scan_render_key = render_key
+            if self.view is not None:
+                self.view.render_now()
+        self._update_scan_ui(state)
         if not state["active"]:
             self._scan_timer.stop()
-            if state["message"].startswith("collision"):
-                self.scan_status.setText(
-                    f"STOP: collision at placement {state['index'] + 1}. "
-                    "Adjust the base/head/start pose, then reset and restart.")
-                self._set_status("Collision detected. See the scan report.", True)
-            elif state["message"].startswith("IK failed"):
-                self.scan_status.setText(
-                    f"STOP: IK failed at placement {state['index'] + 1}.")
-                self._set_status("IK failure. Change the start pose or base.", True)
-            else:
-                self.scan_status.setText(
-                    f"Complete: {state['index']} placements checked, no collision.")
-                self._set_status("Collision scan completed.")
+            self._report_scan_end(state)
 
     # ── view / status sync ─────────────────────────────────────────
     def _sync_view(self):
@@ -907,15 +1261,13 @@ class CollisionTestTab(QtWidgets.QWidget):
         """Show the branch that is currently stored as the start pose."""
         if self.session is None:
             return
-        for combo, value in (
-                (self.shoulder_combo, self.session.branch[0]),
-                (self.arm_combo, self.session.branch[1]),
-                (self.wrist_combo, self.session.branch[2])):
-            index = combo.findData(value)
+        for choice, value in (
+                (self.shoulder_choice, self.session.branch[0]),
+                (self.arm_choice, self.session.branch[1]),
+                (self.wrist_choice, self.session.branch[2])):
+            index = choice.findData(value)
             if index >= 0:
-                combo.blockSignals(True)
-                combo.setCurrentIndex(index)
-                combo.blockSignals(False)
+                choice.setCurrentIndex(index)
 
     def _update_collision(self):
         if self.session is None:

@@ -21,6 +21,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Readable dropdowns.** Every combo box is taller, and its popup uses
+  item rows of at least 44 px. The popup height is set on the item delegate
+  because the Fusion style ignores the stylesheet's item height, and every
+  popup reserves room for its visible items.
+- **Visible start-pose choices.** The collision start pose uses three radio
+  groups instead of dropdowns, so all six branch choices stay visible. The
+  nudge buttons are compact and centred on their numeric fields; the
+  collision control column also scales with the window instead of clipping
+  labels and units at 2x.
+- **Start-pose feedback.** **Move to current start pose** reports whether it
+  moved the arm or the arm was already at the saved configuration.
+- **Collision scan progress.** The collision 3D view now carries the same
+  **Total targets** / **Current** overlay as the Control viewer, and the scan
+  follows the project's target-order file and repetition count so pulse and
+  target IDs agree. Pulse boundaries wait for the rendered arm, and the scan
+  distinguishes an IK failure from a collision: it reports the failed pulse
+  and target, the selected branch, the last reached target and whether the
+  production simulation IK could still solve the target with another branch.
+
 - **Adding a robot is data, not code.**  Every robot-specific value now
   lives in one `RobotSpec` table (`sim_robot/robots.py`: MuJoCo model,
   URDF, base body, tool site, IK chain, room pose, camera framing) and
@@ -51,6 +70,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+
+- **Resize after a page rebuild no longer crashes.** The geometry/style
+  rescale walks widgets captured at startup; a page can replace one later
+  (the About and Config panels rebuild labels and checkboxes), leaving a
+  deleted C++ object behind. Stale wrappers are now skipped and removed.
 
 - A hostile-review pass over the three run modes (simulated, real, manual)
   found and fixed a set of state-machine and hardware-path bugs:

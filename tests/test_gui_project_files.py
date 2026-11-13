@@ -432,3 +432,11 @@ def test_overwrite_results_defaults_on_and_round_trips(window, controller):
 
     window.apply_config_dict({"overwrite_results": "true"})
     assert window.overwrite_results_chk.isChecked() is True
+
+
+def test_overwrite_results_matches_the_results_caption_font(window):
+    checkbox = window.overwrite_results_chk
+    caption = window.label_28
+    assert caption.text() == "Results file"
+    assert checkbox.property("role") == "cap"
+    assert checkbox.font().pixelSize() == caption.font().pixelSize()

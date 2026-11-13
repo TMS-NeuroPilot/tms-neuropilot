@@ -51,7 +51,11 @@ IK chain; later scans reuse it. The page also loads the project head mesh and
 converts its skin surface to an STL, so the phantom matches the subject.
 
 The 3D view uses the same embedded renderer as the simulated robot view. Drag
-to orbit, right-drag to pan, wheel to zoom, double click to reset.
+to orbit, right-drag to pan, wheel to zoom, double click to reset. Its
+top-right overlay mirrors the Control page: **Total targets** and **Current**
+show the same `pulse 0 · 1/1 · target 44` counters. The path waypoint is in
+the status line below the scan controls. The collision test checks the target
+geometry; it does not fire stimulation pulses.
 
 ## Position the subject and robot
 
@@ -77,11 +81,12 @@ label updates after every jog.
 
 ## Choose the start pose
 
-Three selectors choose the IK branch:
+Three radio groups choose the IK branch. Every option stays visible, so a
+branch never depends on a dropdown popup:
 
-- **Shoulder** left or right, the sign of the first active joint;
-- **Arm** up or down, the sign of the third active joint;
-- **Wrist** normal or flipped, the sign of the fifth active joint.
+- **Shoulder left** or **Shoulder right**, the sign of the first active joint;
+- **Arm up** or **Arm down**, the sign of the third active joint;
+- **Wrist normal** or **Wrist flipped**, the sign of the fifth active joint.
 
 A 6R arm can have up to eight IK solutions. Some are unreachable because of
 joint limits or collisions. Press **Set start pose from selection** to solve the
@@ -92,7 +97,9 @@ and asks you to jog to a clear one. The resulting six joints become the start
 configuration.
 
 Use **Set start from current** to store the six joint angles of the pose you
-reached by jogging. **Move to current start pose** returns the arm to it.
+reached by jogging. **Move to current start pose** returns the arm to that
+saved configuration. The status line reports whether the arm moved or was
+already at the saved pose.
 
 ## Run the scan
 
@@ -100,9 +107,21 @@ reached by jogging. **Move to current start pose** returns the arm to it.
 2. Choose a start pose.
 3. Press **Start collision scan**.
 
-The progress bar counts placements. On a collision the scan stops, the message
-names the placement and the arm stays at the colliding waypoint. Move the base,
-head or start pose, press **Reset to start**, and run it again.
+The scan follows the project's target-order file and repetition count, so its
+pulse numbers and target IDs match the Control page. Without an order file it
+uses every placement in file order. The progress bar counts reached pulses. On
+a collision the scan stops, the message names the pulse and target, and the
+arm stays at the colliding waypoint. Move the base, head or start pose, press
+**Reset to start**, and run it again.
+
+An **IK failure is not a collision**. It means the solver could not find a
+joint configuration for that target from the previous pose. The scan first
+tries the shoulder/arm/wrist branch selected for the start pose, then retries
+with the same free IK solver that the simulated experiment uses. A successful
+retry is reported as an IK branch change, and the scan continues. If both
+solvers fail, the arm remains at the last reached target and the status says
+so. The simulated experiment may still reach such a target because it does not
+lock the start-pose shoulder/wrist branch and may choose another approach.
 
 ## Save and use the result
 

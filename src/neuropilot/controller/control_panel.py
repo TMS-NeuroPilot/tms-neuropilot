@@ -10,7 +10,9 @@ import threading
 import time
 import traceback
 from .systems.system import SystemStatus
-from .theme import DEFAULT_THEME, THEMES, build_stylesheet, tokens as theme_tokens
+from .theme import (DEFAULT_THEME, THEMES, build_stylesheet,
+                    install_tall_combo_rows,
+                    tokens as theme_tokens)
 from .meshwidget import read_mesh_file
 from .pipeline_controller import (
     read_e_matrix_file, read_emg_config_elements,
@@ -799,6 +801,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self._close_timer.timeout.connect(self._retry_close)
         self._update_file_infos()
 
+        # QSS cannot raise the popup row height with Fusion; install the
+        # delegate once every page has built its combo boxes, then size the
+        # popups from those row heights.
+        install_tall_combo_rows(self)
+        self._size_choice_popups()
+
         # Restore the last session's project fields. The values are only
         # stashed here — they are applied in set_controller(), once the
         # controller (and its setters) exist.
@@ -1273,21 +1281,16 @@ class MainWindow(QtWidgets.QMainWindow):
             card.setMaximumWidth(width + round(40 * scale))
 
     def _size_choice_popups(self):
-        """Give the short choice menus (pulse shape, fit function) a popup
-        tall enough for every item.
+        """Give every dropdown a popup tall enough for its visible items.
 
         Qt sizes the popup from the delegate's row hint, which the scaled
-        style sheet can leave smaller than the rendered text, so the last
-        entry ends up clipped.  The view's minimum height is set from the
-        real row heights after every font rescale."""
-        combos = [getattr(self, name, None) for name in
-                  ("pulseShapeComboBox", "fitFunctionComboBox",
-                   "placement_metric_combo")]
-        view_widget = getattr(self, "widget_3d_viewer", None)
-        if view_widget is not None:
-            combos.append(getattr(view_widget, "scalar_selector", None))
-        for combo in combos:
-            if combo is None or combo.count() == 0:
+        style sheet can leave smaller than the rendered text, so a two-item
+        branch menu used to show one item and a scroll arrow.  The view's
+        minimum height is set from the real row heights after every font
+        rescale, so all choices are visible without scrolling.
+        """
+        for combo in self.findChildren(QtWidgets.QComboBox):
+            if combo.count() == 0:
                 continue
             view = combo.view()
             row = max(view.sizeHintForRow(i) for i in range(combo.count()))
@@ -3304,13 +3307,21 @@ class MainWindow(QtWidgets.QMainWindow):
         ox = (self.width() - self._base_rects["size"][0] * s) / 2
         oy = (self.height() - self._base_rects["size"][1] * s) / 2
         central = self._base_rects["central"]
-        for w, base in self._base_rects["rects"].items():
+        stale = []
+        for w, base in list(self._base_rects["rects"].items()):
             x, y, ww, hh = base.x(), base.y(), base.width(), base.height()
-            if w.parentWidget() is central:
-                w.setGeometry(round(x * s + ox), round(y * s + oy),
-                              round(ww * s), round(hh * s))
-            else:
-                w.setGeometry(round(x * s), round(y * s), round(ww * s), round(hh * s))
+            try:
+                parent = w.parentWidget()
+                if parent is central:
+                    w.setGeometry(round(x * s + ox), round(y * s + oy),
+                                  round(ww * s), round(hh * s))
+                else:
+                    w.setGeometry(round(x * s), round(y * s),
+                                  round(ww * s), round(hh * s))
+            except RuntimeError:
+                stale.append(w)
+        for w in stale:
+            self._base_rects["rects"].pop(w, None)
 
     def _rescale_styles(self, s):
         # Stylesheets scale with the window: every px value in the design
@@ -3324,8 +3335,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.setStyleSheet(scale_px(self._base_rects["win_sheet"]))
         last_scaled = getattr(self, "_last_scaled_sheets", {})
+        stale = []
         for w, base_sheet in list(self._base_rects["sheets"].items()):
-            current = w.styleSheet()
+            try:
+                current = w.styleSheet()
+            except RuntimeError:
+                # A page may have deleted a widget after the base geometry
+                # was captured (the About/Config rebuilds do this).  A stale
+                # Python wrapper must not crash a resize.
+                stale.append(w)
+                continue
             previous = last_scaled.get(w)
             if previous is not None and current != previous:
                 # A handler replaced this widget's inline style since the
@@ -3335,16 +3354,37 @@ class MainWindow(QtWidgets.QMainWindow):
                 base_sheet = current
                 self._base_rects["sheets"][w] = base_sheet
             scaled = scale_px(base_sheet) if base_sheet else ""
-            w.setStyleSheet(scaled)
+            try:
+                w.setStyleSheet(scaled)
+            except RuntimeError:
+                stale.append(w)
+                continue
             last_scaled[w] = scaled
 
+        for w in stale:
+            self._base_rects["sheets"].pop(w, None)
+            self._base_rects["fonts"].pop(w, None)
+            last_scaled.pop(w, None)
+
         # Fonts scale with the window for every descendant.
-        for w, base_px in self._base_rects["fonts"].items():
-            self._apply_font_px(w, max(9, round(base_px * s)))
+        stale = []
+        for w, base_px in list(self._base_rects["fonts"].items()):
+            try:
+                self._apply_font_px(w, max(9, round(base_px * s)))
+            except RuntimeError:
+                stale.append(w)
+        for w in stale:
+            self._base_rects["fonts"].pop(w, None)
+            last_scaled.pop(w, None)
         # Remember the post-font sheets: a font-size rewrite is not a new
         # declaration from a handler, so it must not replace the base sheet.
-        for w in self._base_rects["sheets"]:
-            last_scaled[w] = w.styleSheet()
+        for w in list(self._base_rects["sheets"]):
+            try:
+                last_scaled[w] = w.styleSheet()
+            except RuntimeError:
+                self._base_rects["sheets"].pop(w, None)
+                self._base_rects["fonts"].pop(w, None)
+                last_scaled.pop(w, None)
         self._last_scaled_sheets = last_scaled
 
         # Keep the log console readable at every scale. This also caps the
@@ -3364,6 +3404,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self._size_choice_popups()
         self._resize_results_panel(s)
         self._place_target_overlay()
+        collision_tab = getattr(self, "collision_tab", None)
+        if collision_tab is not None:
+            collision_tab.apply_ui_scale(s)
 
     def efield_mode_name(self):
         """``"Online"`` / ``"Interpolated"`` / ``"Precomputed"`` / None."""

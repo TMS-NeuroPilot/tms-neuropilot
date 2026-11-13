@@ -127,6 +127,18 @@ class RobotSceneView(QtCore.QObject):
         """Request a redraw after external model/data changes."""
         self._dirty = True
 
+    def render_now(self):
+        """Draw one frame synchronously after an externally visible change.
+
+        The collision scan calls this at target boundaries so the rendered
+        arm cannot lag behind the status label while the timer-driven frames
+        catch up.
+        """
+        if not self.label.isVisible():
+            return
+        self._dirty = True
+        self._render()
+
     def _fit_offscreen(self, width: int, height: int) -> None:
         """Grow MuJoCo's offscreen framebuffer to the widget size.
 

@@ -277,16 +277,16 @@ def test_start_pose_selectors_apply_one_branch(window, qapp):
     tab._enable()
     qapp.processEvents()
     try:
-        tab.shoulder_combo.setCurrentIndex(
-            tab.shoulder_combo.findData("right"))
-        tab.arm_combo.setCurrentIndex(tab.arm_combo.findData("up"))
-        tab.wrist_combo.setCurrentIndex(tab.wrist_combo.findData("normal"))
+        tab.shoulder_choice.setCurrentIndex(
+            tab.shoulder_choice.findData("right"))
+        tab.arm_choice.setCurrentIndex(tab.arm_choice.findData("up"))
+        tab.wrist_choice.setCurrentIndex(tab.wrist_choice.findData("normal"))
         tab._apply_branch()
         qapp.processEvents()
         assert tab.session.branch == ("right", "up", "normal")
-        assert tab.shoulder_combo.currentData() == "right"
-        assert tab.arm_combo.currentData() == "up"
-        assert tab.wrist_combo.currentData() == "normal"
+        assert tab.shoulder_choice.currentData() == "right"
+        assert tab.arm_choice.currentData() == "up"
+        assert tab.wrist_choice.currentData() == "normal"
     finally:
         tab._disable()
 
@@ -299,6 +299,258 @@ def test_collision_action_labels_and_short_tooltips(window):
     assert tab.set_start_btn.text() == "Set start from current"
     assert tab.go_start_btn.text() == "Move to current start pose"
     assert tab.apply_branch_btn.text() == "Set start pose from selection"
-    assert tab.wrist_combo.count() == 2
+    assert tab.wrist_choice.count() == 2
     for button in (tab.save_project_btn, tab.save_lab_btn, tab.use_btn):
         assert button.toolTip().strip()
+
+
+def test_start_pose_uses_visible_radio_buttons(window):
+    tab = window.collision_tab
+    for choice, labels in (
+            (tab.shoulder_choice, ("Shoulder left", "Shoulder right")),
+            (tab.arm_choice, ("Arm up", "Arm down")),
+            (tab.wrist_choice, ("Wrist normal", "Wrist flipped"))):
+        assert choice.count() == 2
+        assert tuple(button.text() for button in choice.buttons()) == labels
+        assert sum(button.isChecked() for button in choice.buttons()) == 1
+    assert tab.step_combo.sizeHint().height() >= 48
+    assert tab.step_combo.view().sizeHintForRow(0) >= 44
+
+
+def test_go_start_returns_to_the_saved_pose_and_reports_it(window, qapp):
+    tab = window.collision_tab
+    tab._enable()
+    qapp.processEvents()
+    try:
+        start = list(tab.session.start_joints)
+        before = list(tab.session.current_joints())
+        tab._jog("X", 1)
+        qapp.processEvents()
+        assert not np.allclose(tab.session.current_joints(), before)
+        assert not np.allclose(tab.session.current_joints(), start)
+
+        tab.go_start_btn.click()
+        qapp.processEvents()
+        assert np.allclose(tab.session.current_joints(), start)
+        assert tab.status_label.text() == "Moved to the saved start pose."
+        assert tab.scan_status.text() == "Idle."
+
+        tab.go_start_btn.click()
+        qapp.processEvents()
+        assert tab.status_label.text() == "Already at the saved start pose."
+        assert tab.scan_status.text() == "Idle."
+    finally:
+        tab._disable()
+
+
+def test_collision_controls_scale_with_the_window(window, qapp):
+    tab = window.collision_tab
+    tab._last_ui_scale = None
+    tab.apply_ui_scale(2.0)
+    assert tab.scroll.minimumWidth() >= 1520
+    assert tab.view_label.minimumWidth() >= 600
+    assert all(button.width() < spin.width() for button, spin in zip(
+        tab.base_editor._nudge_buttons[::2], tab.base_editor._spins))
+
+
+def test_selected_branch_retries_with_the_simulation_solver(monkeypatch):
+    session = CollisionTestSession()
+    session.ensure_ready()
+    try:
+        solution = [0.0] * len(session.ik.chain.links)
+        for index in session.ik.active_indices:
+            solution[index] = 0.1
+        monkeypatch.setattr(session.ik, "solve_branch",
+                            lambda *args, **kwargs: (False, None))
+        monkeypatch.setattr(session.ik, "solve_with_config",
+                            lambda *args, **kwargs: (True, solution))
+        session._scan_active = True
+        session._scan_base_targets = [([0.0, 0.0, 0.0], [0.0, 0.0, 0.0])]
+        session._scan_index = 0
+        session._scan_completed = 0
+        session.branch = ("right", "down", "flipped")
+
+        session._prepare_next()
+        state = session.scan_status()
+        assert state["active"]
+        assert state["message"].startswith("pulse 0 · 1/1 · target 0")
+        assert "IK branch changed" in state["message"]
+        assert state["branch_changes"] == [{
+            "index": 0,
+            "target_id": 0,
+            "order_index": 0,
+            "rep": 1,
+            "selected": ["right", "down", "flipped"],
+            "used": ["left", "up", "normal"],
+        }]
+        assert session.branch == ("right", "down", "flipped")
+    finally:
+        session.dispose()
+
+
+def test_both_solvers_failing_is_reported_as_ik_not_collision(monkeypatch):
+    session = CollisionTestSession()
+    session.ensure_ready()
+    try:
+        monkeypatch.setattr(session.ik, "solve_branch",
+                            lambda *args, **kwargs: (False, None))
+        monkeypatch.setattr(session.ik, "solve_with_config",
+                            lambda *args, **kwargs: (False, None))
+        session._scan_active = True
+        session._scan_base_targets = [([0.0, 0.0, 0.0], [0.0, 0.0, 0.0])]
+        session._scan_index = 0
+        session._scan_completed = 0
+
+        session._prepare_next()
+        state = session.scan_status()
+        assert not state["active"]
+        assert state["message"] == "no IK solution"
+        assert state["completed"] == 0
+        assert state["results"][-1]["message"] == "IK failed"
+        assert state["results"][-1]["collision"] is False
+    finally:
+        session.dispose()
+
+
+def test_target_reached_is_rendered_before_preparing_the_next(monkeypatch):
+    session = CollisionTestSession()
+    session.ensure_ready()
+    try:
+        monkeypatch.setattr(session, "collision_state",
+                            lambda: {"collision": False})
+        session._scan_active = True
+        session._scan_base_targets = [([0.0, 0.0, 0.0], [0.0, 0.0, 0.0]),
+                                      ([0.0, 0.0, 0.0], [0.0, 0.0, 0.0])]
+        session._scan_index = 0
+        session._scan_completed = 0
+        session._scan_path = [[0.0] * 6]
+        session._scan_path_i = 0
+
+        state = session.tick()
+        assert state["active"]
+        assert state["completed"] == 1
+        assert state["preparing"]
+        assert "reached pulse 0" in state["message"]
+        assert "preparing pulse 1" in state["message"]
+        assert state["path_total"] == 0
+    finally:
+        session.dispose()
+
+
+def test_scan_overlay_shows_visible_target_and_ik_failure_state(window):
+    tab = window.collision_tab
+    tab._update_scan_ui({
+        "active": True,
+        "index": 3,
+        "completed": 3,
+        "total": 10,
+        "path_step": 4,
+        "path_total": 30,
+        "preparing": False,
+        "message": "pulse 3",
+        "branch_changes": [],
+        "total_targets": 10,
+        "repetitions": 1,
+        "target_id": 4,
+        "order_index": 3,
+        "rep": 1,
+        "last_target_id": 3,
+        "last_order_index": 2,
+        "last_rep": 1,
+    })
+    assert tab.scan_total_value.text() == "10"
+    assert tab.scan_current_value.text() == "pulse 3 · 1/1 · target 4"
+    assert tab.scan_status.text().startswith("Pulse 3 · 1/1 · target 4:")
+
+    tab._update_scan_ui({
+        "active": False,
+        "index": 3,
+        "completed": 3,
+        "total": 10,
+        "path_step": 0,
+        "path_total": 0,
+        "preparing": False,
+        "message": "no IK solution",
+        "branch_changes": [],
+        "total_targets": 10,
+        "repetitions": 1,
+        "target_id": 4,
+        "order_index": 3,
+        "rep": 1,
+        "last_target_id": 3,
+        "last_order_index": 2,
+        "last_rep": 1,
+    })
+    assert tab.scan_current_value.text() == "pulse 3 · 1/1 · target 4"
+    assert "not a collision" in tab.scan_status.text()
+    assert "arm remains at pulse 2 · 1/1 · target 3" in tab.scan_status.text()
+
+
+def test_scan_builds_the_target_order_and_repetition_sequence(monkeypatch):
+    session = CollisionTestSession()
+    session.ensure_ready()
+    try:
+        monkeypatch.setattr(session, "_prepare_next", lambda: None)
+        placements = [([0.0, 0.0, 0.0], [0.0, 0.0, 0.0]) for _ in range(3)]
+        session.start_scan(placements, target_ids=[2, 0], repetitions=2)
+        state = session.scan_status()
+        assert state["total_targets"] == 3
+        assert state["total"] == 4
+        assert session._scan_order_indices == [0, 0, 1, 1]
+        assert session._scan_target_ids == [2, 2, 0, 0]
+        assert session._scan_reps == [1, 2, 1, 2]
+    finally:
+        session.dispose()
+
+
+def test_start_scan_passes_the_project_order_and_repetitions(
+        window, tmp_path, h5file):
+    matrix = np.eye(4)[:, :, None]
+    placements_path = h5file({"matsimnibs": matrix}, "ordered.hdf5")
+    order_path = tmp_path / "order.txt"
+    order_path.write_text("0\n")
+
+    class _FakeSession:
+        def __init__(self):
+            self.calls = None
+
+        def reset_to_start(self):
+            pass
+
+        def collision_state(self):
+            return {"collision": False, "warning": False,
+                    "self_collision": False, "head_contact": False,
+                    "distance_mm": None}
+
+        def start_scan(self, placements, **kwargs):
+            self.calls = (placements, kwargs)
+
+        def scan_status(self):
+            return {"active": False, "index": 0, "completed": 0,
+                    "total": 2, "total_targets": 1, "repetitions": 2,
+                    "target_id": 0, "order_index": 0, "rep": 1,
+                    "last_target_id": None, "last_order_index": None,
+                    "last_rep": None, "path_step": 0, "path_total": 0,
+                    "preparing": False, "message": "complete",
+                    "branch_changes": [], "results": []}
+
+    tab = window.collision_tab
+    fake = _FakeSession()
+    tab.session = fake
+    tab.view = None
+    window.loadplacementlabel.setText(str(placements_path))
+    window.target_order_LineEdit.setText(str(order_path))
+    window.n_repetitions_spinBox.setValue(2)
+    tab.scan_status.setText("STOP: stale error from the previous run")
+    try:
+        tab._start_scan()
+        assert "stale error" not in tab.scan_status.text()
+        assert fake.calls is not None
+        placements, kwargs = fake.calls
+        assert len(placements) == 1
+        assert list(kwargs["target_ids"]) == [0]
+        assert kwargs["repetitions"] == 2
+    finally:
+        tab.session = None
+        window.target_order_LineEdit.clear()
+        window.n_repetitions_spinBox.setValue(1)

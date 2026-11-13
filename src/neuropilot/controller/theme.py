@@ -207,6 +207,8 @@ QPushButton[role="branch"] { font-weight: 400; }
 QPushButton[role="branch"]:checked {
     background: %(accent_soft)s; border-color: %(accent)s; color: %(ink)s;
 }
+QPushButton[role="nudge"] { min-height: 18px; padding: 2px 8px;
+                            font-size: 13px; }
 QPushButton[role="compact"] { min-height: 10px; padding: 2px 14px; font-size: 13px; }
 QPushButton[role="recover"] { min-height: 16px; padding: 3px 10px; font-size: 11px; }
 QPushButton:disabled { background: %(disabled_bg)s; color: %(disabled_ink)s; border-color: %(disabled_edge)s; }
@@ -226,11 +228,11 @@ QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
     padding: 4px 8px; min-height: 20px; font-size: 13px; color: %(ink)s;
     selection-background-color: %(accent)s; selection-color: %(on_accent)s;
 }
-QComboBox { min-height: 28px; padding: 6px 10px; }
+QComboBox { min-height: 34px; padding: 8px 10px; }
 QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {
     border: 2px solid %(accent)s; padding: 3px 7px;
 }
-QComboBox:focus { border: 2px solid %(accent)s; padding: 5px 9px; }
+QComboBox:focus { border: 2px solid %(accent)s; padding: 7px 9px; }
 QLineEdit:disabled { background: %(disabled_bg)s; color: %(disabled_ink)s; }
 QLineEdit[role="path"] { font-family: 'DejaVu Sans Mono','Consolas',monospace;
                          font-size: 12px; color: %(mono)s; }
@@ -244,9 +246,9 @@ QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
 QComboBox::drop-down { border: 0; width: 28px; }
 QComboBox:disabled { color: %(disabled_ink)s; background: %(canvas)s; border-color: %(disabled_edge)s; }
 QComboBox QAbstractItemView { background: %(card)s; border: 1px solid %(edge)s;
-    padding: 4px; selection-background-color: %(hover)s; selection-color: %(ink)s;
+    padding: 6px; selection-background-color: %(hover)s; selection-color: %(ink)s;
     outline: none; }
-QComboBox QAbstractItemView::item { min-height: 28px; padding: 4px 8px; }
+QComboBox QAbstractItemView::item { min-height: 36px; padding: 8px 10px; }
 
 /* tables, info boxes and menus (the pages use them for results/readouts) */
 QTableWidget, QTableView, QListWidget, QTreeWidget {
@@ -314,6 +316,31 @@ QScrollBar::handle:horizontal { background: %(scroll)s; border-radius: 5px;
 
 QSplitter::handle { background: %(line)s; }
 """
+
+
+def install_tall_combo_rows(root):
+    """Give every dropdown popup comfortable, equal-height rows.
+
+    A QSS ``min-height`` on ``QComboBox QAbstractItemView::item`` is ignored
+    by the Fusion item delegate, so the popup kept 26 px rows no matter what
+    the stylesheet said.  Set the minimum on the delegate instead; callers
+    pass the window after all pages (and their combos) exist.
+    """
+    from PyQt5 import QtWidgets
+
+    row_height = 44
+
+    class _TallRowDelegate(QtWidgets.QStyledItemDelegate):
+        def sizeHint(self, option, index):
+            size = super().sizeHint(option, index)
+            size.setHeight(max(size.height(), row_height))
+            return size
+
+    for combo in root.findChildren(QtWidgets.QComboBox):
+        if combo.property("tallRows"):
+            continue
+        combo.setItemDelegate(_TallRowDelegate(combo))
+        combo.setProperty("tallRows", True)
 
 
 def names():

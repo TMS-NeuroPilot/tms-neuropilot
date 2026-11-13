@@ -488,4 +488,7 @@ def test_every_config_dropdown_gets_the_tall_input_style(window, qapp):
     combos = window.cfg_tabs.findChildren(QtWidgets.QComboBox)
     assert combos
     for combo in combos:
-        assert combo.sizeHint().height() >= 36, combo.objectName()
+        assert combo.sizeHint().height() >= 48, combo.objectName()
+        assert combo.view().sizeHintForRow(0) >= 44, combo.objectName()
+        expected = combo.view().sizeHintForRow(0) * min(combo.count(), 8)
+        assert combo.view().minimumHeight() >= expected, combo.objectName()

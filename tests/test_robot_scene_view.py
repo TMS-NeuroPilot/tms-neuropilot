@@ -213,3 +213,11 @@ def test_hiding_releases_the_renderer_and_showing_restarts(view, qapp):
 
     qapp.sendEvent(view.label, QtCore.QEvent(QtCore.QEvent.Show))
     assert view._timer.isActive()
+
+
+def test_render_now_draws_one_synchronous_frame(view, monkeypatch):
+    calls = []
+    monkeypatch.setattr(view, "_render", lambda: calls.append(1))
+    view.label.show()
+    view.render_now()
+    assert calls == [1]

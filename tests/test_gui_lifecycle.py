@@ -301,3 +301,19 @@ def test_style_pass_after_close_is_a_no_op(window, qapp, monkeypatch):
     window.close()
     pump(qapp, 0.5)
     assert calls == []
+
+
+def test_rescale_skips_widgets_deleted_after_geometry_capture(window, qapp):
+    from PyQt5 import QtWidgets, sip
+
+    window.show()
+    assert pump(qapp, 3.0, lambda: window._base_rects is not None)
+    extra = QtWidgets.QCheckBox(window)
+    window._base_rects["sheets"][extra] = "QCheckBox { color: red; }"
+    window._base_rects["fonts"][extra] = 15
+    window._base_rects["rects"][extra] = extra.geometry()
+    sip.delete(extra)
+    window._rescale()                 # must not touch the dead wrapper
+    assert extra not in window._base_rects["sheets"]
+    assert extra not in window._base_rects["fonts"]
+    assert extra not in window._base_rects["rects"]

@@ -58,11 +58,18 @@ class CollisionTestSession:
         self._scan_poses: List[Tuple[List[float], List[float]]] = []
         self._scan_results: List[dict] = []
         self._scan_index = 0
+        self._scan_completed = 0
         self._scan_path: List[List[float]] = []
         self._scan_path_i = 0
         self._scan_active = False
         self._scan_message = ""
         self._scan_base_targets: List[Tuple[List[float], List[float]]] = []
+        self._scan_target_ids: List[int] = []
+        self._scan_order_indices: List[int] = []
+        self._scan_reps: List[int] = []
+        self._scan_total_targets = 0
+        self._scan_repetitions = 1
+        self._scan_branch_changes: List[dict] = []
 
     # ── lifecycle ────────────────────────────────────────────────────
     @property
@@ -252,28 +259,57 @@ class CollisionTestSession:
                                                     Sequence[float]]],
                    shoulder: Optional[str] = None,
                    elbow: Optional[str] = None,
-                   wrist: Optional[str] = None) -> None:
-        """Run through SimNIBS placements, stopping at the first collision."""
+                   wrist: Optional[str] = None,
+                   target_ids: Optional[Sequence[int]] = None,
+                   repetitions: int = 1) -> None:
+        """Run through the experiment's target order, stopping at a collision.
+
+        ``target_ids`` mirrors the Control page's target-order file.  Each
+        target is repeated ``repetitions`` times, in the same order that the
+        experiment performs its pulses.  Without an order file the placements
+        are scanned in file order.
+        """
         if not self.ready:
             self.ensure_ready()
         shoulder = shoulder if shoulder is not None else self.branch[0]
         elbow = elbow if elbow is not None else self.branch[1]
         wrist = wrist if wrist is not None else self.branch[2]
         self.branch = (shoulder, elbow, wrist)
+        self._scan_total_targets = len(placements)
+        self._scan_repetitions = max(1, int(repetitions))
+        if target_ids is None:
+            order = list(range(len(placements)))
+        else:
+            order = [int(value) for value in target_ids]
         self._scan_base_targets = []
-        for pos_mm, ori_deg in placements:
+        self._scan_target_ids = []
+        self._scan_order_indices = []
+        self._scan_reps = []
+        for order_index, target_id in enumerate(order):
+            if not 0 <= target_id < len(placements):
+                raise ValueError(
+                    f"target order references placement {target_id}, "
+                    f"but only {len(placements)} placements exist")
+            pos_mm, ori_deg = placements[target_id]
             world_pos, world_ori = pipeline_target_to_mujoco_world(
                 list(pos_mm), list(ori_deg),
                 self.head_pose[0], self.head_pose[1])
-            self._scan_base_targets.append(self.world_to_base_pose(
-                m_to_mm(world_pos), world_ori))
+            base_pose = self.world_to_base_pose(
+                m_to_mm(world_pos), world_ori)
+            for rep in range(1, self._scan_repetitions + 1):
+                self._scan_base_targets.append(base_pose)
+                self._scan_target_ids.append(target_id)
+                self._scan_order_indices.append(order_index)
+                self._scan_reps.append(rep)
 
         self._scan_results = []
         self._scan_index = 0
+        self._scan_completed = 0
         self._scan_path = []
         self._scan_path_i = 0
         self._scan_active = True
         self._scan_message = "starting"
+        self._scan_branch_changes = []
         self.reset_to_start()
         self._prepare_next()
 
@@ -283,31 +319,81 @@ class CollisionTestSession:
         self._scan_path_i = 0
         self._scan_message = message
 
+    def _scan_entry(self, index: int) -> dict:
+        """Metadata for one pulse in the scan sequence."""
+        target_id = (self._scan_target_ids[index]
+                     if index < len(self._scan_target_ids) else index)
+        order_index = (self._scan_order_indices[index]
+                       if index < len(self._scan_order_indices) else index)
+        rep = (self._scan_reps[index]
+               if index < len(self._scan_reps) else 1)
+        return {
+            "target_id": int(target_id),
+            "order_index": int(order_index),
+            "rep": int(rep),
+        }
+
     def _prepare_next(self) -> None:
         if not self._scan_active:
             return
-        if self._scan_index >= len(self._scan_base_targets):
+        total = len(self._scan_base_targets)
+        if self._scan_index >= total:
             self._scan_active = False
+            self._scan_completed = total
             self._scan_message = "complete"
             return
-        target_pos, target_ori = self._scan_base_targets[self._scan_index]
+        idx = self._scan_index
+        entry = self._scan_entry(idx)
+        target_pos, target_ori = self._scan_base_targets[idx]
         active = self.current_joints()
+        initial = self._full_solution(active)
+        selected = (self.branch[0], self.branch[1], self.branch[2])
         ok, solution = self.ik.solve_branch(
             target_pos, target_ori,
-            shoulder=self.branch[0], elbow=self.branch[1],
-            wrist=self.branch[2],
-            initial_position=self._full_solution(active),
+            shoulder=selected[0], elbow=selected[1], wrist=selected[2],
+            initial_position=initial,
         )
+        used = selected
         if not ok or solution is None:
-            self._record_result(False, "IK failed", collision=False)
-            self.stop_scan(f"IK failed at placement {self._scan_index}")
+            # The production sim planner does not lock shoulder/wrist; it
+            # asks for the configured elbow preference and accepts another
+            # solution if needed.  Retry with that solver before calling the
+            # target unreachable, so this scan does not stop where the real
+            # simulation would still move.
+            ok, solution = self.ik.solve_with_config(
+                target_pos, target_ori,
+                initial_position=initial,
+                elbow_up=sim_config.IK_ELBOW_UP,
+                max_retries=sim_config.IK_MAX_RETRIES,
+            )
+            if ok and solution is not None:
+                used_active = [solution[i] for i in self.ik.active_indices]
+                used = self.branch_of_active(used_active)
+                if used != selected:
+                    self._scan_branch_changes.append({
+                        "index": idx,
+                        "target_id": entry["target_id"],
+                        "order_index": entry["order_index"],
+                        "rep": entry["rep"],
+                        "selected": list(selected),
+                        "used": list(used),
+                    })
+        if not ok or solution is None:
+            self._record_result(
+                False, "IK failed", collision=False,
+                detail={"selected_branch": list(selected),
+                        "target_id": entry["target_id"],
+                        "completed": self._scan_completed})
+            self.stop_scan("no IK solution")
             return
         target = [solution[i] for i in self.ik.active_indices]
         current = self.current_joints()
         self._scan_path = self._interpolate(current, target)
         self._scan_path_i = 0
-        self._scan_message = f"placement {self._scan_index + 1}/" \
-                             f"{len(self._scan_base_targets)}"
+        note = " (IK branch changed)" if used != selected else ""
+        self._scan_message = (
+            f"pulse {entry['order_index']} · {entry['rep']}/"
+            f"{self._scan_repetitions} · target {entry['target_id']}{note}")
 
     @staticmethod
     def _interpolate(start: Sequence[float], end: Sequence[float],
@@ -331,16 +417,30 @@ class CollisionTestSession:
         if state["collision"]:
             self._record_result(False, "collision", collision=True,
                                 detail=state)
-            self.stop_scan(f"collision at placement {self._scan_index}")
+            self.stop_scan("collision")
             return self.scan_status()
 
         self._scan_path_i += 1
         if self._scan_path_i >= len(self._scan_path):
             self._record_result(True, "ok", collision=False, detail=state)
+            self._scan_completed = self._scan_index + 1
             self._scan_index += 1
             self._scan_path = []
             self._scan_path_i = 0
-            self._prepare_next()
+            total = len(self._scan_base_targets)
+            if self._scan_index >= total:
+                self._scan_active = False
+                self._scan_message = "complete"
+            else:
+                # Do not prepare the next target in the same tick: the last
+                # waypoint of this pulse must reach the view before the
+                # status names the next pulse.
+                next_entry = self._scan_entry(self._scan_index)
+                self._scan_message = (
+                    f"reached pulse {self._scan_completed - 1}; preparing "
+                    f"pulse {next_entry['order_index']} · "
+                    f"{next_entry['rep']}/{self._scan_repetitions} · "
+                    f"target {next_entry['target_id']}")
         return self.scan_status()
 
     def _record_result(self, ok: bool, message: str, collision: bool,
@@ -354,11 +454,29 @@ class CollisionTestSession:
         })
 
     def scan_status(self) -> Dict[str, object]:
+        total = len(self._scan_base_targets)
+        current = (self._scan_entry(self._scan_index)
+                   if 0 <= self._scan_index < total else None)
+        last = (self._scan_entry(self._scan_completed - 1)
+                if self._scan_completed > 0 else None)
         return {
             "active": self._scan_active,
             "index": self._scan_index,
-            "total": len(self._scan_base_targets),
+            "completed": self._scan_completed,
+            "total": total,
+            "total_targets": (self._scan_total_targets or total),
+            "repetitions": self._scan_repetitions,
+            "target_id": current["target_id"] if current else None,
+            "order_index": current["order_index"] if current else None,
+            "rep": current["rep"] if current else None,
+            "last_target_id": last["target_id"] if last else None,
+            "last_order_index": last["order_index"] if last else None,
+            "last_rep": last["rep"] if last else None,
+            "path_step": self._scan_path_i,
+            "path_total": len(self._scan_path),
+            "preparing": self._scan_active and not self._scan_path,
             "message": self._scan_message,
+            "branch_changes": list(self._scan_branch_changes),
             "results": list(self._scan_results),
             "collision": self.collision_state() if self.ready else None,
         }
