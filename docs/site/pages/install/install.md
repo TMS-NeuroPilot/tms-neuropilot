@@ -5,6 +5,32 @@ assumes the machine already has conda (miniforge or miniconda). InVesalius, the
 neuronavigation application for real sessions, has its own environment; its
 installation is at the end of this page.
 
+## Quick install
+
+The repository ships a one-file environment spec and an installer that does
+everything below (optionally including InVesalius):
+
+```bash
+git clone https://gitlab.gwdg.de/tms-localization/papers/neuropilot.git
+cd neuropilot
+scripts/install.sh                     # conda env + NeuPilot
+scripts/install.sh --with-invesalius   # also install InVesalius
+```
+
+or by hand:
+
+```bash
+conda env create -f environment.yml    # the whole suite in one spec
+conda activate pipeline
+pip install -e . --no-deps
+```
+
+That is it — `neuropilot sim` starts the simulated stack. If `import simnibs`
+fails with missing `libmkl*.so.2`, see the [MKL sonames](#4-install-simnibs-for-the-online-e-field-mode-and-msh-meshes)
+note below. The numbered sections after this one walk the same steps in
+detail and explain what each package is for; they remain the reference when
+something in the quick path fails on your machine.
+
 ## 1. Get the code
 
 ```bash

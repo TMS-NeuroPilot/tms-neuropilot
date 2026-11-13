@@ -1,0 +1,55 @@
+# NeuroPilot — one-file conda environment for the whole suite.
+#
+#   git clone https://gitlab.gwdg.de/tms-localization/papers/neuropilot.git
+#   cd neuropilot
+#   conda env create -f environment.yml
+#   conda activate pipeline
+#   pip install -e . --no-deps
+#
+# or run scripts/install.sh, which does all of the above (and optionally
+# installs InVesalius). Derived from a working lab environment; the
+# long-form recipe with the reasoning is
+# docs/site/pages/install/install.md.
+name: pipeline
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy=1.26
+  - scipy
+  - h5py
+  - pyyaml
+  - requests
+  - python-dotenv
+  - aiohttp
+  - pandas
+  - matplotlib
+  - pyqt=5.15
+  - qasync
+  - pyvista
+  - pyvistaqt
+  - vtk
+  - mujoco
+  - pybullet
+  - pyserial
+  - python-mumps
+  - pip
+  - pip:
+      # everything pip needs that conda-forge does not carry
+      - python-socketio
+      - smbprotocol
+      - ikpy
+      - gdist
+      - magicpy
+      - numba
+      - mkl
+      - tbb
+      - fmm3dpy
+      - samseg
+      # SimNIBS is not on PyPI: the official 4.5 wheels from the GitHub
+      # releases (petsc4py is SimNIBS' own build, matched to this wheel)
+      - petsc4py @ https://github.com/simnibs/petsc4py/releases/download/v3.21.5/petsc4py-3.21.5-cp311-cp311-manylinux_2_28_x86_64.whl
+      - simnibs @ https://github.com/simnibs/simnibs/releases/download/v4.5.0/simnibs-4.5.0-cp311-cp311-linux_x86_64.whl
+      # the analysis heart: the group's pynibs, dev branch (the PyPI
+      # release lags behind; this is what the suite is developed against)
+      - pynibs @ git+https://gitlab.gwdg.de/tms-localization/pynibs.git@dev
