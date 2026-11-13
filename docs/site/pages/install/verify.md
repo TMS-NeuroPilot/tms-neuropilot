@@ -91,7 +91,7 @@ In the terminal you should see four components connect, and no traceback:
 [neuropilot] started controller
 ```
 
-The controller window opens with the six tabs. A MuJoCo viewer window opens for
+The controller window opens with the seven tabs. A MuJoCo viewer window opens for
 the virtual robot. Ctrl+C stops everything.
 
 ## Next

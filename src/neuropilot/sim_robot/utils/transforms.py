@@ -125,6 +125,26 @@ def inverse_pipeline_axis_transform(
     return pos, euler_inv
 
 
+def pipeline_target_to_mujoco_world(
+    pipeline_pos_mm: List[float],
+    pipeline_euler_deg: List[float],
+    head_position_m: List[float],
+    head_orientation_deg: List[float],
+) -> Tuple[List[float], List[float]]:
+    """Convert a pipeline/InVesalius target to the MuJoCo world frame.
+
+    ``read_simnibs_targets_data`` leaves the position in raw SimNIBS space but
+    changes the orientation to the InVesalius coil convention.  Undo only that
+    orientation transform, then place the target with the subject-head pose.
+    This is the single conversion used by the simulated robot and by the
+    collision-test scan, so a planned placement and an executed placement agree.
+    """
+    _, simnibs_ori = inverse_pipeline_axis_transform(
+        pipeline_pos_mm, pipeline_euler_deg)
+    return simnibs_to_mujoco_world(
+        pipeline_pos_mm, simnibs_ori, head_position_m, head_orientation_deg)
+
+
 def simnibs_to_mujoco_world(
     simnibs_pos_mm: List[float],
     simnibs_euler_deg: List[float],

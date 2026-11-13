@@ -47,6 +47,7 @@ Values are stored as strings; the GUI converts them when it reads them.
 | `EMG_COMPUTER_PASSWORD` | `<set in .env>` | SMB password |
 | `ONLINE_FEM_SOLVER` | `pardiso` | FEM solver |
 | `ONLINE_FEM_ANISOTROPY` | `scalar` | conductivity model |
+| `COLLISION_TEST` | empty | saved collision-test layout (JSON: head/base poses, start joints, IK branch) |
 
 ## Precedence
 

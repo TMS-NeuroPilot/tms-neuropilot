@@ -1,10 +1,11 @@
 """GUI <-> controller wiring and interaction safety.
 
 The "click everything" sweep is the cheapest approximation of "no interaction
-on any page throws": every button and checkbox on all six pages is clicked
-with a controller attached and with none, the file dialogs are stubbed, and
-recorded exceptions must stay empty (PyQt prints unhandled slot exceptions and
-keeps going, so they are captured through ``sys.excepthook``).
+on any page throws": every button and checkbox on the six non-collision pages
+is clicked with a controller attached and with none, the file dialogs are
+stubbed, and recorded exceptions must stay empty (PyQt prints unhandled slot
+exceptions and keeps going, so they are captured through ``sys.excepthook``).
+The Collision test page has dedicated coverage in ``test_collision_tab.py``.
 """
 
 
@@ -337,6 +338,11 @@ def test_every_button_without_a_controller(window, qapp, exceptions, monkeypatch
     monkeypatch.setattr(window, "_file_dialog", lambda *a, **k: "")
     clicked = 0
     for i in range(window.tabWidget.count()):
+        # The Collision test page owns a MuJoCo world; its enable/jog/scan
+        # controls are covered by tests/test_collision_tab.py.  Clicking them
+        # in this generic sweep would build several local worlds.
+        if window.tabWidget.tabText(i) == "Collision test":
+            continue
         window.tabWidget.setCurrentIndex(i)
         qapp.processEvents()
         for button in iter_buttons(window.tabWidget.widget(i)):
@@ -352,6 +358,8 @@ def test_every_button_with_a_controller(window, qapp, exceptions, recorder,
                                         monkeypatch):
     monkeypatch.setattr(window, "_file_dialog", lambda *a, **k: "")
     for i in range(window.tabWidget.count()):
+        if window.tabWidget.tabText(i) == "Collision test":
+            continue        # dedicated coverage; see above
         window.tabWidget.setCurrentIndex(i)
         qapp.processEvents()
         for button in iter_buttons(window.tabWidget.widget(i)):

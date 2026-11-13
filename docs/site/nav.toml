@@ -40,6 +40,7 @@ pages = [
   ["Run modes", "run/modes.md", "Simulation, real hardware and manual mode: what differs and when to use which."],
   ["A simulated session", "run/simulated.md", "Follow one mapping from Connect to Complete in the virtual twin."],
   ["Real session checklist", "run/real.md", "The ordered checklist for a session with a participant."],
+  ["Collision test", "run/collision-test.md", "Find a subject position, robot base and start pose that survive every placement before a real run."],
   ["Manual mode", "run/manual.md", "Hardware without the robot: the experimenter positions the coil."],
   ["E-field modes", "run/efield-modes.md", "Precomputed versus online FEM, and switching mid-run without losing alignment."],
   ["The mapping loop", "run/mapping-loop.md", "The controller state machine step by step, including skip and recovery."],

@@ -12,14 +12,14 @@ import pytest
 QtWidgets = pytest.importorskip("PyQt5.QtWidgets")
 
 EXPECTED_TABS = ["Project", "Connections", "Control", "MEP results",
-                 "Cortical results", "Config"]
+                 "Cortical results", "Collision test", "Config"]
 
 
 def test_window_constructs_and_is_a_main_window(window):
     assert isinstance(window, QtWidgets.QMainWindow)
 
 
-def test_six_pages_in_the_agreed_order(window):
+def test_pages_in_the_agreed_order(window):
     tabs = window.tabWidget
     names = [tabs.tabText(i) for i in range(tabs.count())]
     assert names == EXPECTED_TABS

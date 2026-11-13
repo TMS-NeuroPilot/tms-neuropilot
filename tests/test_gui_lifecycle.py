@@ -264,7 +264,7 @@ def test_second_window_after_close_is_independent(window, qapp):
     second = cp.MainWindow(simulation=True)
     second.resize(1244, 960)
     qapp.processEvents()
-    assert second.tabWidget.count() == 6
+    assert second.tabWidget.count() == 7
     assert second is not window
     second.close()
     second.deleteLater()

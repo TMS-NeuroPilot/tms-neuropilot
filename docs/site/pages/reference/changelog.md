@@ -9,6 +9,11 @@ suite is used.
 
 ### Simulator
 
+- A new **Collision test** page runs the selected robot through all project
+  placements in a local MuJoCo scene. It can move the subject head and robot
+  base, jog the coil in world XYZ, choose a shoulder/elbow IK branch, save the
+  start pose to the project and lab profile, and stop at the first collision
+  or IK failure.
 - Four robots now ship with the simulator: Omron TM5X-700, Universal Robots
   UR5, Han's Robot Elfin E5 (the Aalto / BioMag Helsinki / Tübingen mTMS arm)
   and Dobot CR5. The `tms-robot-control` driver names (`ur`, `elfin`,

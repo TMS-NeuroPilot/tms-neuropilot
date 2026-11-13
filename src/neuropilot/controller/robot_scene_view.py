@@ -35,9 +35,10 @@ class RobotSceneView(QtCore.QObject):
     DEFAULT_DISTANCE = 1.9
     DEFAULT_LOOKAT = (0.25, -0.15, 0.35)
 
-    def __init__(self, label, fps=30, parent=None):
+    def __init__(self, label, fps=30, parent=None, auto_reload=True):
         super().__init__(parent)
         self.label = label
+        self.auto_reload = auto_reload
         self._timer = QtCore.QTimer(self)
         self._timer.setInterval(max(10, int(1000 / max(1, fps))))
         self._timer.timeout.connect(self._render)
@@ -78,6 +79,33 @@ class RobotSceneView(QtCore.QObject):
             except Exception:
                 pass
             self._renderer = None
+
+    def set_model(self, model, data):
+        """Render an externally owned model/data pair (collision test).
+
+        ``auto_reload`` must be false for this mode: the caller owns the
+        scene and updates body poses in place.
+        """
+        if self._renderer is not None:
+            try:
+                self._renderer.close()
+            except Exception:
+                pass
+            self._renderer = None
+            self._render_size = (0, 0)
+        model.vis.global_.offwidth = max(model.vis.global_.offwidth, 1920)
+        model.vis.global_.offheight = max(model.vis.global_.offheight, 1200)
+        self._model = model
+        self._data = data
+        self._scene_path = None
+        self._scene_stamp = None
+        self._pending_qpos = None
+        mujoco.mj_forward(self._model, self._data)
+        self._dirty = True
+
+    def refresh(self):
+        """Request a redraw after external model/data changes."""
+        self._dirty = True
 
     # ── scene ────────────────────────────────────────────────────────
     def _candidates(self):
@@ -131,6 +159,8 @@ class RobotSceneView(QtCore.QObject):
         candidate order, not only the mtime of the file loaded first, or the
         embedded view would never pick up the head.
         """
+        if not self.auto_reload:
+            return
         candidate = next((p for p in self._candidates() if os.path.isfile(p)),
                          None)
         if candidate is None:

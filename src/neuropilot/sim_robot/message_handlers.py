@@ -40,6 +40,15 @@ class MessageHandlers:
         elif topic == config.TOPIC_SET_HEAD_MESH:
             self._handle_set_head_mesh(data)
 
+        elif topic == config.TOPIC_SET_START_POSE:
+            payload = self._unwrap(data)
+            joints = payload.get("joints")
+            if isinstance(joints, (list, tuple)) and len(joints) == 6:
+                self.state.set_start_joints(joints)
+                if self.world is not None:
+                    self.world.reset_joint_positions(list(joints))
+                log.info("Start pose set from the collision test.")
+
         elif topic == config.TOPIC_SET_FREE_DRIVE:
             payload = self._unwrap(data)
             enabled = payload.get("set")
@@ -83,23 +92,11 @@ class MessageHandlers:
             self.state.last_status_text = "Invalid marker payload"
             return
 
-        # ── NEW: Convert InVesalius convention → raw SimNIBS → PyBullet world ──
-        from .utils.transforms import inverse_pipeline_axis_transform, simnibs_to_mujoco_world
-
-        # Step 1: Position is raw SimNIBS (pipeline doesn't transform it)
-        # Only orientation needs inverse of pipeline's axis transform
-        _, simnibs_ori = inverse_pipeline_axis_transform(position, orientation)
-
-        # Step 2: Convert raw SimNIBS → MuJoCo world (meters)
-        world_pos, world_ori = simnibs_to_mujoco_world(
-            simnibs_pos_mm=position,
-            simnibs_euler_deg=simnibs_ori,
-            head_position_m=config.HEAD_POSITION,
-            head_orientation_deg=config.HEAD_ORIENTATION,
-        )
-
-        # Store world-frame coordinates (meters → mm for state consistency)
-        from .utils.transforms import m_to_mm
+        # Pipeline coordinates -> raw SimNIBS orientation -> MuJoCo world.
+        from .utils.transforms import pipeline_target_to_mujoco_world, m_to_mm
+        world_pos, world_ori = pipeline_target_to_mujoco_world(
+            position, orientation,
+            config.HEAD_POSITION, config.HEAD_ORIENTATION)
         state_pos_mm = m_to_mm(world_pos)
 
         self.state.set_target(position=state_pos_mm, orientation=world_ori, label=label)
@@ -122,22 +119,11 @@ class MessageHandlers:
             self.state.last_status_text = "Invalid target payload"
             return
 
-        # Convert pipeline coords → raw SimNIBS → MuJoCo world
-        from .utils.transforms import inverse_pipeline_axis_transform, simnibs_to_mujoco_world, m_to_mm
-
-        # Step 1: Position is raw SimNIBS (pipeline doesn't transform it)
-        # Only orientation needs inverse of pipeline's axis transform
-        _, simnibs_ori = inverse_pipeline_axis_transform(position, orientation)
-
-        # Step 2: Convert raw SimNIBS → MuJoCo world (meters)
-        world_pos, world_ori = simnibs_to_mujoco_world(
-            simnibs_pos_mm=position,
-            simnibs_euler_deg=simnibs_ori,
-            head_position_m=config.HEAD_POSITION,
-            head_orientation_deg=config.HEAD_ORIENTATION,
-        )
-
-        # Store world-frame coordinates (meters → mm for state consistency)
+        # Pipeline coordinates -> raw SimNIBS orientation -> MuJoCo world.
+        from .utils.transforms import pipeline_target_to_mujoco_world, m_to_mm
+        world_pos, world_ori = pipeline_target_to_mujoco_world(
+            position, orientation,
+            config.HEAD_POSITION, config.HEAD_ORIENTATION)
         state_pos_mm = m_to_mm(world_pos)
 
         self.state.set_target(position=state_pos_mm, orientation=world_ori, label=label)

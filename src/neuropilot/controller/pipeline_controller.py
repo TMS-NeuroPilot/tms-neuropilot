@@ -17,6 +17,7 @@ from .transformations import compose_matrix
 # simulator converts it into its MuJoCo phantom; must match
 # neuropilot.sim_robot.config.TOPIC_SET_HEAD_MESH).
 TOPIC_SET_HEAD_MESH = "Pipeline to Robot: Set head mesh"
+TOPIC_SET_START_POSE = "Pipeline to Robot: Set start pose"
 
 def precomputed_e_field_row(e_matrix, target_index, amplitude):
     """E-field row of the precomputed matrix, scaled to the stimulator output.
@@ -420,6 +421,7 @@ class PipelineController:
 
         # Stimulator settings
         self.stimulator_amplitude = None
+        self.start_pose_joints = None
         self.stimulator_waveform = 'Biphasic'
         self.minium_isi = 4  # in seconds
         self.n_repetitions = 1 #
@@ -834,6 +836,23 @@ class PipelineController:
             except Exception as e:
                 print(f"[WARN] could not announce the head mesh: {e}")
 
+    def set_start_pose(self, joints):
+        """Store and announce the collision-tested arm start configuration."""
+        if not joints:
+            return
+        self.start_pose_joints = [float(v) for v in joints]
+        if self.remote is None:
+            return
+        coro = self.remote.send_message(
+            TOPIC_SET_START_POSE, {"joints": list(self.start_pose_joints)})
+        try:
+            asyncio.get_running_loop().create_task(coro)
+        except RuntimeError:
+            try:
+                asyncio.run(coro)
+            except Exception as e:
+                print(f"[WARN] could not announce the start pose: {e}")
+
     def apply_emg_config_elements(self, elements):
         """Apply already-projected channel elements on the GUI thread."""
         if not isinstance(self.emg_computer, VirtualEMG):
@@ -882,6 +901,10 @@ class PipelineController:
         """
         # Announce the head mesh configured in the project window (session
         # cache) so a freshly started robot sim applies it immediately.
+        if self.start_pose_joints:
+            asyncio.create_task(self.remote.send_message(
+                TOPIC_SET_START_POSE,
+                {"joints": list(self.start_pose_joints)}))
         if self.control_panel:
             fn_mesh = self.control_panel.loadmeshlabel.text().strip() or None
             self.set_head_mesh(fn_mesh)

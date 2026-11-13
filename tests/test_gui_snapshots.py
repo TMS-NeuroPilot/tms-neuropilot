@@ -1,4 +1,4 @@
-"""Screenshot/structure snapshots of the six pages.
+"""Screenshot/structure snapshots of the seven pages.
 
 A coarse pixel fingerprint (32x24 grayscale) plus the geometry of the named
 widgets catches a broken ``.ui`` file or a style-sheet regression without being
@@ -23,7 +23,7 @@ QtCore = pytest.importorskip("PyQt5.QtCore")
 QtWidgets = pytest.importorskip("PyQt5.QtWidgets")
 
 PAGES = ["Project", "Connections", "Control", "MEP results",
-         "Cortical results", "Config"]
+         "Cortical results", "Collision test", "Config"]
 SIZE = (1244, 960)
 COLS, ROWS = 32, 24
 BASELINE = Path(__file__).parent / "baselines" / "gui_pages.json"

@@ -117,7 +117,7 @@ interpreter automatically (`PYTHON`, then the usual conda locations, then
 environment.  The GUI tests are a separate, manually started job for a runner
 with a display.
 
-The six pages are snapshotted (`tests/test_gui_snapshots.py`): a coarse
+The seven pages are snapshotted (`tests/test_gui_snapshots.py`): a coarse
 32×24 pixel fingerprint plus the geometry of every named widget, compared
 against `tests/baselines/gui_pages.json`.  A `.ui` or style-sheet regression
 fails the test and leaves the current rendering in pytest's `tmp_path`.
@@ -129,12 +129,13 @@ UPDATE_GUI_BASELINES=1 pytest tests/test_gui_snapshots.py
 
 The suite covers the parts that do not need hardware: the fit-function
 registry, the `.env` editor, the online solver lifecycle, the per-pulse
-E-field rows that let the E-field mode switch mid-run, the recording in
-`collect_data_step`, the analysis assembly, the virtual EMG channels,
-robot health parsing, the coil-target axis convention, the relay-topic
-contract and the placements CSV export.
+E-field rows that let the E-field mode switch mid-run, the collision-test
+placement conversion and scan, the recording in `collect_data_step`, the
+analysis assembly, the virtual EMG channels, robot health parsing, the
+coil-target axis convention, the relay-topic contract and the placements CSV
+export.
 
-The GUI tests build a real `MainWindow` and drive it: all six pages,
+The GUI tests build a real `MainWindow` and drive it: all seven pages,
 resizing, the results table and readout, project load/save with corrupt,
 empty, missing and binary files, project files whose folder was deleted,
 the Config tab against a temporary `.env`, the study profile, exports and

@@ -359,7 +359,10 @@ def run(args, project: Path) -> None:
         grab_window(app, win, OUT / "cortical-results.png", composite_mesh=True)
 
         # 6. Config sub-tabs ------------------------------------------
-        win.tabWidget.setCurrentIndex(5)
+        for index in range(win.tabWidget.count()):
+            if win.tabWidget.tabText(index) == "Config":
+                win.tabWidget.setCurrentIndex(index)
+                break
         for index, name in enumerate(("config-lab", "config-simulation",
                                       "config-study", "config-subject")):
             win.cfg_tabs.setCurrentIndex(index)

@@ -140,6 +140,7 @@ TOPIC_PRESS_BUTTON   = "Press robot button"
 TOPIC_SET_OBJECTIVE  = "Neuronavigation to Robot: Set objective"
 TOPIC_STOP           = "STOP"
 TOPIC_SET_HEAD_MESH  = "Pipeline to Robot: Set head mesh"
+TOPIC_SET_START_POSE = "Pipeline to Robot: Set start pose"
 
 # Speed ratios broadcast by the GUI (must match pipeline_controller.py verbatim)
 TOPIC_SET_FREE_DRIVE = "Neuronavigation to Robot: Set free drive"

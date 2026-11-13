@@ -62,8 +62,14 @@ stimulation mark.
 | `Press robot button` | `{"pressed": bool}` | press the coil against the head |
 | `STOP` | `{}` | stop motion now |
 | `Pipeline to Robot: Set head mesh` | `{"mesh_path": str \| null}` | use this subject head for the simulated phantom; `null` resets the default |
+| `Pipeline to Robot: Set start pose` | `{"joints": [rad]}` | queue the collision-tested six-joint start pose for the next run |
 | `GUI to Robot: set default speed robot` | `{"default_speed_ratio": float}` | travel speed |
 | `GUI to Robot: set tuning speed robot` | `{"tuning_speed_ratio": float}` | speed near the head |
+
+The simulated robot applies `Pipeline to Robot: Set start pose` immediately.
+The production `tms-robot-control` driver does not handle the topic yet; add a
+handler for the installed robot model before a real run can use the queued
+pose.
 
 ### Robot → controller
 

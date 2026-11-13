@@ -661,6 +661,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._populate_fit_functions()
         self._setup_robot_scene_view(self.simulation)
         self._setup_config_tab()
+        self._collision_test_config = None
+        self._setup_collision_tab()
 
         # Mapping-results panel: state, table and wiring.
         self._mapping_scores = {}        # channel key -> R2 per ROI element
@@ -1215,6 +1217,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 view.stop()
             except Exception as e:           # pragma: no cover - GL teardown
                 print(f"[WARN] robot view stop: {e}")
+        collision_tab = getattr(self, "collision_tab", None)
+        if collision_tab is not None:
+            try:
+                collision_tab.shutdown()
+            except Exception as e:           # pragma: no cover - GL teardown
+                print(f"[WARN] collision view stop: {e}")
 
     def _retry_close(self):
         """Finish a close that waited for a background VTK read."""
@@ -1606,6 +1614,22 @@ class MainWindow(QtWidgets.QMainWindow):
         self.on_config_reload()
         self._apply_config_mode()
         self._refresh_subject_summary()
+
+    def _setup_collision_tab(self):
+        """Add the pre-flight collision-test page before Config."""
+        try:
+            from .collision_tab import CollisionTestTab
+        except Exception as e:                       # pragma: no cover
+            print(f"[WARN] collision-test tab unavailable: {e}")
+            return
+        page = CollisionTestTab(self, parent=self)
+        index = self.tabWidget.count()
+        for i in range(self.tabWidget.count()):
+            if self.tabWidget.tabText(i) == "Config":
+                index = i
+                break
+        self.tabWidget.insertTab(index, page, "Collision test")
+        self.collision_tab = page
 
     def _setup_simulation_page(self):
         """Build Config › Simulation (the .ui has no page for it)."""
@@ -3822,6 +3846,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def set_controller(self, controller):
         self.controller = controller
+        if hasattr(self, "collision_tab"):
+            self.collision_tab.set_controller(controller)
         if controller is not None:
             # Keep the back-reference in sync: the entry point passes the
             # panel at construction, alternate launchers attach it here.
@@ -4534,6 +4560,8 @@ class MainWindow(QtWidgets.QMainWindow):
             "emg_config_fn": self.emg_config_label.text() or None,
             # Travels with the subject so a session resumes in the same mode.
             "efield_mode": self.efield_mode_name(),
+            "collision_test": (self.collision_tab.project_config()
+                               if hasattr(self, "collision_tab") else None),
         }
         return _relative_project_paths(data, base_dir)
 
@@ -4552,6 +4580,15 @@ class MainWindow(QtWidgets.QMainWindow):
             # changes what the map means (or crashes the analysis).
             print("[WARN] project config ignored: a mapping session is running.")
             return False
+        if hasattr(self, "collision_tab"):
+            value = d.get("collision_test")
+            if isinstance(value, dict):
+                self._collision_test_config = dict(value)
+                self.collision_tab.apply_config(value)
+            else:
+                # An older project has no collision block: do not carry the
+                # previous project's cell layout into it.
+                self.collision_tab.reset_config()
         # YAML gives whatever the user typed: 3.7, "many", .nan.  Each widget
         # kind is coerced here, and a value that cannot be coerced is skipped
         # with a warning, so one bad key never blocks the rest of the file.

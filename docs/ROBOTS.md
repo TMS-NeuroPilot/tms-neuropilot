@@ -188,6 +188,7 @@ Relay contract (verified against `sim_robot/message_handlers.py`):
 | `GUI to Robot: set default speed robot` | in | `default_speed_ratio: 0..1` |
 | `GUI to Robot: set tuning speed robot` | in | `tuning_speed_ratio: 0..1` |
 | `Pipeline to Robot: Set head mesh` | in | `mesh_path` (sim only; informational for hardware). `null` resets the default phantom |
+| `Pipeline to Robot: Set start pose` | in | `joints` (six radians); queued before the next run |
 | `SIM - Robot to Neuronavigation: Tracking State` | out | `position` mm, `orientation` deg, `ik_success`, `collision`, `motion_done`, `tracking_valid`, `qpos` |
 | `Robot to Neuronavigation: Send force sensor data` | out | `force_feedback` |
 | `Robot to Pipeline: Health status` | out | `robot_id`, `status` (`ok`/`error`/`nan`), `message`, `info{}` |
@@ -195,6 +196,11 @@ Relay contract (verified against `sim_robot/message_handlers.py`):
 The `info` dict is what the Connections page shows for the robot (model,
 firmware, …).  `status` drives the LED and the Start gate: an unknown or
 missing status is displayed as "Not Initialized" and blocks starting.
+
+`Pipeline to Robot: Set start pose` is implemented by the simulated robot.
+The production `tms-robot-control` driver does not handle it yet, so a real
+run still starts from the pose the controller already uses. Add the handler
+for the installed robot model before relying on the queued pose.
 
 ---
 

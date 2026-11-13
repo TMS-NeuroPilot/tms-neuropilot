@@ -16,7 +16,7 @@ PROJECT_KEYS = {
     "minium_isi", "n_repetitions", "targets_file", "default_speed",
     "tuning_speed", "mesh_head_path", "mesh_RIO_path", "e_field_path",
     "surrogate_library_path",
-    "coil_path", "emg_config_fn", "efield_mode",
+    "coil_path", "emg_config_fn", "efield_mode", "collision_test",
 }
 
 

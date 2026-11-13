@@ -96,6 +96,93 @@ class IKPySolver:
             print(f"[tms-robot-sim] IK solve failed: {exc}")
             return False, None
 
+    @staticmethod
+    def _branch_signs(shoulder: str, elbow: str):
+        shoulder = str(shoulder).strip().lower()
+        elbow = str(elbow).strip().lower()
+        if shoulder in ("left", "l", "+", "plus", "positive"):
+            s = 1
+        elif shoulder in ("right", "r", "-", "minus", "negative"):
+            s = -1
+        else:
+            raise ValueError(f"Unknown shoulder branch: {shoulder!r}")
+        if elbow in ("up", "u", "+", "plus", "positive"):
+            e = 1
+        elif elbow in ("down", "d", "-", "minus", "negative"):
+            e = -1
+        else:
+            raise ValueError(f"Unknown elbow branch: {elbow!r}")
+        return s, e
+
+    def branch_of(self, solution: List[float]):
+        """``('left'/'right', 'up'/'down')`` for a full ikpy solution."""
+        sh = solution[self.active_indices[0]]
+        el = solution[self.active_indices[2]]
+        return ("left" if sh > 0 else "right", "up" if el > 0 else "down")
+
+    def solve_branch(
+        self,
+        position_mm: List[float],
+        orientation_deg: List[float],
+        shoulder: str = "left",
+        elbow: str = "up",
+        attempts: int = 30,
+        initial_position: Optional[List[float]] = None,
+        seed: Optional[int] = None,
+    ) -> Tuple[bool, Optional[List[float]]]:
+        """Solve the IK for a requested shoulder/elbow branch.
+
+        The base-pan sign selects ``left`` (+J1) or ``right`` (-J1); the
+        elbow sign selects ``up`` (+J3) or ``down`` (-J3).  The solver seeds
+        the chain in the requested quadrant and rejects solutions that land
+        in another branch.  This is the branch selector used by the
+        collision-test start-pose presets.
+        """
+        if len(self.active_indices) < 3:
+            return False, None
+        sh_sign, el_sign = self._branch_signs(shoulder, elbow)
+        sh_idx, el_idx = self.active_indices[0], self.active_indices[2]
+        rng = random.Random(0 if seed is None else seed)
+
+        def _matches(solution):
+            if not ((solution[sh_idx] > 0) == (sh_sign > 0)
+                    and (solution[el_idx] > 0) == (el_sign > 0)):
+                return False
+            # ikpy can return a local minimum without raising.  A branch
+            # preset must actually reach the requested Cartesian pose.
+            achieved_pos, achieved_ori = self.forward(solution)
+            pos_err = np.linalg.norm(
+                np.asarray(achieved_pos) - np.asarray(position_mm, dtype=float))
+            ori_err = Rotation.from_euler(
+                "xyz", achieved_ori, degrees=True).inv() * Rotation.from_euler(
+                    "xyz", orientation_deg, degrees=True)
+            return pos_err <= 0.5 and np.degrees(ori_err.magnitude()) <= 0.5
+
+        if initial_position is not None:
+            # Holding the current pose must not send the arm through a
+            # different IK solution just because one exists.
+            if _matches(list(initial_position)):
+                return True, list(initial_position)
+            ok, solution = self.solve(position_mm, orientation_deg,
+                                      initial_position)
+            if ok and solution is not None and _matches(solution):
+                return True, solution
+
+        base = ([0.0] * len(self.chain.links)
+                if initial_position is None else list(initial_position))
+        for _ in range(max(1, attempts)):
+            seed_position = list(base)
+            seed_position[sh_idx] = sh_sign * rng.uniform(0.8, 2.8)
+            seed_position[el_idx] = el_sign * rng.uniform(1.0, 2.6)
+            for idx in self.active_indices:
+                if idx not in (sh_idx, el_idx):
+                    seed_position[idx] += rng.uniform(-0.5, 0.5)
+            ok, solution = self.solve(position_mm, orientation_deg,
+                                      seed_position)
+            if ok and solution is not None and _matches(solution):
+                return True, solution
+        return False, None
+
     def solve_with_config(
         self,
         position_mm: List[float],

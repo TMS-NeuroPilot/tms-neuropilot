@@ -32,6 +32,7 @@ class RobotState:
     # Robot configuration
     joint_positions: List[float] = field(default_factory=list)
     target_joint_positions: List[float] = field(default_factory=list)
+    start_joints: List[float] = field(default_factory=list)
 
     # End-effector / coil pose
     current_position: List[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
@@ -86,6 +87,9 @@ class RobotState:
 
     def set_target_joint_positions(self, joints):
         self.target_joint_positions = list(joints)
+
+    def set_start_joints(self, joints):
+        self.start_joints = list(joints)
 
     def set_tracking_enabled(self, enabled: bool):
         self.tracking_enabled = bool(enabled)

@@ -27,6 +27,7 @@ LAB_KEYS = (
     "STIMULATOR_PORT", "STIMULATOR_TTL_PORT",
     "EMG_COMPUTER_IP", "EMG_COMPUTER_USERNAME", "EMG_COMPUTER_PASSWORD",
     "ONLINE_FEM_SOLVER", "ONLINE_FEM_ANISOTROPY",
+    "COLLISION_TEST",
 )
 
 # Same values as the Config tab has always shown; kept here so a missing
@@ -46,6 +47,7 @@ DEFAULTS = {
     "EMG_COMPUTER_PASSWORD": "",
     "ONLINE_FEM_SOLVER": "pardiso",
     "ONLINE_FEM_ANISOTROPY": "scalar",
+    "COLLISION_TEST": "",
 }
 
 _HEADER = """\
@@ -111,7 +113,8 @@ def apply_environment(values=None, environ=None):
     environ = os.environ if environ is None else environ
     applied = []
     for key, value in (read() if values is None else values).items():
-        if key not in LAB_KEYS or not str(value).strip():
+        if key not in LAB_KEYS or key == "COLLISION_TEST" \
+                or not str(value).strip():
             continue
         if key not in environ:
             environ[key] = str(value)

@@ -67,6 +67,7 @@ efield_mode: Precomputed
 | `default_speed` | int | `40` | robot speed while travelling, % |
 | `tuning_speed` | int | `10` | robot speed near the head, % |
 | `efield_mode` | string | absent | `Precomputed`, `Online` or `Interpolated`; carried with the subject |
+| `collision_test` | mapping or null | null | accepted cell layout: `head_position_m`, `head_orientation_deg`, `robot_base_position_m`, `robot_base_orientation_deg`, `start_joints_rad`, `branch`; null means no setup was saved |
 
 !!! warning "Two spellings are historical"
     `mesh_RIO_path` (capital RIO) and `minium_isi` (missing "m") are the keys

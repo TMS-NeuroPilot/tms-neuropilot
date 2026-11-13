@@ -5,6 +5,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Collision test page.** A local MuJoCo world checks the selected robot and
+  coil holder against the subject head for every project placement. It can
+  move the head and robot base, jog the coil in world XYZ, select a
+  shoulder/elbow IK branch, save the start pose to the project or lab profile,
+  and stop at the first collision or IK failure. The start pose is announced
+  on `Pipeline to Robot: Set start pose`; the production `tms-robot-control`
+  driver still needs a handler for it.
+
 ### Changed
 
 - **Adding a robot is data, not code.**  Every robot-specific value now
@@ -80,7 +90,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - CI: `.gitlab-ci.yml` runs the headless suite (`pytest -m "not gui"`)
   on every push and merge request and publishes a JUnit report;
   `scripts/run_tests.sh` runs the same set locally.
-- GUI snapshots (`tests/test_gui_snapshots.py`): each of the six pages is
+- GUI snapshots (`tests/test_gui_snapshots.py`): each of the seven pages is
   compared against a committed baseline — a coarse 32x24 pixel fingerprint
   plus the geometry of every named widget — so a broken `.ui` file or a
   style-sheet regression fails the suite.  `UPDATE_GUI_BASELINES=1`
@@ -117,7 +127,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - GUI and robustness test suite: `tests/` now has ~490 tests, including
-  real-window tests for all six pages, resizing, the results table and
+  real-window tests for all seven pages, resizing, the results table and
   readout, exports/screenshots, manual mode, the status LEDs and the
   "click every button on every page" sweep (with an exception hook so a
   crashing slot fails one test instead of aborting the run), plus the

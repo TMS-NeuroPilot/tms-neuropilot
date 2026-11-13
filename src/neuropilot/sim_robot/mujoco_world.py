@@ -23,12 +23,25 @@ class MuJoCoWorld:
         use_gui: bool = True,
         end_effector_site_name: str = "coil_tcp_site",
         head_mesh_stl: Optional[str] = None,
+        scene_name: str = "_generated_scene.xml",
+        head_pose: Optional[Tuple[List[float], List[float]]] = None,
+        base_pose: Optional[Tuple[List[float], List[float]]] = None,
     ):
         self.use_gui = use_gui
         self.end_effector_site_name = end_effector_site_name
         # Optional head phantom override (an STL path) replacing the default
         # head.stl, set from the project window's head mesh.
         self.head_mesh_stl = head_mesh_stl
+        # The collision-test world writes its own scene file so it never
+        # clobbers the live simulated robot's _generated_scene.xml.
+        self.scene_name = scene_name
+        # (position_m, orientation_deg) overrides; None = sim_robot config.
+        self.head_pose = head_pose
+        self.base_pose = base_pose
+        # The MJCF base body may already carry a fixed frame rotation (the
+        # Elfin's +90 deg).  Keep it so the collision test can convert world
+        # targets into the IK chain's root frame rather than the body frame.
+        self.base_xml_pose = None
 
         self.model: Optional[mujoco.MjModel] = None
         self.data: Optional[mujoco.MjData] = None
@@ -99,6 +112,15 @@ class MuJoCoWorld:
         model.vis.global_.offheight = max(model.vis.global_.offheight,
                                           config.CAMERA_STREAM_HEIGHT)
         data = mujoco.MjData(model)
+        base_id = mujoco.mj_name2id(
+            model, mujoco.mjtObj.mjOBJ_BODY, config.ROBOT_BASE_BODY_NAME)
+        if base_id >= 0:
+            quat = model.body_quat[base_id]
+            euler = Rotation.from_quat(
+                [quat[1], quat[2], quat[3], quat[0]]).as_euler(
+                    "xyz", degrees=True)
+            self.base_xml_pose = (
+                model.body_pos[base_id].copy(), euler.tolist())
         with self._data_lock:
             self.model = model
             self.data = data
@@ -172,8 +194,11 @@ class MuJoCoWorld:
         # Overview camera for the GUI stream: looks at the midpoint between
         # robot base and head from the front-left, slightly above.
         import numpy as _np
-        base = _np.array(config.ROBOT_BASE_POSITION)
-        head = _np.array(config.HEAD_POSITION) + _np.array([0.0, 0.0, 0.3])
+        base = _np.array(self.base_pose[0] if self.base_pose
+                         else config.ROBOT_BASE_POSITION)
+        head_pos = (self.head_pose[0] if self.head_pose
+                    else config.HEAD_POSITION)
+        head = _np.array(head_pos) + _np.array([0.0, 0.0, 0.3])
         look_at = (_np.array(config.CAMERA_STREAM_TARGET) if config.CAMERA_STREAM_TARGET
                    else (base + head) / 2.0)
         cam_pos = look_at + _np.array(config.CAMERA_STREAM_OFFSET)
@@ -201,7 +226,12 @@ class MuJoCoWorld:
 
         # Head mesh override: copy head.xml with the mesh file pointed at the
         # project-derived STL (absolute path, independent of the meshdir).
-        override_fn = os.path.join(composed_dir, "_head_override.xml")
+        # A collision-test scene gets its own override so it cannot replace
+        # the live simulated robot's phantom.
+        scene_stem = os.path.splitext(self.scene_name)[0]
+        override_name = ("_head_override.xml" if scene_stem == "_generated_scene"
+                         else f"{scene_stem}_head_override.xml")
+        override_fn = os.path.join(composed_dir, override_name)
         if head_mesh_stl and config.HEAD_MJCF_PATH:
             import re
             from xml.sax.saxutils import escape as _xml_escape
@@ -219,7 +249,7 @@ class MuJoCoWorld:
                 raise ValueError(f"head.xml has no unique head_mesh asset ({n} matches).")
             with open(override_fn, "w", encoding="utf-8") as f:
                 f.write(head_xml)
-            head_include = f'<include file="_head_override.xml"/>'
+            head_include = f'<include file="{override_name}"/>'
         elif os.path.isfile(override_fn):
             # The generated override is an artefact of a previous project;
             # do not leave it behind once the default phantom is active.
@@ -267,7 +297,7 @@ class MuJoCoWorld:
   </worldbody>
 </mujoco>
 """
-        composed_path = os.path.join(composed_dir, "_generated_scene.xml")
+        composed_path = os.path.join(composed_dir, self.scene_name)
         with open(composed_path, "w") as f:
             f.write(xml)
         return composed_path
@@ -284,10 +314,31 @@ class MuJoCoWorld:
             quat = Rotation.from_euler("xyz", orientation_deg, degrees=True).as_quat()  # [x, y, z, w]
             self.model.body_quat[bid][:] = [quat[3], quat[0], quat[1], quat[2]]        # MuJoCo: [w, x, y, z]
 
-        set_pose(config.ROBOT_BASE_BODY_NAME, config.ROBOT_BASE_POSITION, config.ROBOT_BASE_ORIENTATION)
+        base_pos, base_ori = (self.base_pose if self.base_pose
+                              else (config.ROBOT_BASE_POSITION,
+                                    config.ROBOT_BASE_ORIENTATION))
+        set_pose(config.ROBOT_BASE_BODY_NAME, base_pos, base_ori)
         if config.HEAD_MJCF_PATH:
-            set_pose(config.HEAD_BODY_NAME, config.HEAD_POSITION, config.HEAD_ORIENTATION)
+            head_pos, head_ori = (self.head_pose if self.head_pose
+                                  else (config.HEAD_POSITION,
+                                        config.HEAD_ORIENTATION))
+            set_pose(config.HEAD_BODY_NAME, head_pos, head_ori)
         mujoco.mj_forward(self.model, self.data)
+
+    def set_scene_poses(self, head_pose=None, base_pose=None) -> None:
+        """Move the head and/or robot base without rebuilding the model.
+
+        ``head_pose`` and ``base_pose`` are ``(position_m, orientation_deg)``.
+        This is the fast path used by the collision-test sliders and jog
+        buttons; the kinematics/collision geometry is re-evaluated with
+        ``mj_forward`` after the body poses are changed.
+        """
+        if head_pose is not None:
+            self.head_pose = (list(head_pose[0]), list(head_pose[1]))
+        if base_pose is not None:
+            self.base_pose = (list(base_pose[0]), list(base_pose[1]))
+        if self.model is not None:
+            self._apply_config_poses()
 
     def disconnect(self):
         self._stop_viewer()
@@ -440,7 +491,10 @@ class MuJoCoWorld:
                     if min_dist is None or dist < min_dist:
                         min_dist = dist
 
-        if min_dist is not None and min_dist <= distance_threshold:
+        # mj_geomDistance clamps its result to distance_threshold, so a value
+        # at the threshold means "no closer than the search band", not a
+        # 2 cm proximity reading.
+        if min_dist is not None and min_dist < distance_threshold:
             return float(min_dist)
         return None
 

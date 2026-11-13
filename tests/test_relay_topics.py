@@ -26,6 +26,7 @@ def test_head_mesh_topic_matches_the_simulator():
     "GUI to Robot: set tuning speed robot",
     "Press robot button",
     "STOP",
+    "Pipeline to Robot: Set start pose",
 ])
 def test_controller_topics_exist_in_the_robot_simulator(topic):
     known = {value for name, value in vars(robot_config).items()
