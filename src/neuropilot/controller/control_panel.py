@@ -91,6 +91,34 @@ class _TopLineOverlay(QtWidgets.QWidget):
 
 _ICON_CACHE = {}
 
+# The About page's copy-citation glyph: rendered once per colour into the
+# user's temp folder, like _control_ui_icons below.
+_COPY_ICON_CACHE = {}
+
+
+def _copy_icon(check_colour="#6B7280"):
+    """Render a small copy glyph (two overlapping sheets) as a PNG path."""
+    cached = _COPY_ICON_CACHE.get(check_colour)
+    if cached:
+        return cached
+    import tempfile
+    folder = os.path.join(tempfile.gettempdir(), "neuropilot_ui", "copy")
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, f"copy_{check_colour.lstrip('#').lower()}.png")
+    pm = QPixmap(14, 14)
+    pm.fill(QtCore.Qt.transparent)
+    painter = QtGui.QPainter(pm)
+    painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+    painter.setPen(QtGui.QPen(QtGui.QColor(check_colour), 1.5))
+    painter.setBrush(QtCore.Qt.NoBrush)
+    # Back sheet (offset) and front sheet; at 14 px this reads as "copy".
+    painter.drawRoundedRect(QtCore.QRectF(4.5, 1.0, 7.5, 8.5), 1.5, 1.5)
+    painter.drawRoundedRect(QtCore.QRectF(2.0, 4.5, 7.5, 8.5), 1.5, 1.5)
+    painter.end()
+    pm.save(path, "PNG")
+    _COPY_ICON_CACHE[check_colour] = path
+    return path
+
 
 def _control_ui_icons(check_colour="#FFFFFF"):
     """Write the small PNG assets the style sheet needs (a check tick and the
@@ -1671,7 +1699,10 @@ class MainWindow(QtWidgets.QMainWindow):
             col.setContentsMargins(14, 6, 14, 10)
             col.setSpacing(6)
             for child in children:
-                col.addWidget(child)
+                if isinstance(child, QtWidgets.QLayout):
+                    col.addLayout(child)
+                else:
+                    col.addWidget(child)
             return box
 
         def wrap(text, role=None):
@@ -1775,6 +1806,8 @@ class MainWindow(QtWidgets.QMainWindow):
              "https://doi.org/10.1038/s41596-022-00776-6"),
             ("Jing et al. (2023) — TMS effects on spatial attention",
              "https://doi.org/10.1088/1361-6560/acff34"),
+            ("Jing et al. (2026) — effects of E-field direction on TMS-based motor cortex mapping",
+             "https://doi.org/10.1162/IMAG.a.1211"),
             ("Feng et al. (2026) — target-specificity in neuro-cardiac-guided TMS",
              "https://doi.org/10.1038/s41398-026-03879-w"),
             ("Feng et al. (2026) — cortical stimulation strength in sgACC (preprint)",
@@ -1789,6 +1822,8 @@ class MainWindow(QtWidgets.QMainWindow):
              "https://doi.org/10.64898/2026.10.24.761539"),
             ("Grosshagauer et al. (2025) — surrogate E-field mode",
              "https://doi.org/10.1016/j.brs.2025.102990"),
+            ("Yaseen (2026) — virtual twin and real-time E-field approach (master's thesis)",
+             "https://neuropilot-94ad2d.pages.gwdg.de/"),
         ]
         left.addWidget(
             card("Scientific background",
@@ -1820,14 +1855,43 @@ class MainWindow(QtWidgets.QMainWindow):
                  "neuropilot/-/blob/main/LICENSE"),
         ]))
 
-        cite_thesis = wrap(
-            "Yaseen, A. (2026). A Virtual Twin and Real-Time E-Field Approach "
-            "for Robot-Assisted TMS Motor Cortex Mapping. Master's thesis, "
-            "Ernst Abbe University of Applied Sciences Jena.", role="mono")
-        cite_software = wrap(
-            "NeuroPilot: guided online TMS mapping with online field "
-            "optimization. MPI CBS Leipzig / ScaDS.AI.", role="mono")
-        right.addWidget(card("How to cite", [cite_thesis, cite_software]))
+        thesis_text = ("Yaseen, A. (2026). A Virtual Twin and Real-Time "
+                       "E-Field Approach for Robot-Assisted TMS Motor Cortex "
+                       "Mapping. Master's thesis, Ernst Abbe University of "
+                       "Applied Sciences Jena.")
+        software_text = ("NeuroPilot: guided online TMS mapping with online "
+                         "field optimization. MPI CBS Leipzig / ScaDS.AI.")
+
+        def cite_row(text):
+            """Selectable citation text with a small copy-to-clipboard icon.
+
+            A plain QLabel is not selectable, so the text needed interaction
+            flags; the button copies the full citation in one click. A copy
+            is harmless in the generic click-every-button sweep.
+            """
+            label = QtWidgets.QLabel(text)
+            label.setWordWrap(True)
+            label.setProperty("role", "mono")
+            label.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse |
+                                          QtCore.Qt.TextSelectableByKeyboard)
+            row = QtWidgets.QHBoxLayout()
+            row.setSpacing(8)
+            row.addWidget(label, 1)
+            btn = QtWidgets.QToolButton()
+            btn.setProperty("role", "browse")
+            btn.setIcon(QtGui.QIcon(_copy_icon()))
+            btn.setIconSize(QtCore.QSize(12, 12))
+            btn.setToolTip("Copy citation")
+            btn.setCursor(QtCore.Qt.PointingHandCursor)
+            btn.clicked.connect(
+                lambda: QtWidgets.QApplication.clipboard().setText(text))
+            row.addWidget(btn, 0, QtCore.Qt.AlignTop)
+            return row
+
+        right.addWidget(card("How to cite", [
+            cite_row(thesis_text),
+            cite_row(software_text),
+        ]))
         credits = wrap(
             "Maintained by Ole Numssen (MPI CBS / ScaDS.AI) with the group "
             "and external collaborators — full list in", role="cap")
