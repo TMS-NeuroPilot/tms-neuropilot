@@ -54,7 +54,8 @@ def test_widgets_keep_their_object_names(window):
                  "tabWidget", "cfg_save_btn", "cfg_reload_btn",
                  "project_name_edit", "loadmeshlabel", "loadroilabel",
                  "load_e_matrix_label", "loadplacementlabel",
-                 "coilspathlineedit", "savePathLineEdit"):
+                 "coilspathlineedit", "savePathLineEdit",
+                 "overwrite_results_chk"):
         assert getattr(window, name, None) is not None, name
 
 

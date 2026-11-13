@@ -759,6 +759,9 @@ class MainWindow(QtWidgets.QMainWindow):
             _le.textChanged.connect(self._mark_project_dirty)
         for _cb in (self.fitFunctionComboBox, self.pulseShapeComboBox):
             _cb.currentTextChanged.connect(self._mark_project_dirty)
+        self.overwrite_results_chk.toggled.connect(
+            self._on_overwrite_results_changed)
+        self.overwrite_results_chk.toggled.connect(self._mark_project_dirty)
         for _sb in (self.sampling_spinBox, self.spinBox, self.min_interval_spinBox,
                     self.n_repetitions_spinBox, self.spinBox2, self.spinBox3):
             _sb.valueChanged.connect(self._mark_project_dirty)
@@ -2828,11 +2831,20 @@ class MainWindow(QtWidgets.QMainWindow):
         res_fn = self.savePathLineEdit.text().strip()
         if res_fn and os.path.isfile(res_fn):
             kb = max(1, os.path.getsize(res_fn) // 1024)
-            set_info("info_results", f"exists · {kb} KB")
+            self.overwrite_results_chk.setToolTip(
+                f"The results file exists ({kb} KB). Uncheck to keep it and "
+                "write a timestamped copy instead.")
         elif res_fn:
-            set_info("info_results", "will be created")
+            self.overwrite_results_chk.setToolTip(
+                "The configured results file does not exist yet.")
+        else:
+            self.overwrite_results_chk.setToolTip("")
 
     # ── Project file state ─────────────────────────────────────────────────
+    def _on_overwrite_results_changed(self, checked):
+        if self.controller is not None:
+            self.controller.set_overwrite_results(bool(checked))
+
     def _mark_project_dirty(self, *_):
         if not getattr(self, "_project_ready", False) or self._project_loading:
             return
@@ -4541,6 +4553,7 @@ class MainWindow(QtWidgets.QMainWindow):
             "fit_fun": self.fitFunctionComboBox.currentText(),
             "map_elms": self.sampling_spinBox.value(),
             "results_fn": self.savePathLineEdit.text() or None,
+            "overwrite_results": self.overwrite_results_chk.isChecked(),
             "stimulator_amplitude": self.spinBox.value(),
             "target_order_fn": self.target_order_LineEdit.text() or None,
             "stimulator_waveform": self.pulseShapeComboBox.currentText(),
@@ -4611,6 +4624,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # 1. To prevent crashes if 'v' is None (using 'v or ""')
             # 2. To trigger manual backend functions since LineEdits don't have automatic valueChanged signals here
             "results_fn": lambda v: (self.savePathLineEdit.setText(v or ""),self.paste_save_path()),
+            "overwrite_results": self.overwrite_results_chk.setChecked,
             "target_order_fn": lambda v: (self.target_order_LineEdit.setText(v or ""),self.paste_target_order_path()),
             "targets_file": lambda v: (self.loadplacementlabel.setText(v or ""), self.paste_coil_placements_path()),
             "mesh_head_path": lambda v: (self.loadmeshlabel.setText(v or ""),self.paste_mesh_path()),
@@ -4639,6 +4653,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 if val is None:
                     continue
                 val = str(val)
+            elif key == "overwrite_results":
+                val = self._as_bool(val, True)
             elif val is None:
                 val = ""
             setter(val)

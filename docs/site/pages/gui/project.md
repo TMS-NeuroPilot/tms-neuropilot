@@ -59,7 +59,8 @@ simulator to its bundled default phantom (`head.stl`).
 - A message in the row tooltip or the log means the file is missing or failed
   validation.
 - The *Results file* row shows where the CSV will be written; its folder must
-  exist.
+  exist. **Overwrite existing file** is on by default. Turn it off to keep an
+  existing file and write the final table to a timestamped copy instead.
 - The **Config › Subject** tab mirrors this page read-only, with the same
   save/load shortcuts (see [Config page](gui/config.md)).
 

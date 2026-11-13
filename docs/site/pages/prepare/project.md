@@ -58,6 +58,7 @@ efield_mode: Precomputed
 | `surrogate_library_path` | path | none | dense library for the Interpolated mode (`E_mag` + `roi_hash`); needs `mesh_RIO_path` |
 | `emg_config_fn` | path | none | channel-source YAML |
 | `results_fn` | path | none | CSV written when the session finishes |
+| `overwrite_results` | bool | `true` | replace an existing `results_fn`; when false, an existing file is kept and the final table is written to `<name><stamp>.csv` |
 | `fit_fun` | string | `Linear` | one of the nine fit shapes; see [Analysis and fits](results/analysis.md) |
 | `map_elms` | int | `1` | analyse every n-th ROI element (subsampling) |
 | `stimulator_amplitude` | int | `20` | % MSO |

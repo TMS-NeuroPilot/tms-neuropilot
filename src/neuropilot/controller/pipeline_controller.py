@@ -390,6 +390,7 @@ class PipelineController:
         self.target_order = None
         self._targets_cache = None      # (path, signature, queue, matsimnibs)
         self.results_fn = None # TODO: Expose and sset via GUI
+        self.overwrite_results = True
 
         # we need this attribute for log that shows current steps
         self.current_target_index = None
@@ -642,6 +643,24 @@ class PipelineController:
         """
         self.results_fn = path
         print(f"Results filename set to: {path}")
+
+    def set_overwrite_results(self, enabled: bool):
+        """Keep or bypass an existing file at ``results_fn``."""
+        self.overwrite_results = bool(enabled)
+
+    def _results_output_path(self):
+        """Final results path, honouring the overwrite checkbox.
+
+        With overwrite off and an existing target, write the final table to
+        the timestamped checkpoint name instead of replacing the operator's
+        existing file.  A missing target is safe to write directly.
+        """
+        if not self.results_fn:
+            return None
+        if self.overwrite_results or not os.path.exists(self.results_fn):
+            return self.results_fn
+        stamp = self.datetime_str or datetime.now().strftime("%Y%m%d_%H%M%S")
+        return stamped_results_filename(self.results_fn, stamp)
 
     def toggle_start_pause(self):
         self.is_paused = not self.is_paused
@@ -1106,8 +1125,12 @@ class PipelineController:
                                  results_mep,
                                  results_mep_amp,
                                  results_mep_var], axis=1)
-            if self.results_fn is not None:
-                results.to_csv(self.results_fn, index=False)
+            out_fn = self._results_output_path()
+            if out_fn is not None:
+                results.to_csv(out_fn, index=False)
+                if out_fn != self.results_fn:
+                    self._log_step(
+                        f"Existing results file kept; wrote {out_fn}")
         except Exception as e:
             # A save failure must be visible to the operator, not just printed.
             self._log_step(f"[WARN] could not write the results file: "

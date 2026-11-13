@@ -203,16 +203,17 @@ def test_emg_summary_counts_sources(window, tmp_path):
     assert window.info_emg.text() == "2 sources"
 
 
-def test_results_summary_reports_existing_and_missing_files(window, qapp, tmp_path):
+def test_results_status_is_in_the_overwrite_checkbox_tooltip(
+        window, qapp, tmp_path):
     existing = tmp_path / "out.csv"
     existing.write_text("x" * 4096)
     window.savePathLineEdit.setText(str(existing))
     window._update_file_infos()
-    assert "exists" in window.info_results.text()
+    assert "exists" in window.overwrite_results_chk.toolTip()
 
     window.savePathLineEdit.setText(str(tmp_path / "later.csv"))
     window._update_file_infos()
-    assert window.info_results.text() == "will be created"
+    assert "does not exist" in window.overwrite_results_chk.toolTip()
 
 
 # ── close ──────────────────────────────────────────────────────────────

@@ -12,6 +12,11 @@ finishes (`Finish`). During the session, the analysis also writes timestamped
 snapshots next to it (`<name><stamp>.csv`), so an interrupted session still
 leaves the pulses collected so far.
 
+**Overwrite existing file** is on by default, so the final table replaces an
+existing `results_fn`. If it is off and the path already exists, the existing
+file is left untouched and the final table is written to `<name><stamp>.csv`
+instead.
+
 | Column | Unit | Meaning |
 |---|---|---|
 | `idx` | — | position in the target-order list (0-based) |

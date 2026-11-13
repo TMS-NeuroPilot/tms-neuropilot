@@ -17,6 +17,7 @@ PROJECT_KEYS = {
     "tuning_speed", "mesh_head_path", "mesh_RIO_path", "e_field_path",
     "surrogate_library_path",
     "coil_path", "emg_config_fn", "efield_mode", "collision_test",
+    "overwrite_results",
 }
 
 
@@ -418,3 +419,16 @@ def test_project_paths_are_saved_relative_to_the_project_file(window, tmp_path):
     window.apply_config_dict({"mesh_head_path": ""})
     assert window.load_project_file(str(project)) is None
     assert window.loadmeshlabel.text() == str(mesh)
+
+
+def test_overwrite_results_defaults_on_and_round_trips(window, controller):
+    assert window.overwrite_results_chk.isChecked() is True
+    window.set_controller(controller)
+    assert controller.overwrite_results is True
+
+    window.overwrite_results_chk.setChecked(False)
+    assert controller.overwrite_results is False
+    assert window.get_config_dict()["overwrite_results"] is False
+
+    window.apply_config_dict({"overwrite_results": "true"})
+    assert window.overwrite_results_chk.isChecked() is True
