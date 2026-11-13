@@ -248,26 +248,37 @@ class CollisionTestTab(QtWidgets.QWidget):
         start_layout.setContentsMargins(6, 4, 6, 4)
         start_layout.setSpacing(3)
         branch_row = QtWidgets.QGridLayout()
-        self.branch_buttons = []
-        self._branch_pairs = []
-        self.branch_group = QtWidgets.QButtonGroup(self)
-        self.branch_group.setExclusive(True)
-        for i, (label, shoulder, elbow) in enumerate((
-                ("Shoulder left / elbow up", "left", "up"),
-                ("Shoulder right / elbow up", "right", "up"),
-                ("Shoulder left / elbow down", "left", "down"),
-                ("Shoulder right / elbow down", "right", "down"))):
-            button = QtWidgets.QPushButton(label)
-            button.setProperty("role", "branch")
-            button.setCheckable(True)
-            button.clicked.connect(
-                lambda _=False, s=shoulder, e=elbow, b=button:
-                self._apply_branch(s, e, b))
-            branch_row.addWidget(button, i // 2, i % 2)
-            self.branch_buttons.append(button)
-            self._branch_pairs.append((shoulder, elbow))
-            self.branch_group.addButton(button)
+        branch_row.setHorizontalSpacing(8)
+        branch_row.setVerticalSpacing(3)
+        self.shoulder_combo = QtWidgets.QComboBox()
+        self.shoulder_combo.addItem("Left", "left")
+        self.shoulder_combo.addItem("Right", "right")
+        self.arm_combo = QtWidgets.QComboBox()
+        self.arm_combo.addItem("Up", "up")
+        self.arm_combo.addItem("Down", "down")
+        self.wrist_combo = QtWidgets.QComboBox()
+        self.wrist_combo.addItem("Normal", "normal")
+        self.wrist_combo.addItem("Flipped", "flipped")
+        for column, (label, combo) in enumerate((
+                ("Shoulder", self.shoulder_combo),
+                ("Arm", self.arm_combo),
+                ("Wrist", self.wrist_combo))):
+            cell = QtWidgets.QHBoxLayout()
+            cell.setSpacing(4)
+            cap = QtWidgets.QLabel(label)
+            cap.setProperty("role", "cap")
+            cap.setFixedWidth(58)
+            cell.addWidget(cap)
+            cell.addWidget(combo, 1)
+            branch_row.addLayout(cell, 0, column)
+        self.apply_branch_btn = QtWidgets.QPushButton(
+            "Set start pose from selection")
+        self.apply_branch_btn.setProperty("role", "branch")
+        self.apply_branch_btn.setToolTip(
+            "Solve the selected shoulder, arm and wrist branch.")
+        self.apply_branch_btn.clicked.connect(self._apply_branch)
         start_layout.addLayout(branch_row)
+        start_layout.addWidget(self.apply_branch_btn)
         actions = QtWidgets.QHBoxLayout()
         self.set_start_btn = QtWidgets.QPushButton("Set start from current")
         self.set_start_btn.setToolTip(
@@ -345,11 +356,11 @@ class CollisionTestTab(QtWidgets.QWidget):
     def _set_controls_enabled(self, enabled: bool):
         for widget in (self.base_editor, self.head_editor,
                        self.set_start_btn, self.go_start_btn,
+                       self.apply_branch_btn, self.shoulder_combo,
+                       self.arm_combo, self.wrist_combo,
                        self.scan_btn, self.stop_btn, self.reset_btn,
                        self.step_combo):
             widget.setEnabled(enabled)
-        for button in self.branch_buttons:
-            button.setEnabled(enabled)
         self.save_project_btn.setEnabled(enabled)
         self.save_lab_btn.setEnabled(enabled)
         self.use_btn.setEnabled(enabled)
@@ -403,18 +414,22 @@ class CollisionTestTab(QtWidgets.QWidget):
             base_ori = [float(v) for v in data["robot_base_orientation_deg"]]
             start = [float(v) for v in data["start_joints_rad"]]
             branch = [str(v).strip().lower()
-                      for v in data.get("branch", ("left", "up"))]
+                      for v in data.get("branch", ("left", "up", "normal"))]
             if any(len(v) != 3 for v in (head_pos, head_ori,
                                          base_pos, base_ori)):
                 raise ValueError("poses need three components")
             values = [*head_pos, *head_ori, *base_pos, *base_ori, *start]
             if not np.isfinite(values).all():
                 raise ValueError("poses and joints must be finite")
-            if len(start) != 6 or len(branch) != 2:
-                raise ValueError("start pose needs six joints and two branch signs")
+            if len(start) != 6 or len(branch) not in (2, 3):
+                raise ValueError("start pose needs six joints and branch signs")
             if branch[0] not in ("left", "right") \
                     or branch[1] not in ("up", "down"):
                 raise ValueError("unknown IK branch")
+            if len(branch) == 2:
+                branch.append("normal")
+            if branch[2] not in ("normal", "flipped"):
+                raise ValueError("unknown wrist branch")
         except (KeyError, TypeError, ValueError):
             return None
         return {
@@ -473,7 +488,7 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.session.set_head_pose(head_pos, head_ori)
         self.session.set_base_pose(base_pos, base_ori)
         self.session.start_joints = start
-        self.session.branch = (branch[0], branch[1])
+        self.session.branch = (branch[0], branch[1], branch[2])
         if update_controller and self.controller is not None:
             self.controller.start_pose_joints = list(start)
         self.session.reset_to_start()
@@ -488,7 +503,7 @@ class CollisionTestTab(QtWidgets.QWidget):
             "robot_base_position_m": list(sim_config.ROBOT_BASE_POSITION),
             "robot_base_orientation_deg": list(sim_config.ROBOT_BASE_ORIENTATION),
             "start_joints_rad": [0.0] * 6,
-            "branch": ["left", "up"],
+            "branch": ["left", "up", "normal"],
         }
 
     def _lab_config(self):
@@ -666,8 +681,6 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.progress.setValue(0)
         self.collision_label.clear()
         self.scan_status.clear()
-        for button in self.branch_buttons:
-            button.setChecked(False)
         self._set_status("Collision test is off.")
 
     # ── pose / start / jog ──────────────────────────────────────────
@@ -693,9 +706,12 @@ class CollisionTestTab(QtWidgets.QWidget):
         self._sync_view()
         self._update_collision()
 
-    def _apply_branch(self, shoulder, elbow, button=None):
+    def _apply_branch(self):
         if self.session is None:
             return
+        shoulder = self.shoulder_combo.currentData()
+        elbow = self.arm_combo.currentData()
+        wrist = self.wrist_combo.currentData()
         if self._scan_timer.isActive():
             self._stop_scan()
         previous_branch = tuple(self.session.branch)
@@ -711,7 +727,7 @@ class CollisionTestTab(QtWidgets.QWidget):
                 (original_pos, original_ori, "Home pose was not usable; ")):
             self.session.set_current_joints(original_joints)
             if not self.session.move_to(pos, ori, shoulder=shoulder,
-                                        elbow=elbow):
+                                        elbow=elbow, wrist=wrist):
                 continue
             if self.session.collision_state()["collision"]:
                 continue
@@ -878,21 +894,28 @@ class CollisionTestTab(QtWidgets.QWidget):
     def _sync_start_label(self):
         if self.session is None:
             self.start_label.setText("")
-            self._sync_branch_button()
+            self._sync_branch_controls()
             return
         joints = self.session.start_joints
         self.start_label.setText(
-            f"{self.session.branch[0]} / {self.session.branch[1]}  |  "
+            f"{self.session.branch[0]} / {self.session.branch[1]} / "
+            f"{self.session.branch[2]}  |  "
             + ", ".join(f"{np.degrees(v):.1f}°" for v in joints))
-        self._sync_branch_button()
+        self._sync_branch_controls()
 
-    def _sync_branch_button(self):
-        """Keep the preset matching the stored branch pressed down."""
-        if not hasattr(self, "branch_buttons"):
+    def _sync_branch_controls(self):
+        """Show the branch that is currently stored as the start pose."""
+        if self.session is None:
             return
-        active = tuple(self.session.branch) if self.session is not None else None
-        for button, pair in zip(self.branch_buttons, self._branch_pairs):
-            button.setChecked(tuple(pair) == active)
+        for combo, value in (
+                (self.shoulder_combo, self.session.branch[0]),
+                (self.arm_combo, self.session.branch[1]),
+                (self.wrist_combo, self.session.branch[2])):
+            index = combo.findData(value)
+            if index >= 0:
+                combo.blockSignals(True)
+                combo.setCurrentIndex(index)
+                combo.blockSignals(False)
 
     def _update_collision(self):
         if self.session is None:

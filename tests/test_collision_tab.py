@@ -25,7 +25,7 @@ CUSTOM = {
     "robot_base_position_m": [-0.2, 0.2, 0.0],
     "robot_base_orientation_deg": [0.0, 0.0, 0.0],
     "start_joints_rad": [0.1, 0.2, 0.3, -0.4, 0.5, -0.6],
-    "branch": ["right", "up"],
+    "branch": ["right", "up", "normal"],
 }
 
 
@@ -79,7 +79,8 @@ def test_scan_stops_and_reports_a_collision(window, qapp, h5file):
     try:
         home_pos, home_ori = tab.session.home_pose()
         assert tab.session.move_to(home_pos, home_ori,
-                                   shoulder="right", elbow="up")
+                                   shoulder="right", elbow="up",
+                                   wrist="flipped")
         tab.session.set_start_from_current()
         tab._start_scan()
         for _ in range(500):
@@ -114,7 +115,8 @@ def test_scan_completes_when_the_path_is_clear(h5file):
     try:
         home_pos, home_ori = session.home_pose()
         assert session.move_to(home_pos, home_ori,
-                               shoulder="right", elbow="up")
+                               shoulder="right", elbow="up",
+                               wrist="flipped")
         session.set_start_from_current()
 
         # Build the pipeline placement that maps back to this collision-free
@@ -270,17 +272,21 @@ def test_disabling_clears_the_placement_scan_log(window, qapp):
     assert tab.progress.value() == 0
 
 
-def test_start_pose_preset_stays_pressed(window, qapp):
+def test_start_pose_selectors_apply_one_branch(window, qapp):
     tab = window.collision_tab
     tab._enable()
     qapp.processEvents()
     try:
-        tab._apply_branch("right", "up")
+        tab.shoulder_combo.setCurrentIndex(
+            tab.shoulder_combo.findData("right"))
+        tab.arm_combo.setCurrentIndex(tab.arm_combo.findData("up"))
+        tab.wrist_combo.setCurrentIndex(tab.wrist_combo.findData("normal"))
+        tab._apply_branch()
         qapp.processEvents()
-        checked = [b for b in tab.branch_buttons if b.isChecked()]
-        assert len(checked) == 1
-        assert checked[0].text() == "Shoulder right / elbow up"
-        assert checked[0].property("role") == "branch"
+        assert tab.session.branch == ("right", "up", "normal")
+        assert tab.shoulder_combo.currentData() == "right"
+        assert tab.arm_combo.currentData() == "up"
+        assert tab.wrist_combo.currentData() == "normal"
     finally:
         tab._disable()
 
@@ -292,5 +298,7 @@ def test_collision_action_labels_and_short_tooltips(window):
     assert tab.use_btn.text() == "Use at start pose"
     assert tab.set_start_btn.text() == "Set start from current"
     assert tab.go_start_btn.text() == "Move to current start pose"
+    assert tab.apply_branch_btn.text() == "Set start pose from selection"
+    assert tab.wrist_combo.count() == 2
     for button in (tab.save_project_btn, tab.save_lab_btn, tab.use_btn):
         assert button.toolTip().strip()

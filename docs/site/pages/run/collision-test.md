@@ -77,15 +77,18 @@ label updates after every jog.
 
 ## Choose the start pose
 
-The four presets select the IK branch:
+Three selectors choose the IK branch:
 
-- shoulder left or right, meaning the sign of the first active joint;
-- elbow up or down, meaning the sign of the third active joint.
+- **Shoulder** left or right, the sign of the first active joint;
+- **Arm** up or down, the sign of the third active joint;
+- **Wrist** normal or flipped, the sign of the fifth active joint.
 
-Each preset first tries a Cartesian home point above the subject. If that point
-is unreachable or in collision, it tries the pose you are currently holding.
-If neither gives a collision-free branch, it restores the current pose and asks
-you to jog to a clear one. The resulting six joints become the start
+A 6R arm can have up to eight IK solutions. Some are unreachable because of
+joint limits or collisions. Press **Set start pose from selection** to solve the
+chosen branch. It first tries a Cartesian home point above the subject. If that
+point is unreachable or in collision, it tries the pose you are currently
+holding. If neither gives a collision-free branch, it restores the current pose
+and asks you to jog to a clear one. The resulting six joints become the start
 configuration.
 
 Use **Set start from current** to store the six joint angles of the pose you

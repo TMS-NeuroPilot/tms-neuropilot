@@ -97,7 +97,7 @@ class IKPySolver:
             return False, None
 
     @staticmethod
-    def _branch_signs(shoulder: str, elbow: str):
+    def _branch_signs(shoulder: str, elbow: str, wrist: str = "normal"):
         shoulder = str(shoulder).strip().lower()
         elbow = str(elbow).strip().lower()
         if shoulder in ("left", "l", "+", "plus", "positive"):
@@ -112,13 +112,23 @@ class IKPySolver:
             e = -1
         else:
             raise ValueError(f"Unknown elbow branch: {elbow!r}")
-        return s, e
+        wrist = str(wrist).strip().lower()
+        if wrist in ("normal", "n", "+", "plus", "positive"):
+            w = 1
+        elif wrist in ("flipped", "flip", "f", "-", "minus", "negative"):
+            w = -1
+        else:
+            raise ValueError(f"Unknown wrist branch: {wrist!r}")
+        return s, e, w
 
     def branch_of(self, solution: List[float]):
         """``('left'/'right', 'up'/'down')`` for a full ikpy solution."""
         sh = solution[self.active_indices[0]]
         el = solution[self.active_indices[2]]
-        return ("left" if sh > 0 else "right", "up" if el > 0 else "down")
+        wr = solution[self.active_indices[4]] if len(self.active_indices) > 4 else 0.0
+        return ("left" if sh > 0 else "right",
+                "up" if el > 0 else "down",
+                "normal" if wr >= 0 else "flipped")
 
     def solve_branch(
         self,
@@ -126,6 +136,7 @@ class IKPySolver:
         orientation_deg: List[float],
         shoulder: str = "left",
         elbow: str = "up",
+        wrist: str = "normal",
         attempts: int = 30,
         initial_position: Optional[List[float]] = None,
         seed: Optional[int] = None,
@@ -140,13 +151,17 @@ class IKPySolver:
         """
         if len(self.active_indices) < 3:
             return False, None
-        sh_sign, el_sign = self._branch_signs(shoulder, elbow)
+        sh_sign, el_sign, wr_sign = self._branch_signs(shoulder, elbow, wrist)
         sh_idx, el_idx = self.active_indices[0], self.active_indices[2]
+        wr_idx = self.active_indices[4] if len(self.active_indices) > 4 else None
         rng = random.Random(0 if seed is None else seed)
 
         def _matches(solution):
             if not ((solution[sh_idx] > 0) == (sh_sign > 0)
                     and (solution[el_idx] > 0) == (el_sign > 0)):
+                return False
+            if (wr_idx is not None
+                    and (solution[wr_idx] >= 0) != (wr_sign > 0)):
                 return False
             # ikpy can return a local minimum without raising.  A branch
             # preset must actually reach the requested Cartesian pose.
@@ -174,8 +189,10 @@ class IKPySolver:
             seed_position = list(base)
             seed_position[sh_idx] = sh_sign * rng.uniform(0.8, 2.8)
             seed_position[el_idx] = el_sign * rng.uniform(1.0, 2.6)
+            if wr_idx is not None:
+                seed_position[wr_idx] = wr_sign * rng.uniform(0.8, 2.6)
             for idx in self.active_indices:
-                if idx not in (sh_idx, el_idx):
+                if idx not in (sh_idx, el_idx, wr_idx):
                     seed_position[idx] += rng.uniform(-0.5, 0.5)
             ok, solution = self.solve(position_mm, orientation_deg,
                                       seed_position)

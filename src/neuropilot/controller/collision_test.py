@@ -53,7 +53,7 @@ class CollisionTestSession:
         self.base_pose = (list(sim_config.ROBOT_BASE_POSITION),
                           list(sim_config.ROBOT_BASE_ORIENTATION))
         self.start_joints: List[float] = [0.0] * 6
-        self.branch = ("left", "up")
+        self.branch = ("left", "up", "normal")
 
         self._scan_poses: List[Tuple[List[float], List[float]]] = []
         self._scan_results: List[dict] = []
@@ -131,9 +131,10 @@ class CollisionTestSession:
             solution[idx] = float(value)
         return solution
 
-    def branch_of_active(self, active: Sequence[float]) -> Tuple[str, str]:
+    def branch_of_active(self, active: Sequence[float]) -> Tuple[str, str, str]:
         return ("left" if active[0] > 0 else "right",
-                "up" if active[2] > 0 else "down")
+                "up" if active[2] > 0 else "down",
+                "normal" if active[4] >= 0 else "flipped")
 
     def set_start_from_current(self) -> Tuple[List[float], Tuple[str, str]]:
         self.start_joints = self.current_joints()
@@ -172,25 +173,27 @@ class CollisionTestSession:
     def move_to(self, position_mm: Sequence[float],
                 orientation_deg: Sequence[float],
                 shoulder: Optional[str] = None,
-                elbow: Optional[str] = None) -> bool:
+                elbow: Optional[str] = None,
+                wrist: Optional[str] = None) -> bool:
         """Solve IK for a world-frame coil pose and move the local model."""
         if not self.ready:
             self.ensure_ready()
         shoulder = shoulder if shoulder is not None else self.branch[0]
         elbow = elbow if elbow is not None else self.branch[1]
+        wrist = wrist if wrist is not None else self.branch[2]
         base_pos, base_ori = self.world_to_base_pose(
             position_mm, orientation_deg)
         active = self.current_joints()
         ok, solution = self.ik.solve_branch(
             base_pos, base_ori,
-            shoulder=shoulder, elbow=elbow,
+            shoulder=shoulder, elbow=elbow, wrist=wrist,
             initial_position=self._full_solution(active),
         )
         if not ok or solution is None:
             return False
         target = [solution[i] for i in self.ik.active_indices]
         self.world.reset_joint_positions(target)
-        self.branch = (shoulder, elbow)
+        self.branch = (shoulder, elbow, wrist)
         return True
 
     def jog(self, dx_mm: float = 0.0, dy_mm: float = 0.0,
@@ -248,13 +251,15 @@ class CollisionTestSession:
     def start_scan(self, placements: Sequence[Tuple[Sequence[float],
                                                     Sequence[float]]],
                    shoulder: Optional[str] = None,
-                   elbow: Optional[str] = None) -> None:
+                   elbow: Optional[str] = None,
+                   wrist: Optional[str] = None) -> None:
         """Run through SimNIBS placements, stopping at the first collision."""
         if not self.ready:
             self.ensure_ready()
         shoulder = shoulder if shoulder is not None else self.branch[0]
         elbow = elbow if elbow is not None else self.branch[1]
-        self.branch = (shoulder, elbow)
+        wrist = wrist if wrist is not None else self.branch[2]
+        self.branch = (shoulder, elbow, wrist)
         self._scan_base_targets = []
         for pos_mm, ori_deg in placements:
             world_pos, world_ori = pipeline_target_to_mujoco_world(
@@ -290,6 +295,7 @@ class CollisionTestSession:
         ok, solution = self.ik.solve_branch(
             target_pos, target_ori,
             shoulder=self.branch[0], elbow=self.branch[1],
+            wrist=self.branch[2],
             initial_position=self._full_solution(active),
         )
         if not ok or solution is None:
