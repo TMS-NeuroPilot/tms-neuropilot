@@ -1696,8 +1696,8 @@ class MainWindow(QtWidgets.QMainWindow):
             box = QtWidgets.QGroupBox(title)
             box.setProperty("card", True)
             col = QtWidgets.QVBoxLayout(box)
-            col.setContentsMargins(14, 6, 14, 10)
-            col.setSpacing(6)
+            col.setContentsMargins(14, 4, 14, 8)
+            col.setSpacing(5)
             for child in children:
                 if isinstance(child, QtWidgets.QLayout):
                     col.addLayout(child)
@@ -1825,10 +1825,6 @@ class MainWindow(QtWidgets.QMainWindow):
             ("Yaseen (2026) — virtual twin and real-time E-field approach (master's thesis)",
              "https://neuropilot-94ad2d.pages.gwdg.de/"),
         ]
-        left.addWidget(
-            card("Scientific background",
-                 [sci, papers_note, *[link(t, u) for t, u in papers]]))
-
         resources = [
             ("Documentation", "https://neuropilot-94ad2d.pages.gwdg.de/"),
             ("Source code",
@@ -1854,6 +1850,12 @@ class MainWindow(QtWidgets.QMainWindow):
                  "https://gitlab.gwdg.de/tms-localization/papers/"
                  "neuropilot/-/blob/main/LICENSE"),
         ]))
+        # The longest box goes to the right half, so the left column stays
+        # short enough for How to cite and Credits to fit under About.
+        right.addWidget(
+            card("Scientific background",
+                 [sci, papers_note, *[link(t, u) for t, u in papers]]))
+        right.addStretch(1)
 
         thesis_text = ("Yaseen, A. (2026). A Virtual Twin and Real-Time "
                        "E-Field Approach for Robot-Assisted TMS Motor Cortex "
@@ -1888,19 +1890,23 @@ class MainWindow(QtWidgets.QMainWindow):
             row.addWidget(btn, 0, QtCore.Qt.AlignTop)
             return row
 
-        right.addWidget(card("How to cite", [
+        left.addWidget(card("How to cite", [
             cite_row(thesis_text),
             cite_row(software_text),
         ]))
+
         credits = wrap(
             "Maintained by Ole Numssen (MPI CBS / ScaDS.AI) with the group "
             "and external collaborators — full list in", role="cap")
-        right.addWidget(card("Credits", [
+        left.addWidget(card("Credits", [
             credits,
             link("CONTRIBUTORS.md",
                  "https://gitlab.gwdg.de/tms-localization/papers/"
                  "neuropilot/-/blob/main/CONTRIBUTORS.md"),
         ]))
+        # Without a trailing stretch the layout inflates every card to fill
+        # the column height; the stretch lets cards keep their natural size.
+        left.addStretch(1)
 
         scroll = QtWidgets.QScrollArea()
         scroll.setWidgetResizable(True)
