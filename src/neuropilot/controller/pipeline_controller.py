@@ -277,12 +277,6 @@ from .systems.robot import Robot
 from datetime import datetime
 import pynibs
 import gdist
-# import multiprocessing
-#try:
-#    from simnibs.simulation.onlinefem import OnlineFEM, FemTargetPointCloud
-#    from simnibs.mesh_tools.mesh_io import read_msh
-#except ImportError:
-#    print(f"Cannot import OnlineFEM from SimNIBS")
 from .OnlineFEMManager import OnlineFEMManager
 from .SurrogateManager import SurrogateManager
 
@@ -290,9 +284,12 @@ load_dotenv()
 enable_health_check_and_control_panel = os.getenv('ENABLE_HEALTH_CHECK_AND_CONTROL_PANEL', 'false').lower() == 'true'
 
 root_folder = os.getenv('ROOT_FOLDER', os.getcwd())
-#targets_file = f'{root_folder}/coil_placements/search_positions.hdf5'
-EMG_PLOTS_FOLDER_PATH = f"{root_folder}/{os.getenv('EMG_PLOTS_FOLDER_PATH', 'emg_plots')}"
-P2P_PLOTS_FOLDER_PATH = f"{root_folder}/{os.getenv('P2P_PLOTS_FOLDER_PATH', 'p2p_plots')}"
+# Results folders live under ROOT_FOLDER; os.path.join keeps the separators
+# right on Windows (a literal "/" here would produce mixed separators).
+EMG_PLOTS_FOLDER_PATH = os.path.join(
+    root_folder, os.getenv('EMG_PLOTS_FOLDER_PATH', 'emg_plots'))
+P2P_PLOTS_FOLDER_PATH = os.path.join(
+    root_folder, os.getenv('P2P_PLOTS_FOLDER_PATH', 'p2p_plots'))
 for _folder in (EMG_PLOTS_FOLDER_PATH, P2P_PLOTS_FOLDER_PATH):
     try:
         os.makedirs(_folder, exist_ok=True)
@@ -472,27 +469,14 @@ class PipelineController:
 
         self.e_matrix = None  # Will hold the big E-field matrix
 
-        # -------------- Online stuff - hardcoded for now - TODO
+        # Online-field state lives in the managers; the GUI selects which
+        # source ("precomputed"/"online"/"surrogate") is active per pulse.
         self.online_fem_mgr = OnlineFEMManager()
         # E-field mode: "precomputed" / "online" / "surrogate" (the GUI sets
         # it; a string, so future sources such as a predicted field can be
         # added without another flag). None until the operator picks one.
         self.efield_mode = None
         self.surrogate_mgr = SurrogateManager()
-        #self.online_fem = None  # default: none has to be set from the GUI before start
-        #self.onlinefem_ready = False
-        #self.online_e_matrix = None
-        #self.online_fem_coil_fn =None #"/data/pt_01756/coils/ccd/MagVenture_MCF_B65_2234.ccd.nii.gz" # or ccd?
-        #self.online_fem_anisotropy = "scalar"
-        #self.online_fem_anisotropy_fn = ""
-        #self.online_fem_computer = None  # this is set by initialize_onlinefem
-        #self.online_fem_solver_options = "pardiso"
-        #self.online_fem_mesh = None # this is set by initialize_onlinefem
-        #self.mesh_fn_hdf5 = "/data/pt_01756/probands/30298.bb/mesh/charm_beta/m2m_30298.bb/30298.bb.hdf5"
-        #self.mesh_fn_msh = self.mesh_fn_hdf5.replace('.hdf5','.msh')
-        #self.mesh_fn_msh = None
-        #self.roi_fn_hdf5 = "/data/pt_01756/probands/30298.bb/mesh/charm_beta/roi/midlayer_m1s1pmd/geo.hdf5"
-        #self.roi_fn_hdf5 = None
 
 
         # load env stuff
@@ -538,52 +522,6 @@ class PipelineController:
         self.elm_idx_list = None
         self.n_elms = -1
 
-    # def _init_onlinefem_background(self):
-    #     try:
-    #         self.initialize_onlinefem()
-    #         self.onlinefem_ready = True
-    #         print("OnlineFEM ready.")
-    #         if self.control_panel:
-    #             self.control_panel.update_button_states()
-    #     except Exception as e:
-    #         print(f"OnlineFEM initialization failed: {e}")
-    #         self.onlinefem_ready = False
-    #
-    # def set_mesh_fn_msh(self, hdf5_path: str):
-    #     if hdf5_path:
-    #         self.mesh_fn_msh = hdf5_path.replace('.hdf5', '.msh')
-    #         print(f"Controller: Mesh .msh path set to {self.mesh_fn_msh}")
-    #     else:
-    #         self.mesh_fn_msh = None
-    #         print("Controller: Mesh .msh path cleared.")
-    #
-    # def set_roi_fn_hdf5(self, path: str):
-    #     self.roi_fn_hdf5 = path
-    #     print(f"Controller: ROI HDF5 path set to {path}")
-    #
-    # def set_coil_fn(self, path: str):
-    #     self.online_fem_coil_fn = path
-    #     print(f"Controller: Coil model path set to {path}")
-    #
-    # def initialize_onlinefem(self):
-    #     with h5py.File(self.roi_fn_hdf5, 'r') as f:
-    #         roi_tris = f["/mesh/elm/triangle_number_list"][:]
-    #         roi_nodes = f["/mesh/nodes/node_coord"][:]
-    #
-    #     tri_baricenters = np.mean(roi_nodes[roi_tris], axis=1)
-    #     self.online_fem_mesh = read_msh(self.mesh_fn_msh)
-    #     roi_onlinefem = FemTargetPointCloud(center=tri_baricenters, mesh=self.online_fem_mesh)
-    #     self.online_fem_computer = OnlineFEM(mesh=self.online_fem_mesh,
-    #                      method="TMS",
-    #                      fn_coil=self.online_fem_coil_fn,
-    #                      roi=roi_onlinefem,
-    #                      anisotropy_type=self.online_fem_anisotropy,
-    #                      solver_options=self.online_fem_solver_options,
-    #                      fn_logger=None,
-    #                      useElements=True,
-    #                      dataType=[1])
-
-        # <--- NEW: Loader for the E-Matrix File --->
     def clear_e_matrix(self):
         """Drop the precomputed matrix before a new file is read."""
         self.e_matrix = None
@@ -980,8 +918,6 @@ class PipelineController:
             await asyncio.sleep(0.1)
             mgr = self._active_efield_manager()
 
-        # for target_id, target in enumerate(target_queue):
-        # for pulse_idx, target_id in enumerate(target_order):
         print(f"len target_order: {len(target_order)}")
         while self.current_target_order_idx < len(target_order):
             target_id = target_order[self.current_target_order_idx]
@@ -996,7 +932,6 @@ class PipelineController:
             # 2) Wait here until Start is pressed (allow_next_target == True)
             while self.is_paused and not self.is_finished:
                 # we stay here between targets when user pressed Pause
-                # print("Is paused")
                 await asyncio.sleep(0.05)
 
             # If Finish was pressed while we were waiting, stop
@@ -1005,7 +940,6 @@ class PipelineController:
                 break
 
             self.current_target_index = target_id
-            # self.current_pulse_idx = pulse_idx
             current_target_text = (f"pulse {self.current_target_order_idx}"
                                    f" · {self.current_rep}/{self.n_repetitions}"
                                    f" · target {target_id}")
@@ -1063,7 +997,6 @@ class PipelineController:
                     elif self.current_step == Step.COLLECT_DATA:
                         await self.collect_data_step(target)
                     elif self.current_step == Step.ANALYSE:
-                        # print("Switched to analyse")
                         self.analyse_step(target)
                 except asyncio.CancelledError:
                     raise
@@ -1268,7 +1201,6 @@ class PipelineController:
         -------
         None
         """
-        # print(f"Switch_step start with {new_step}")
         if isinstance(new_step, str):
             if new_step.lower() == "skip":
                 new_step = Step.COMPLETE
@@ -1297,7 +1229,6 @@ class PipelineController:
         # the monotonic clock so an NTP jump cannot shorten the ISI.
         self.current_step_started_mono = time.monotonic()
         self.current_step = new_step
-        # print("Current step is changed to %s" % self.current_step)
 
         # update the GUI log that shows the steps
         if self.control_panel:
@@ -1542,12 +1473,10 @@ class PipelineController:
                 except Exception as e:
                     self._log_step(f"[WARN] could not list the EMG folder: {e}")
 
-            #self.stimulator.fire()
             self.trigger_stim()
 
             # Create a marker in InVesalius
             topic = "Create marker"
-            # data = {"stim_mark"}
             asyncio.create_task(self.remote.send_message(topic, data = {"label" : "stim_mark"}))
 
             self.stim_armed = False
@@ -1575,7 +1504,6 @@ class PipelineController:
                 self.switch_step(Step.COMPLETE)
                 return
         if self.target_created and time.time() - self.current_step_start_time > 2.0:
-            # self.stimulator.disarm()
 
             print(f"target pos, angles:\n {self.target_at_stim}")
 
@@ -1670,7 +1598,6 @@ class PipelineController:
                     meps, emg_preac_amp, emg_preac_var = nan, dict(nan), dict(nan)
 
             # --- 1. STORE DATA in the pipeline_controller for the analysis ---
-            # if meps:
             e_row = self._check_row_width(e_row)
 
             # Store the index of the coil position used
@@ -1705,37 +1632,7 @@ class PipelineController:
                         emg_data = emg_data,
                         meps = meps,
                 )
-            # self.create_emg_plot(emg_data)
-            # print("EMG plot printed!")
 
-            # if self.online_fem:
-            #     from scipy.spatial.transform import Rotation
-            #     # compute matsimnibs
-            #     #matsimnibs_realized = tr.compose_matrix(translate=marker[0], angles=marker[1])
-            #     #matsimnibs_realized = tr.euler_matrix(marker[1][0], marker[1][1], marker[1][2], "sxyz")
-            #
-            #     matsimnibs_realized = np.eye(4)
-            #     matsimnibs_realized[:3, :3] = Rotation.from_euler("xyz", marker[1], degrees=True).as_matrix()
-            #     matsimnibs_realized[:3, 3] = np.array(marker[0], dtype=float)
-            #     matsimnibs_realized[:3,3] = np.array(marker[0])
-            #     didt_realized = self.stimulator_amplitude_at_stim * 1.4 * 1e6
-            #     print(f"matsimnibs_realized: {matsimnibs_realized}")
-            #
-            #     matsimnibs_target = tr.compose_matrix(translate=self.target_at_stim[0], angles=self.target_at_stim[0])
-            #     print(f"matsimnibs_target: {matsimnibs_target}")
-            #
-            #     # compute E-field
-            #     e_mag = self.online_fem_computer.update_field(matsimnibs=matsimnibs_realized, didt=didt_realized)[0][0]
-            #     e_mag = np.linalg.norm(e_mag, axis=1)
-            #     print(f"e_mag.shape: {e_mag.shape}")
-            #     # append online E-field
-            #     if self.online_e_matrix is None:
-            #         self.online_e_matrix = e_mag
-            #     else:
-            #         self.online_e_matrix = np.vstack((self.online_e_matrix, e_mag))
-
-            # print("Data collected. Switching to Analysis...")
-            # <--- CHANGE: Go to Analyse instead of Complete
             self.switch_step(Step.ANALYSE)
             results = pd.DataFrame().from_dict(self.realized_targets)
             results_mep = pd.DataFrame().from_dict(self.mep_history)
@@ -1745,7 +1642,6 @@ class PipelineController:
                                  results_mep,
                                  results_mep_amp,
                                  results_mep_var], axis=1)
-            # print(results)
             if self.results_fn is not None:
                 out_fn = stamped_results_filename(self.results_fn, self.datetime_str)
                 try:
@@ -1784,17 +1680,7 @@ class PipelineController:
         # Only run if we have at least 3 samples
         if n_samples >= 3:
             print(f"--- Triggering Analysis (Sample {n_samples}) ---")
-            # loop = asyncio.get_event_loop()
-            #
-            # def _background():
-            #     self.run_analysis()  # does the heavy work
-            #     # nothing else here: we do NOT touch current_step from the worker
-            #
-            # loop.run_in_executor(self._analysis_executor, _background)
             self.request_analysis()
-
-            # task = asyncio.create_task(self.run_analysis(self.used_coil_placements_idx))
-            # self.running_analyses_tasks.append(task)  # optional book-keeping
 
         else:
             print(f"Skipping analysis (N samples {n_samples} < 3).")
@@ -1878,21 +1764,6 @@ class PipelineController:
             axes[i].grid(True, linestyle='--', alpha=0.5)
             axes[i].set_xlabel('Time' if i == len(channels) - 1 else '')
             axes[i].set_title(f'{ch} Signal')
-
-        # # Plot p2ps
-        # sns.set(style='whitegrid')
-        # p2p_array = []
-        # fig, axes = plt.subplots(len(channels), 1, sharex=True, figsize=(12, 8))
-        # for i, (ch, color) in enumerate(zip(channels, colors)):
-        #     p2p, times, _ = pn.calc_p2p(ch)
-        #     p2p_array.append(p2p)
-        #     sns.lineplot(ax=axes[i], x='Time', y=ch, data=p2p_array, color=color)
-
-
-        #     axes[i].set_ylim(ymin, ymax)  # Shared y-axis limits
-        #     axes[i].grid(True, linestyle='--', alpha=0.5)
-        #     axes[i].set_xlabel('Time' if i == len(channels) - 1 else '')
-        #     axes[i].set_title(f'{ch} Signal')
 
         plt.tight_layout()
 
@@ -2057,9 +1928,6 @@ class PipelineController:
             tasks.append((channel_name, [meps[pos] for pos in finite],
                           e_matrix_subset[finite], self.fit_fun,
                           self.elm_idx_list, self.n_elms))
-
-        # Optionally reset or keep accumulating
-        # self.final_scores = {}
 
         with ProcessPoolExecutor() as executor:
             futures = {executor.submit(_regress_single_channel, t): t[0] for t in tasks}

@@ -146,7 +146,6 @@ class MplGraphWidget(QWidget):
                 self.ax.set_xlim(left=1, right=6)
 
             # Turn on the grid so it looks ready
-           # self.ax.grid(True, linestyle=':', alpha=0.6)
 
             # Force the canvas to visually update
             self.canvas.draw()
@@ -280,8 +279,7 @@ class MplGraphWidget(QWidget):
         self.ax.set_xlabel("Time (s)", fontsize=15)
         self.ax.grid(True, linestyle=':', alpha=0.6)
 
-        # Remove legend because the sidebar acts as the legend
-        # self.ax.legend(...)
+        # No legend here: the sidebar acts as the legend.
 
         self.update_visibility()
 

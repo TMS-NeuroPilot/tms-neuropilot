@@ -30,6 +30,23 @@ LAB_KEYS = (
     "COLLISION_TEST",
 )
 
+def _serial_defaults():
+    """Platform-aware serial/TTL port defaults for the stimulator.
+
+    Linux uses the classic ``/dev/ttyS*`` serial and ``/dev/parport*``
+    parallel (TTL) devices. Windows has no ``/dev`` namespace: serial ports
+    are ``COM*`` (there is no universal default, ``COM3`` is the common
+    first external port), and a TTL line is only available through vendor
+    parallel hardware, so it defaults to empty there. Either is overridden
+    by ``.env`` / the lab profile.
+    """
+    if os.name == "nt":
+        return "COM3", ""
+    return "/dev/ttyS1", "/dev/parport0"
+
+
+STIMULATOR_PORT_DEFAULT, STIMULATOR_TTL_PORT_DEFAULT = _serial_defaults()
+
 # Same values as the Config tab has always shown; kept here so a missing
 # lab.yaml (and a missing .env) still yields the documented defaults.
 DEFAULTS = {
@@ -40,8 +57,8 @@ DEFAULTS = {
     "UI_THEME": "Workstation Light",
     "ROBOT": "omron",
     "TMS_ROBOT_CONTROL_PATH": "",
-    "STIMULATOR_PORT": "/dev/ttyS1",
-    "STIMULATOR_TTL_PORT": "/dev/parport0",
+    "STIMULATOR_PORT": STIMULATOR_PORT_DEFAULT,
+    "STIMULATOR_TTL_PORT": STIMULATOR_TTL_PORT_DEFAULT,
     "EMG_COMPUTER_IP": "192.168.1.2",
     "EMG_COMPUTER_USERNAME": "neuro",
     "EMG_COMPUTER_PASSWORD": "",

@@ -107,16 +107,9 @@ class Remote:
         topic = data.get("topic")
         payload = data.get("data")
 
-        if self.verbose:
-            #print(f"[SIM REMOTE] relay -> pipeline | {topic} | {payload}")
-            pass
-
         handler = self.topic_handlers.get(topic)
 
         if handler is None:
-            if self.verbose:
-                #print(f"[SIM REMOTE] No handler defined for topic: {topic}")
-                pass
             return
 
         result = handler(payload)

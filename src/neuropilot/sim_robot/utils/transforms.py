@@ -2,12 +2,6 @@ from typing import List, Tuple
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-#import sys
-#from pathlib import Path
-#sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-#import transformations as tr
-
-
 
 def euler_deg_to_quat(orientation_deg: List[float]) -> List[float]:
     """
@@ -113,14 +107,7 @@ def inverse_pipeline_axis_transform(
     R_inv = R.copy()
     R_inv[:, 0], R_inv[:, 1] = R[:, 1].copy(), R[:, 0].copy()
     R_inv[:, 2] *= -1
-    #print("HERE IS THE TRANSFORMED TARGET MATRIX", R_inv)
     euler_inv = Rotation.from_matrix(R_inv).as_euler("xyz", degrees=True).tolist()
-    #print("HERE IS THE TRANSFORMED TARGET degrees", euler_inv)
-    #R_inv_4x4 = np.eye(4)
-    #R_inv_4x4[:3, :3] = R
-    #euler_inv2 = np.degrees(tr.euler_from_matrix(R_inv_4x4, "sxyz"))
-    #print("HERE IS THE TRANSFORMED TARGET degrees 2nd version", euler_inv2)
-    #print("HERE IS THE TRANSFORMED TARGET pose", pos)
 
     return pos, euler_inv
 

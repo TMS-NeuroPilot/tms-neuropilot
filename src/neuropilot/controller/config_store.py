@@ -111,7 +111,7 @@ class ConfigStore:
         if not self.path.is_file():
             return values
         try:
-            text = self.path.read_text()
+            text = self.path.read_text(encoding="utf-8")
         except OSError:
             return values
         for line in text.splitlines():
@@ -131,7 +131,7 @@ class ConfigStore:
         lines = []
         if self.path.is_file():
             try:
-                lines = self.path.read_text().splitlines()
+                lines = self.path.read_text(encoding="utf-8").splitlines()
             except OSError:
                 lines = []
 
@@ -153,6 +153,6 @@ class ConfigStore:
         text = "\n".join(lines).rstrip() + "\n"
         self.path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.path.with_suffix(self.path.suffix + ".tmp")
-        tmp.write_text(text)
+        tmp.write_text(text, encoding="utf-8")
         os.replace(tmp, self.path)
         return values

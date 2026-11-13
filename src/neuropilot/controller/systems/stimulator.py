@@ -2,6 +2,7 @@ import os
 
 import magicpy as mp
 from ..systems.system import SystemStatus, System
+from ...lab_profile import STIMULATOR_PORT_DEFAULT, STIMULATOR_TTL_PORT_DEFAULT
 import asyncio
 import serial
 from concurrent.futures import ThreadPoolExecutor
@@ -29,10 +30,11 @@ class Stimulator(System):
                 print(f"Stimulator error in {getattr(fn, '__name__', fn)}: {e}")
         self._serial_executor.submit(_worker)
 
-    # Serial + TTL ports of the stimulator (Aachen used /dev/ttyS0).
+    # Serial + TTL ports of the stimulator (Aachen used /dev/ttyS0 on Linux;
+    # Windows defaults to COM3 / no TTL line, see lab_profile._serial_defaults).
     # Overridable from .env (Config tab: Stimulator → serial / TTL port).
-    PORT = os.getenv("STIMULATOR_PORT", "/dev/ttyS1")
-    TTL_PORT = os.getenv("STIMULATOR_TTL_PORT", "/dev/parport0")
+    PORT = os.getenv("STIMULATOR_PORT", STIMULATOR_PORT_DEFAULT)
+    TTL_PORT = os.getenv("STIMULATOR_TTL_PORT", STIMULATOR_TTL_PORT_DEFAULT)
 
     def try_connect(self):
         """Open the serial port (and the TTL port if the PC has one).

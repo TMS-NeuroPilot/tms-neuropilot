@@ -324,6 +324,11 @@ def test_config_store_with_a_directory_path(tmp_path):
 
 
 def test_config_store_with_a_readonly_parent(tmp_path):
+    # POSIX permission semantics only: on Windows os.chmod toggles the
+    # read-only attribute, but a read-only directory still accepts new files,
+    # so the write would not fail and the rest of this test is meaningless.
+    if os.name == "nt":
+        pytest.skip("directory permissions via os.chmod are POSIX-only")
     from neuropilot.controller.config_store import ConfigStore
     folder = tmp_path / "ro"
     folder.mkdir()

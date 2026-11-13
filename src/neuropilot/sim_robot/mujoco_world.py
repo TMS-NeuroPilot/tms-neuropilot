@@ -215,8 +215,13 @@ class MuJoCoWorld:
                       f'pos="{pos_str}" xyaxes="{xyaxes_str}"/>')
 
         def _include_for(path: str) -> str:
-            """Include paths must be relative to the composed file's directory."""
-            return os.path.relpath(os.path.join(PROJECT_ROOT, path), composed_dir)
+            """Include paths must be relative to the composed file's directory.
+
+            MuJoCo treats ``\\`` as an escape character in XML attributes, so
+            relpaths from ``os.path.relpath`` must use forward slashes (on
+            Windows they otherwise come back with backslashes)."""
+            rel = os.path.relpath(os.path.join(PROJECT_ROOT, path), composed_dir)
+            return rel.replace(os.sep, "/")
 
         head_include = (
             f'<include file="{_include_for(config.HEAD_MJCF_PATH)}"/>'
@@ -238,7 +243,10 @@ class MuJoCoWorld:
             head_fn = os.path.join(PROJECT_ROOT, config.HEAD_MJCF_PATH)
             with open(head_fn, encoding="utf-8") as f:
                 head_xml = f.read()
-            mesh_fn = _xml_escape(os.path.abspath(head_mesh_stl),
+            # An absolute path is used here (independent of the meshdir); on
+            # Windows it contains backslashes, but MuJoCo only accepts '/'
+            # separators inside XML attributes (backslash is an escape char).
+            mesh_fn = _xml_escape(os.path.abspath(head_mesh_stl).replace(os.sep, "/"),
                                   {'"': "&quot;"})
             head_xml, n = re.subn(
                 r'(<mesh\s+file=")[^"]*(" name="head_mesh")',
@@ -358,7 +366,6 @@ class MuJoCoWorld:
             viewer.cam.elevation = -35.0      # vertical angle
             while viewer.is_running() and self._running:
                 with self._data_lock:
-                    #mujoco.mj_step(self.model, self.data,1)  # to control the robot from the control section in gui
                     viewer.sync()
                 time.sleep(1.0 / 60.0)
 

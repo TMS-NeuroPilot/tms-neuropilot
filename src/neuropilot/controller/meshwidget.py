@@ -348,15 +348,6 @@ class MeshWidget(QWidget):
         # readable when the surface is a single colour with edge lines.
         self._ensure_lightkit()
 
-        # <--- ADD THIS: PERFORMANCE SETTINGS --->
-        # <--- start --->
-        # This allows the resolution to drop slightly ONLY while you rotate
-        # self.plotter.ren_win.SetDesiredUpdateRate(5.0)
-
-        # This uses a faster lighting system
-        # self.plotter.enable_lightkit()
-        # <--- END --->
-
         self.plotter.set_background("#FFFFFF")     # apply_theme() overrides
         self.plotter.add_axes()
         self.plotter.view_isometric()
@@ -1047,29 +1038,10 @@ class MeshWidget(QWidget):
                 if len(scores) == self.current_mesh.n_cells:
                     # Naming convention: "Score ADC 0"
                     data_name = f"Score {channel_name}"
-                    #--- BEGIN NORMALIZATION SCORE BLOCK
-                    # NEW: Normalize scores to [0, 1]
-                   # scores_min = scores.min()
-                   # scores_max = scores.max()
-                   # if scores_max > scores_min:
-                    #    scores = (scores - scores_min) / (scores_max - scores_min)
-                    #else:
-                    #    scores = np.zeros_like(scores)  # All same → map to 0
-                    # --- END NORMALIZATION SCORE BLOCK
-
                     self.current_mesh.cell_data[data_name] = scores
 
                 elif len(scores) == self.current_mesh.n_points:
                     data_name = f"Score {channel_name}"
-                    # --- BEGIN NORMALIZATION SCORE BLOCK
-                    # NEW: Normalize scores to [0, 1]
-                   # scores_min = scores.min()
-                   # scores_max = scores.max()
-                   # if scores_max > scores_min:
-                     #   scores = (scores - scores_min) / (scores_max - scores_min)
-                    #else:
-                     #   scores = np.zeros_like(scores)  # All same → map to 0
-                    # --- END NORMALIZATION SCORE BLOCK
                     self.current_mesh.point_data[data_name] = scores
 
                 else:
@@ -1265,8 +1237,6 @@ class MeshWidget(QWidget):
             return
 
         array_name = self.scalar_selector.currentData()
-        #self.plotter.clear()
-        #self.plotter.add_axes()
 
         if array_name is None:
             self._bar_title = ""

@@ -150,26 +150,6 @@ async def main():
     world.connect()
     log.info("MuJoCo world loaded")
 
-
-    #state.set_target(
-    #    position=[582.7202, -123.388, 0],  # mm
-     #   #orientation=[-176.24, 46.23, 94.45],  # degrees
-    #    orientation=[180, 0, 180],  # degrees
-    #    label="test"
-    #)
-    # 6 physical robot joint angles in DEGREES
-    #physical_joints_deg = [-0.1, 53.36, 83.43, -46.9, -269.98, 269.74]  # ← replace with your values
-
-    # Convert to radians (MuJoCo uses radians)
-    #physical_joints_rad = [math.radians(a) for a in physical_joints_deg]
-
-    # Snap the simulation instantly to that pose
-    #world.reset_joint_positions(physical_joints_rad)
-    #print("AFTER RESET:", world.get_joint_positions())
-    #print("hereeeeeeeeeeeeeeeeeee", physical_joints_rad)
-    #world.step(n_steps=10)  # settle the simulation visually
-    #state.set_tracking_enabled(True)
-
     # ── 3. IK solver ──────────────────────────────────────────────────
     ik_solver = IKPySolver(
         urdf_path=config.ROBOT_URDF_PATH,
@@ -182,14 +162,6 @@ async def main():
     # ── 4. Collision checker + contact model ──────────────────────────
     collision_checker = CollisionChecker(world)
     contact_model     = ContactModel(world, collision_checker)
-
-    # BEGIN---test the SELF collision
-    #self_colliding_joints = [0.0, 0.0, 2.25, -0.5, -4.7, 4.78]
-    #self_colliding_joints = [0.0, 0.0, 2.25, -0.6, -4.7, 4.78]
-    #world.reset_joint_positions(self_colliding_joints)
-    #world.step(n_steps=5)
-    #print("Self-collision:", collision_checker.check_self_collision())
-    # END---test the SELF collision
 
     # ── 5. Motion planner ─────────────────────────────────────────────
     motion_planner = MotionPlanner(

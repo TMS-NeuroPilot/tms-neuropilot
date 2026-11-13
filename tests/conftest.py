@@ -21,8 +21,12 @@ from helpers import build_window  # noqa: E402  (tests/ is on sys.path)
 
 # The suite writes results/study files under ROOT_FOLDER in a few code paths;
 # keep those out of the user's home.  `.env` does not override an existing
-# variable (load_dotenv(override=False)), so this wins.
-os.environ.setdefault("ROOT_FOLDER", "/tmp/opencode/neuropilot_tests")
+# variable (load_dotenv(override=False)), so this wins.  tempfile.gettempdir()
+# gives a writable scratch dir on every OS (/tmp on Linux, %TEMP% on Windows).
+import tempfile
+
+os.environ.setdefault("ROOT_FOLDER",
+                      str(Path(tempfile.gettempdir()) / "neuropilot_tests"))
 
 
 # ── Guard rails: the suite must never write the user's configuration ───
@@ -60,7 +64,10 @@ def qapp():
     app = QtWidgets.QApplication.instance()
     if app is not None:
         return app
-    if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+    # Qt always has a native windowing backend on Windows (no X server), so
+    # the DISPLAY/WAYLAND_DISPLAY skip only applies to Linux/macOS.
+    if not sys.platform.startswith("win") and not (
+            os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
         pytest.skip("GUI tests need a display (DISPLAY/WAYLAND_DISPLAY unset)")
     try:
         app = QtWidgets.QApplication([])

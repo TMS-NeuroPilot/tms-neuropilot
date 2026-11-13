@@ -120,6 +120,46 @@ controller after editing it. See the [`.env` reference](config/env.md) for all
 keys and the [settings model](config/model.md) for how `.env` interacts with
 the lab profile.
 
+## 6b. Windows
+
+The controller, the four components and the whole simulated stack run on
+Windows. The conda steps above work unchanged on win-64 (conda-forge ships
+PyQt5, VTK, numpy, etc. for Windows; `mujoco`, `pybullet`, `ikpy` and
+`smbprotocol` have Windows wheels):
+
+```bat
+conda create -n pipeline python=3.11 -y
+conda activate pipeline
+conda install -c conda-forge -y ^
+    pyqt qasync pyvista vtk h5py scipy numpy pyyaml requests ^
+    python-socketio aiohttp python-dotenv
+pip install mujoco pybullet ikpy smbprotocol
+pip install -e . --no-deps
+neuropilot sim
+```
+
+Platform-specific notes:
+
+- **Serial ports.** There is no `/dev/` namespace on Windows: the built-in
+  `STIMULATOR_PORT` default is `COM3` and there is no default TTL (parallel)
+  port. For a real session set them explicitly in `.env`
+  (`STIMULATOR_PORT=COM3`). The real-hardware drivers (`magicpy`, `pynibs`,
+  InVesalius, `tms-robot-control`) must be installable on the machine too;
+  the simulation stack has no such requirement.
+- **SimNIBS.** Install it on Windows from the official installer/conda builds.
+  The "MKL sonames" note above is Linux-specific (`libmkl*.so.2`); SimsNIBS'
+  Windows wheels bundle their own runtimes.
+- **Audio.** The virtual stimulator's pulse alert uses `winsound` on Windows
+  instead of `paplay`.
+- **Path handling.** MuJoCo scenes are generated with `/` separators inside
+  the MJCF (`\` is an escape character in MuJoCo XML), and results folders
+  are joined with `os.path.join`, so both work under Windows file APIs.
+- **Tests:** run `pytest -m "not gui"` (or the full suite; the GUI tests run
+  natively on Windows). `scripts/run_tests.sh` is a bash helper for Linux CI.
+- `scripts/install_desktop_entry.sh` is Linux-only; on Windows launch the
+  installed console script `neuropilot.exe` from the environment's
+  `Scripts\` folder.
+
 ## 7. Optional: the GUI scale and the theme
 
 On a HiDPI screen the GUI may open too small or too large. Set the scale

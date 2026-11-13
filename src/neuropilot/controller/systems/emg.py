@@ -145,13 +145,6 @@ class EMGComputer(System):
         if idx is None:
             idx = -1
         last_file_path = os.path.join(self.EMG_OUTPUT_FOLDER_PATH, files[idx]).replace("/", "\\")
-        #file_paths = []
-        #for f in files:
-        #    full_path = os.path.join(self.EMG_OUTPUT_FOLDER_PATH, f).replace("/", "\\")
-        #    if smbclient.path.isfile(full_path):
-        #        file_paths.append((f, full_path))
-        #file_paths.sort(key=lambda x: x[0])
-        #_, last_file_path = file_paths[-1]
 
         with smbclient.open_file(last_file_path, mode='r') as f:
             # The file is tab separated, not comma separated and the quotechar is "" not ''
