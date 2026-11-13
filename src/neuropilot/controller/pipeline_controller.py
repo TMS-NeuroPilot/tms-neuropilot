@@ -1475,7 +1475,7 @@ class PipelineController:
             if isinstance(self.emg_computer, VirtualEMG):
                 self.emg_computer.set_current_state(
                     coil_placement_idx=self.current_target_index,
-                    stimuator_amplitude =self.stimulator_amplitude,
+                    stimuator_amplitude=self.stimulator_amplitude_at_stim,
                 )
 
 

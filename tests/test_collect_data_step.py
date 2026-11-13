@@ -166,6 +166,57 @@ def test_rows_stay_aligned_with_placements_and_meps():
     assert ctrl.pulse_modes == ["precomputed"] * 3
 
 
+def test_each_precomputed_pulse_uses_its_own_amplitude():
+    # The operator can move the MSO slider between pulses, and may do so
+    # again while the pulse is being collected.  The row must use the value
+    # captured at fire time, not the current slider value.
+    matrix = np.ones((3, 2))
+    ctrl = make_controller(online=False, e_matrix=matrix, amplitude=70)
+    ctrl.stimulator_amplitude = 30          # slider moved after this pulse
+    run_step(ctrl)
+
+    ctrl.stimulator_amplitude_at_stim = 30  # next pulse fires at 30 %
+    run_step(ctrl)
+
+    assert ctrl.realized_targets["intensity"] == [70, 30]
+    np.testing.assert_allclose(ctrl.pulse_e_fields[0], 70 * 1.4 * np.ones(2))
+    np.testing.assert_allclose(ctrl.pulse_e_fields[1], 30 * 1.4 * np.ones(2))
+
+
+def test_online_pulse_passes_its_own_amplitude_to_the_solver():
+    ctrl = make_controller(online=True, computed=np.ones(2), amplitude=70)
+    run_step(ctrl)
+
+    ctrl.stimulator_amplitude_at_stim = 30
+    run_step(ctrl)
+
+    assert [amp for _, amp in ctrl.online_fem_mgr.calls] == [70, 30]
+    assert ctrl.realized_targets["intensity"] == [70, 30]
+
+
+def test_surrogate_pulse_passes_its_own_amplitude_to_the_interpolator():
+    ctrl = make_controller(online=False, e_matrix=np.ones((3, 2)), amplitude=70)
+    calls = []
+
+    def compute_e_field(marker, amplitude):
+        calls.append(amplitude)
+        return np.full(2, amplitude * 1.4)
+
+    ctrl.efield_mode = "surrogate"
+    ctrl.surrogate_mgr = SimpleNamespace(compute_e_field=compute_e_field)
+    run_step(ctrl)
+
+    ctrl.stimulator_amplitude_at_stim = 30
+    run_step(ctrl)
+
+    assert calls == [70, 30]
+    assert ctrl.realized_targets["intensity"] == [70, 30]
+    np.testing.assert_allclose(ctrl.pulse_e_fields[0], 70 * 1.4 * np.ones(2))
+    np.testing.assert_allclose(ctrl.pulse_e_fields[1], 30 * 1.4 * np.ones(2))
+    np.testing.assert_allclose(ctrl.emg_computer.calls[0], 70 * 1.4 * np.ones(2))
+    np.testing.assert_allclose(ctrl.emg_computer.calls[1], 30 * 1.4 * np.ones(2))
+
+
 def test_switching_modes_between_pulses_keeps_each_source():
     ctrl = make_controller(online=False, e_matrix=np.full((2, 2), 2.0), amplitude=10)
     run_step(ctrl)                                   # precomputed

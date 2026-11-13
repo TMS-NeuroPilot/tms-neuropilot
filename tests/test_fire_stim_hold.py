@@ -129,6 +129,30 @@ def test_precomputed_mode_never_waits():
     assert ctrl.control_panel.finishedsteps.lines == []
 
 
+def test_pulse_records_the_amplitude_at_fire_time():
+    """The slider may change between pulses; each pulse keeps its own MSO."""
+    ctrl = make_controller(online=False)
+    ctrl.stimulator_amplitude = 70
+    fire_stim_step(ctrl, target=None)
+    assert ctrl.stimulator_amplitude_at_stim == 70
+
+    ctrl.stimulator_amplitude = 30
+    fire_stim_step(ctrl, target=None)
+    assert ctrl.stimulator_amplitude_at_stim == 30
+
+
+def test_changing_the_slider_after_a_pulse_does_not_change_its_intensity():
+    ctrl = make_controller(online=False)
+    ctrl.stimulator_amplitude = 70
+    fire_stim_step(ctrl, target=None)          # this pulse is 70 %
+
+    ctrl.stimulator_amplitude = 30             # operator moves the slider
+    assert ctrl.stimulator_amplitude_at_stim == 70
+
+    fire_stim_step(ctrl, target=None)          # the next pulse is 30 %
+    assert ctrl.stimulator_amplitude_at_stim == 30
+
+
 def test_pulse_is_held_without_a_stimulator_amplitude():
     ctrl = make_controller(online=False)
     ctrl.stimulator_amplitude = None

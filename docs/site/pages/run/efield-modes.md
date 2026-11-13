@@ -88,6 +88,23 @@ writes FEM-versus-surrogate time series for ParaView. On the ernie phantom
 (20 mm / 4 mm library) a new position is reproduced to ~1.5 % field error and
 ~5° direction error.
 
+## Changing the stimulator output between pulses
+
+The MSO slider is not locked during a session. The controller snapshots the
+value when the pulse fires (`stimulator_amplitude_at_stim`) and all three
+sources use that snapshot:
+
+| Source | Scaling at pulse time |
+|---|---|
+| Precomputed | `e_matrix[target] * amplitude * 1.4` |
+| Online | `dI/dt = amplitude * 1.4 * 1e6` A/s before the FEM solve |
+| Interpolated | unit library field `* amplitude * 1.4` |
+
+The scaled row is stored with the pulse. Moving the slider after the pulse
+does not change that row, and the next pulse uses the new value. The results
+CSV `intensity` column is the same snapshot, so a row can always be traced
+back to the MSO that produced its MEP.
+
 ## The hint under the radios
 
 The one line below the E-field buttons is the mode's state machine:

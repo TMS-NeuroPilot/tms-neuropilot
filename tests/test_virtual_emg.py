@@ -82,6 +82,53 @@ def test_fallback_uses_the_precomputed_matrix(emg):
     assert df[["ADC 0", "ADC 1", "ADC 2"]].abs().to_numpy().max() > 0
 
 
+def test_precomputed_fallback_uses_the_pulse_amplitude(emg, monkeypatch):
+    from neuropilot.controller.systems import virtual_emg as vemg
+
+    seen = []
+    monkeypatch.setattr(
+        vemg, "scale_e_for_dvs",
+        lambda e_field, mt, upper_limit: (seen.append(e_field), 0.0)[1])
+    monkeypatch.setattr(
+        vemg, "get_virtual_mep_tvs",
+        lambda values, trial_variability: np.zeros(int(0.7 * 4000)))
+
+    matrix = np.zeros((2, 10))
+    matrix[1, 3:6] = 10.0
+    emg.set_e_matrix(matrix)
+    emg.set_channel_elements([3, 4, 5])
+
+    emg.set_current_state(coil_placement_idx=1, stimuator_amplitude=80)
+    emg.get_latest_emg_df()
+    assert seen[-1] == pytest.approx(10.0 * 1.4 * 80)
+
+    # The next pulse fires at 40 %; the first pulse's MEP must not change.
+    emg.set_current_state(coil_placement_idx=1, stimuator_amplitude=40)
+    emg.get_latest_emg_df()
+    assert seen[-1] == pytest.approx(10.0 * 1.4 * 40)
+
+
+def test_solver_field_is_already_scaled_and_is_not_scaled_again(emg, monkeypatch):
+    from neuropilot.controller.systems import virtual_emg as vemg
+
+    seen = []
+    monkeypatch.setattr(
+        vemg, "scale_e_for_dvs",
+        lambda e_field, mt, upper_limit: (seen.append(e_field), 0.0)[1])
+    monkeypatch.setattr(
+        vemg, "get_virtual_mep_tvs",
+        lambda values, trial_variability: np.zeros(int(0.7 * 4000)))
+
+    emg.set_e_matrix(np.zeros((2, 10)))
+    emg.set_channel_elements([3, 4, 5])
+    emg.set_current_state(coil_placement_idx=1, stimuator_amplitude=80)
+
+    field = np.zeros(10)
+    field[3:6] = 5.0
+    emg.get_latest_emg_df(e_field_for_mep=field)
+    assert seen[-1] == pytest.approx(5.0)
+
+
 def test_waveform_length_matches_the_configured_segment(emg):
     emg.set_e_matrix(np.ones((1, 6000)))
     emg.set_channel_elements([1, 2, 3])

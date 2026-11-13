@@ -111,6 +111,21 @@ def test_mixed_sources_produce_one_row_per_pulse(controller, monkeypatch):
     assert calls[0]["meps"] == [1.0, 2.0, 3.0]
 
 
+def test_analysis_keeps_each_pulses_own_amplitude(controller, monkeypatch):
+    calls = record_regression(monkeypatch)
+    source = np.ones((1, N_ELMS))
+    # Three pulses fired at 70, 30 and 50 % MSO.  The operator may have moved
+    # the slider afterwards; the regression matrix must keep the per-pulse
+    # values, not rescale everything with the latest slider position.
+    rows = [pc.precomputed_e_field_row(source, 0, amplitude)
+            for amplitude in (70, 30, 50)]
+    feed(controller, rows, meps=[1.0, 2.0, 3.0])
+    controller.run_analysis()
+
+    np.testing.assert_allclose(calls[0]["matrix"][:, 0],
+                               [70 * 1.4, 30 * 1.4, 50 * 1.4])
+
+
 def test_pulse_without_a_field_is_dropped_with_its_mep(controller, monkeypatch):
     calls = record_regression(monkeypatch)
     # pulse 1 happened while the online solver was still warming up

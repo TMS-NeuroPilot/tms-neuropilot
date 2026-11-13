@@ -18,6 +18,9 @@ suite is used.
   clearing returns to the bundled `head.stl` phantom.
 - The IK chain is now robot-agnostic (active joints are read from the mask,
   not hard-coded slices), and the scene uses the `implicitfast` integrator.
+- The MSO is snapshotted when each pulse fires. Precomputed, online and
+  interpolated E-fields all use that snapshot, so moving the slider afterwards
+  cannot rescale an already recorded pulse.
 
 ### GUI
 
