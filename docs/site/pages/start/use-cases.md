@@ -6,10 +6,10 @@ changes. This page maps the modes to the ways teams use the suite.
 
 | Use case | Coil | Neuronavigation | Stimulator | MEP | Command |
 |---|---|---|---|---|---|
-| Real experiment, robot | robot | InVesalius | real | real EMG | `neuropilot real` |
-| Real experiment, manual | operator | InVesalius | real | real EMG | `neuropilot manual` |
-| Virtual experiment | virtual robot | `sim_nav` | virtual | virtual EMG | `neuropilot sim` |
-| Training, real TMS | operator | InVesalius | real | virtual EMG | `neuropilot training` |
+| [Real experiment, robot](#real-experiment) | robot | InVesalius | real | real EMG | `neuropilot real` |
+| [Real experiment, manual](#real-experiment) | operator | InVesalius | real | real EMG | `neuropilot manual` |
+| [Virtual experiment](#virtual-experiment) | virtual robot | `sim_nav` | virtual | virtual EMG | `neuropilot sim` |
+| [Training, real TMS](#training-real-tms-simulated-meps) | operator | InVesalius | real | virtual EMG | `neuropilot training` |
 
 ## Real experiment
 
