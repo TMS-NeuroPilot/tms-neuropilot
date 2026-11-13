@@ -385,7 +385,8 @@ def _template(body: str, page: dict, nav_html: str, toc_html: str,
 <header class="topbar">
   <button class="menu" type="button" aria-label="Toggle navigation">☰</button>
   <a class="brand" href="{ctx['root']}index.html">
-    <span class="brand-mark">NP</span>
+    <img class="brand-mark" src="{ctx['root']}assets/img/neuropilot-icon.png"
+         alt="NeuroPilot" width="30" height="30">
     <span class="brand-name">{SITE_NAME}</span>
   </a>
   <span class="tagline">{SITE_TAGLINE}</span>

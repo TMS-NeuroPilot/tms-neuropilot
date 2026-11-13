@@ -84,10 +84,6 @@ E-field rows and the target-order file together (see
 - [ ] In a real session, the neuronavigation's registration was accepted and
       the coil is inside the tracking volume at the first target.
 
-If all six hold and the coil still goes somewhere unexpected, the problem is in
-the robot's base/head placement (`sim_robot/config.py` in simulation, the
-robot controller's configuration in a real session), not in the target.
-
 ## Next
 
 - [Coil placements and target order](prepare/placements.md) — the files these

@@ -95,12 +95,8 @@ a.external::after { content: " ↗"; font-size: .8em; opacity: .7; }
 .brand { display: flex; align-items: center; gap: 10px; color: var(--ink); font-weight: 700; }
 .brand:hover { text-decoration: none; }
 .brand-mark {
-  display: grid; place-items: center;
   width: 30px; height: 30px; border-radius: 8px;
-  background: var(--accent); color: #FFFFFF; font-size: 12px; font-weight: 800;
-  letter-spacing: .3px;
 }
-html[data-theme="dark"] .brand-mark { color: #17191C; }
 .brand-name { font-size: 17px; letter-spacing: -.2px; }
 .tagline { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .search { position: relative; margin-left: auto; width: min(360px, 34vw); }
@@ -251,6 +247,10 @@ thead th { background: var(--hover); font-size: 12px; text-transform: uppercase;
 tbody tr:last-child td { border-bottom: 0; }
 tbody tr:hover { background: color-mix(in srgb, var(--hover) 55%, transparent); }
 td code { white-space: normal; overflow-wrap: anywhere; }
+/* Rows that link to a section (use-case table): the whole row is clickable. */
+tr[data-link] { cursor: pointer; }
+tr[data-link] td:first-child a { color: var(--ink); }
+tr[data-link]:hover td:first-child a { color: var(--accent); }
 /* Keys and step names belong together; prose columns may wrap. */
 td:first-child > code { white-space: nowrap; }
 

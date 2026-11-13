@@ -293,3 +293,16 @@ document.querySelectorAll(".tabs").forEach((group) => {
     });
   });
 })();
+
+/* ── clickable table rows ──────────────────────────────────────────────── */
+/* Rows whose first cell links to a section (e.g. the use-case table) jump
+   there when the reader clicks anywhere in the row. */
+document.querySelectorAll(".table-wrap table tbody tr").forEach((row) => {
+  const link = row.querySelector("td:first-child a[href^='#']");
+  if (!link) return;
+  row.dataset.link = link.getAttribute("href");
+  row.addEventListener("click", (event) => {
+    if (event.target.closest("a")) return;  // the anchor handles itself
+    window.location.hash = row.dataset.link;
+  });
+});
