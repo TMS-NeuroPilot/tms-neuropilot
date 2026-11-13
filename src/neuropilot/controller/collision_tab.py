@@ -174,7 +174,7 @@ class CollisionTestTab(QtWidgets.QWidget):
         scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         # The control stack gets the larger share; the 3D view yields width.
         # The handle stays draggable for an operator who wants more room.
-        scroll.setMinimumWidth(720)
+        scroll.setMinimumWidth(760)
         scroll.setMaximumWidth(1000)
         controls = QtWidgets.QWidget()
         left = QtWidgets.QVBoxLayout(controls)
@@ -184,13 +184,8 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.base_editor = PoseEditor(
             "Robot base", sim_config.ROBOT_BASE_POSITION,
             sim_config.ROBOT_BASE_ORIENTATION)
-        self.head_editor = PoseEditor(
-            "Subject head", sim_config.HEAD_POSITION,
-            sim_config.HEAD_ORIENTATION)
         self.base_editor.changed.connect(self._base_changed)
-        self.head_editor.changed.connect(self._head_changed)
         left.addWidget(self.base_editor)
-        left.addWidget(self.head_editor)
 
         jog = QtWidgets.QGroupBox("Jog coil (world XYZ / tool rotations)")
         jog.setProperty("card", True)
@@ -198,7 +193,9 @@ class CollisionTestTab(QtWidgets.QWidget):
         jog_layout.setContentsMargins(6, 4, 6, 4)
         jog_layout.setSpacing(3)
         row = QtWidgets.QHBoxLayout()
-        row.addWidget(QtWidgets.QLabel("Step"))
+        step_caption = QtWidgets.QLabel("Step")
+        step_caption.setProperty("role", "cap")
+        row.addWidget(step_caption)
         self.step_combo = QtWidgets.QComboBox()
         for value in (1, 2, 5, 10, 20):
             self.step_combo.addItem(f"{value} mm / {value} deg", value)
@@ -231,6 +228,12 @@ class CollisionTestTab(QtWidgets.QWidget):
             jog_grid.setColumnStretch(column, 1)
         jog_layout.addLayout(jog_grid)
         left.addWidget(jog)
+
+        self.head_editor = PoseEditor(
+            "Subject placement", sim_config.HEAD_POSITION,
+            sim_config.HEAD_ORIENTATION)
+        self.head_editor.changed.connect(self._head_changed)
+        left.addWidget(self.head_editor)
 
         start = QtWidgets.QGroupBox("Start pose")
         start.setProperty("card", True)
@@ -307,7 +310,7 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.view_label = QtWidgets.QLabel()
         self.view_label.setProperty("role", "bed")
         # The view is the flexible side: it shrinks before the controls do.
-        self.view_label.setMinimumSize(360, 300)
+        self.view_label.setMinimumSize(300, 300)
         self.view_label.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         self.view_label.setAlignment(QtCore.Qt.AlignCenter)
@@ -317,7 +320,7 @@ class CollisionTestTab(QtWidgets.QWidget):
         splitter.addWidget(self.view_label)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
-        splitter.setSizes([800, 420])
+        splitter.setSizes([900, 320])
         self.splitter = splitter
         root.addWidget(splitter, 1)
 
@@ -644,6 +647,10 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.enable_btn.setText("Enable collision test")
         self._set_controls_enabled(False)
         self.view_label.setText("Enable the collision test to load the 3D view.")
+        self.progress.setRange(0, 1)
+        self.progress.setValue(0)
+        self.collision_label.clear()
+        self.scan_status.clear()
         self._set_status("Collision test is off.")
 
     # ── pose / start / jog ──────────────────────────────────────────

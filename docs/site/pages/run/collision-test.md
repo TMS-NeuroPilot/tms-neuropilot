@@ -58,7 +58,7 @@ to orbit, right-drag to pan, wheel to zoom, double click to reset.
 | Control | Unit | Meaning |
 |---|---|---|
 | **Robot base** | mm, deg | Where the robot stands in the room and how it is rotated |
-| **Subject head** | mm, deg | Where the SimNIBS head origin sits relative to the robot base |
+| **Subject placement** | mm, deg | Where the SimNIBS head origin sits relative to the robot base |
 
 Each row has −/+ buttons for a small nudge. Changing either pose resets the arm
 to the stored start configuration and updates the collision label.

@@ -204,9 +204,9 @@ def test_controls_fit_before_the_3d_view_at_the_design_size(window, qapp):
     scroll = next(s for s in tab.findChildren(QtWidgets.QScrollArea)
                   if s.widget() is not None
                   and tab.isAncestorOf(s.widget()))
-    assert scroll.width() >= 750
-    assert tab.view_label.width() >= 360
-    assert tab.view_label.minimumWidth() == 360
+    assert scroll.width() >= 850
+    assert tab.view_label.width() >= 300
+    assert tab.view_label.minimumWidth() == 300
     assert scroll.maximumWidth() == 1000
     assert scroll.verticalScrollBar().maximum() == 0
     assert not scroll.verticalScrollBar().isVisible()
@@ -244,3 +244,27 @@ def test_adding_a_placement_file_clears_the_stale_error(
     assert tab.status_label.text() == tab._ready_status
     assert tab.status_label.styleSheet() == ""
     assert tab._placement_error is False
+
+
+def test_collision_groups_use_the_requested_order_and_caption(window):
+    tab = window.collision_tab
+    titles = [group.title() for group in tab.findChildren(QtWidgets.QGroupBox)]
+    assert titles[:3] == [
+        "Robot base", "Jog coil (world XYZ / tool rotations)",
+        "Subject placement"]
+    step_labels = [label for label in tab.findChildren(QtWidgets.QLabel)
+                   if label.text() == "Step"]
+    assert step_labels
+    assert step_labels[0].property("role") == "cap"
+
+
+def test_disabling_clears_the_placement_scan_log(window, qapp):
+    tab = window.collision_tab
+    tab._enabled = True
+    tab.collision_label.setText("COLLISION")
+    tab.scan_status.setText("STOP: collision")
+    tab._disable()
+    qapp.processEvents()
+    assert tab.collision_label.text() == ""
+    assert tab.scan_status.text() == ""
+    assert tab.progress.value() == 0
