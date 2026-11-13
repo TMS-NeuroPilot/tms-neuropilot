@@ -107,6 +107,21 @@ class RobotSceneView(QtCore.QObject):
         """Request a redraw after external model/data changes."""
         self._dirty = True
 
+    def _fit_offscreen(self, width: int, height: int) -> None:
+        """Grow MuJoCo's offscreen framebuffer to the widget size.
+
+        MuJoCo refuses to render an image taller or wider than the model's
+        ``vis.global_.offwidth/offheight``.  Those defaults are 1920x1200, so
+        a maximized window on a scaled display used to disable the whole view
+        with a misleading "no OpenGL" message.
+        """
+        if self._model is None:
+            return
+        self._model.vis.global_.offwidth = max(
+            int(self._model.vis.global_.offwidth), int(width))
+        self._model.vis.global_.offheight = max(
+            int(self._model.vis.global_.offheight), int(height))
+
     # ── scene ────────────────────────────────────────────────────────
     def _candidates(self):
         base = _scene_dir()
@@ -208,6 +223,7 @@ class RobotSceneView(QtCore.QObject):
 
         width = max(32, self.label.width())
         height = max(24, self.label.height())
+        self._fit_offscreen(width, height)
         resized = self._render_size != (width, height)
         if not self._dirty and not resized and self._renderer is not None:
             return

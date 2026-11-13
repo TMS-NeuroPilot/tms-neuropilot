@@ -184,3 +184,12 @@ def test_mouse_events_orbit_pan_and_zoom(view):
 
 
 pytestmark = pytest.mark.gui
+
+
+def test_offscreen_buffer_grows_to_the_label_size(view):
+    view._load_scene()
+    view._model.vis.global_.offwidth = 1920
+    view._model.vis.global_.offheight = 1200
+    view._fit_offscreen(2488, 1571)
+    assert view._model.vis.global_.offwidth >= 2488
+    assert view._model.vis.global_.offheight >= 1571
