@@ -52,6 +52,7 @@ class RobotSceneView(QtCore.QObject):
         self._last_check = 0.0
         self._pending_qpos = None
         self._dirty = True
+        self._started = False
 
         self._azimuth = self.DEFAULT_AZIMUTH
         self._elevation = self.DEFAULT_ELEVATION
@@ -68,10 +69,21 @@ class RobotSceneView(QtCore.QObject):
 
     # ── lifecycle ────────────────────────────────────────────────────
     def start(self):
+        self._started = True
         self._load_scene()
+        self._dirty = True
         self._timer.start()
 
     def stop(self):
+        self._started = False
+        self._suspend_render()
+
+    def _suspend_render(self):
+        """Drop the GL context while this page is hidden.
+
+        Two embedded MuJoCo views (Control and Collision test) must not keep
+        two live renderer contexts while the operator switches pages.
+        """
         self._timer.stop()
         if self._renderer is not None:
             try:
@@ -79,6 +91,14 @@ class RobotSceneView(QtCore.QObject):
             except Exception:
                 pass
             self._renderer = None
+            self._render_size = (0, 0)
+
+    def _resume_render(self):
+        if not self._started:
+            return
+        self._dirty = True
+        if not self._timer.isActive():
+            self._timer.start()
 
     def set_model(self, model, data):
         """Render an externally owned model/data pair (collision test).
@@ -268,6 +288,12 @@ class RobotSceneView(QtCore.QObject):
         if obj is not self.label:
             return False
         etype = event.type()
+        if etype == QtCore.QEvent.Hide:
+            self._suspend_render()
+            return False
+        if etype == QtCore.QEvent.Show:
+            self._resume_render()
+            return False
         if etype == QtCore.QEvent.MouseButtonPress:
             self._drag_button = event.button()
             self._last_mouse = event.pos()

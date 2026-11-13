@@ -193,3 +193,23 @@ def test_offscreen_buffer_grows_to_the_label_size(view):
     view._fit_offscreen(2488, 1571)
     assert view._model.vis.global_.offwidth >= 2488
     assert view._model.vis.global_.offheight >= 1571
+
+
+def test_hiding_releases_the_renderer_and_showing_restarts(view, qapp):
+    class _Renderer:
+        def __init__(self):
+            self.closed = False
+
+        def close(self):
+            self.closed = True
+
+    view.start()
+    renderer = _Renderer()
+    view._renderer = renderer
+    qapp.sendEvent(view.label, QtCore.QEvent(QtCore.QEvent.Hide))
+    assert renderer.closed
+    assert view._renderer is None
+    assert not view._timer.isActive()
+
+    qapp.sendEvent(view.label, QtCore.QEvent(QtCore.QEvent.Show))
+    assert view._timer.isActive()
