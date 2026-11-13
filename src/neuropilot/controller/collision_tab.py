@@ -50,7 +50,7 @@ class PoseEditor(QtWidgets.QGroupBox):
             spin.setDecimals(1)
             spin.setSingleStep(1.0)
             spin.setKeyboardTracking(False)
-            spin.setMinimumWidth(78)
+            spin.setFixedWidth(140)
             if unit == "mm":
                 spin.setRange(-5000.0, 5000.0)
                 spin.setSuffix(" mm")
@@ -62,6 +62,7 @@ class PoseEditor(QtWidgets.QGroupBox):
             plus = QtWidgets.QPushButton("+")
             for button in (minus, plus):
                 button.setFixedWidth(24)
+                button.setFixedHeight(22)
                 button.setProperty("role", "transport")
             minus.clicked.connect(
                 lambda _=False, s=spin, u=unit: self._nudge(s, u, -1))
@@ -71,6 +72,7 @@ class PoseEditor(QtWidgets.QGroupBox):
             cell.addWidget(spin, 1)
             cell.addWidget(minus)
             cell.addWidget(plus)
+            cell.addStretch(1)
             grid.addLayout(cell, row, column)
             grid.setColumnStretch(column, 1)
             self._spins.append(spin)
@@ -150,20 +152,24 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.status_label = QtWidgets.QLabel("Collision test is off.")
         self.status_label.setProperty("role", "cap")
         top.addWidget(self.status_label, 1)
-        self.save_project_btn = QtWidgets.QPushButton("Save setup to project")
+        self.save_project_btn = QtWidgets.QPushButton("Make project default")
         self.save_project_btn.setProperty("role", "transport")
+        self.save_project_btn.setToolTip(
+            "Store this layout in the project file.")
         self.save_project_btn.clicked.connect(self.save_to_project)
         top.addWidget(self.save_project_btn)
-        self.use_btn = QtWidgets.QPushButton("Use start pose")
-        self.use_btn.setProperty("role", "transport")
-        self.use_btn.setToolTip(
-            "Queue the current start joints for the next experiment start.")
-        self.use_btn.clicked.connect(self._use_start_pose)
-        top.addWidget(self.use_btn)
-        self.save_lab_btn = QtWidgets.QPushButton("Save as lab default")
+        self.save_lab_btn = QtWidgets.QPushButton("Make lab default")
         self.save_lab_btn.setProperty("role", "transport")
+        self.save_lab_btn.setToolTip(
+            "Store this layout as the lab default.")
         self.save_lab_btn.clicked.connect(self.save_to_lab)
         top.addWidget(self.save_lab_btn)
+        self.use_btn = QtWidgets.QPushButton("Use at start pose")
+        self.use_btn.setProperty("role", "transport")
+        self.use_btn.setToolTip(
+            "Use this six-joint pose when the experiment starts.")
+        self.use_btn.clicked.connect(self._use_start_pose)
+        top.addWidget(self.use_btn)
         root.addLayout(top)
 
         splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
@@ -217,6 +223,7 @@ class CollisionTestTab(QtWidgets.QWidget):
             minus = QtWidgets.QPushButton("−")
             plus = QtWidgets.QPushButton("+")
             for button in (minus, plus):
+                button.setFixedHeight(22)
                 button.setProperty("role", "transport")
             minus.clicked.connect(
                 lambda _=False, a=axis: self._jog(a, -1))
@@ -242,24 +249,32 @@ class CollisionTestTab(QtWidgets.QWidget):
         start_layout.setSpacing(3)
         branch_row = QtWidgets.QGridLayout()
         self.branch_buttons = []
+        self._branch_pairs = []
+        self.branch_group = QtWidgets.QButtonGroup(self)
+        self.branch_group.setExclusive(True)
         for i, (label, shoulder, elbow) in enumerate((
                 ("Shoulder left / elbow up", "left", "up"),
                 ("Shoulder right / elbow up", "right", "up"),
                 ("Shoulder left / elbow down", "left", "down"),
                 ("Shoulder right / elbow down", "right", "down"))):
             button = QtWidgets.QPushButton(label)
-            button.setProperty("role", "transport")
+            button.setProperty("role", "branch")
+            button.setCheckable(True)
             button.clicked.connect(
-                lambda _=False, s=shoulder, e=elbow:
-                self._apply_branch(s, e))
+                lambda _=False, s=shoulder, e=elbow, b=button:
+                self._apply_branch(s, e, b))
             branch_row.addWidget(button, i // 2, i % 2)
             self.branch_buttons.append(button)
+            self._branch_pairs.append((shoulder, elbow))
+            self.branch_group.addButton(button)
         start_layout.addLayout(branch_row)
         actions = QtWidgets.QHBoxLayout()
-        self.set_start_btn = QtWidgets.QPushButton("Set from current")
-        self.go_start_btn = QtWidgets.QPushButton("Go to start")
+        self.set_start_btn = QtWidgets.QPushButton("Set start from current")
+        self.set_start_btn.setToolTip(
+            "Store the current six joint angles as the start pose.")
+        self.go_start_btn = QtWidgets.QPushButton("Move to current start pose")
         for button in (self.set_start_btn, self.go_start_btn):
-            button.setProperty("role", "transport")
+            button.setProperty("role", "branch")
         self.set_start_btn.clicked.connect(self._capture_start)
         self.go_start_btn.clicked.connect(self._go_start)
         actions.addWidget(self.set_start_btn)
@@ -651,6 +666,8 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.progress.setValue(0)
         self.collision_label.clear()
         self.scan_status.clear()
+        for button in self.branch_buttons:
+            button.setChecked(False)
         self._set_status("Collision test is off.")
 
     # ── pose / start / jog ──────────────────────────────────────────
@@ -676,11 +693,12 @@ class CollisionTestTab(QtWidgets.QWidget):
         self._sync_view()
         self._update_collision()
 
-    def _apply_branch(self, shoulder, elbow):
+    def _apply_branch(self, shoulder, elbow, button=None):
         if self.session is None:
             return
         if self._scan_timer.isActive():
             self._stop_scan()
+        previous_branch = tuple(self.session.branch)
         self._has_setup = True
         # Prefer a home point above the subject, but never accept a start
         # that is already in collision.  Fall back to the pose the operator
@@ -705,12 +723,14 @@ class CollisionTestTab(QtWidgets.QWidget):
                 self._set_status(note + "the current pose is now the start.")
             return
         self.session.set_current_joints(original_joints)
+        self.session.branch = previous_branch
+        self._sync_start_label()
         self._sync_view()
         self._update_collision()
         self._set_status("No collision-free start found.", True)
         self.status_label.setToolTip(
             f"No collision-free {shoulder}/{elbow} start found. "
-            "Jog to a clear pose and use Set from current.")
+            "Jog to a clear pose and use Set start from current.")
 
     def _capture_start(self):
         if self.session is None:
@@ -858,11 +878,21 @@ class CollisionTestTab(QtWidgets.QWidget):
     def _sync_start_label(self):
         if self.session is None:
             self.start_label.setText("")
+            self._sync_branch_button()
             return
         joints = self.session.start_joints
         self.start_label.setText(
             f"{self.session.branch[0]} / {self.session.branch[1]}  |  "
             + ", ".join(f"{np.degrees(v):.1f}°" for v in joints))
+        self._sync_branch_button()
+
+    def _sync_branch_button(self):
+        """Keep the preset matching the stored branch pressed down."""
+        if not hasattr(self, "branch_buttons"):
+            return
+        active = tuple(self.session.branch) if self.session is not None else None
+        for button, pair in zip(self.branch_buttons, self._branch_pairs):
+            button.setChecked(tuple(pair) == active)
 
     def _update_collision(self):
         if self.session is None:

@@ -88,8 +88,8 @@ If neither gives a collision-free branch, it restores the current pose and asks
 you to jog to a clear one. The resulting six joints become the start
 configuration.
 
-Use **Set from current** to store the pose you reached by jogging, and
-**Go to start** to return to it.
+Use **Set start from current** to store the six joint angles of the pose you
+reached by jogging. **Move to current start pose** returns the arm to it.
 
 ## Run the scan
 
@@ -105,9 +105,9 @@ head or start pose, press **Reset to start**, and run it again.
 
 | Button | Effect |
 |---|---|
-| **Save setup to project** | Stores head pose, robot base, start joints and branch in the project YAML |
-| **Save as lab default** | Stores the same block in `~/.neuropilot/lab.yaml` for projects that do not override it |
-| **Use start pose** | Queues the six-joint start pose for the next experiment start |
+| **Make project default** | Stores head pose, robot base, start joints and branch in the project YAML |
+| **Make lab default** | Stores the same block in `~/.neuropilot/lab.yaml` for projects that do not override it |
+| **Use at start pose** | Queues the six-joint start pose for the next experiment start |
 
 The project value wins over the lab default. The start pose is sent on
 `Pipeline to Robot: Set start pose`; the production `tms-robot-control` driver

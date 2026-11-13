@@ -268,3 +268,29 @@ def test_disabling_clears_the_placement_scan_log(window, qapp):
     assert tab.collision_label.text() == ""
     assert tab.scan_status.text() == ""
     assert tab.progress.value() == 0
+
+
+def test_start_pose_preset_stays_pressed(window, qapp):
+    tab = window.collision_tab
+    tab._enable()
+    qapp.processEvents()
+    try:
+        tab._apply_branch("right", "up")
+        qapp.processEvents()
+        checked = [b for b in tab.branch_buttons if b.isChecked()]
+        assert len(checked) == 1
+        assert checked[0].text() == "Shoulder right / elbow up"
+        assert checked[0].property("role") == "branch"
+    finally:
+        tab._disable()
+
+
+def test_collision_action_labels_and_short_tooltips(window):
+    tab = window.collision_tab
+    assert tab.save_project_btn.text() == "Make project default"
+    assert tab.save_lab_btn.text() == "Make lab default"
+    assert tab.use_btn.text() == "Use at start pose"
+    assert tab.set_start_btn.text() == "Set start from current"
+    assert tab.go_start_btn.text() == "Move to current start pose"
+    for button in (tab.save_project_btn, tab.save_lab_btn, tab.use_btn):
+        assert button.toolTip().strip()

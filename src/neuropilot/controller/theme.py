@@ -203,6 +203,10 @@ QPushButton[role="danger"]  { background: %(card)s; color: %(danger)s;
                               min-height: 24px; padding: 7px 18px; }
 QPushButton[role="danger"]:hover { background: %(danger_soft)s; }
 QPushButton[role="transport"] { min-height: 24px; padding: 7px 18px; }
+QPushButton[role="branch"] { font-weight: 400; }
+QPushButton[role="branch"]:checked {
+    background: %(accent_soft)s; border-color: %(accent)s; color: %(ink)s;
+}
 QPushButton[role="compact"] { min-height: 10px; padding: 2px 14px; font-size: 13px; }
 QPushButton[role="recover"] { min-height: 16px; padding: 3px 10px; font-size: 11px; }
 QPushButton:disabled { background: %(disabled_bg)s; color: %(disabled_ink)s; border-color: %(disabled_edge)s; }
