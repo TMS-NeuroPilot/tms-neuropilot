@@ -5,9 +5,9 @@
 | Sub-tab | Scope | File it edits |
 |---|---|---|
 | **Lab (hardware)** | this machine | `~/.neuropilot/lab.yaml` (+ a few `.env` keys) |
-| **Simulation** | this machine's simulated MEP | `.env` (`VIRTUAL_MEP_*`) |
 | **Study (mapping)** | this protocol | a study YAML, applied to the session |
 | **Subject (files)** | this subject | the project YAML, via the Project page |
+| **Simulation** | this machine's simulated MEP | `.env` (`VIRTUAL_MEP_*`) |
 
 The precedence between the files is on [Settings model](config/model.md); this
 page documents the controls.
@@ -80,33 +80,6 @@ These are used only when the online E-field mode is selected.
     written to `lab.yaml`, but the next start still reads the `.env` value. The
     tooltip says so, and the status line counts them. Remove the line from
     `.env` (or change it there) if the GUI value should win.
-
-## Simulation
-
-The Simulation page tunes the virtual EMG. It is used in simulation and
-training modes; the fields are disabled in real and manual modes. The controller reads the
-values when it starts, and **Save simulation settings** writes `.env`, so
-restart to apply.
-
-<figure>
-  <img src="assets/screenshots/config-simulation.png" alt="Config › Simulation with the MEP model fields and the project MEP source summary.">
-  <figcaption>Config › Simulation. The MEP model is machine-local tuning; the
-  channel sources remain project data.</figcaption>
-</figure>
-
-| Field | Key | Default | Unit |
-|---|---|---|---|
-| **Noise sigma** | `VIRTUAL_MEP_NOISE_MV` | `0.001` | mV |
-| **Trial-to-trial variability** | `VIRTUAL_MEP_TRIAL_VARIABILITY` | `true` | on/off |
-| **Motor threshold** | `VIRTUAL_MEP_MT` | `60` | V/m |
-| **Upper limit** | `VIRTUAL_MEP_UPPER_LIMIT` | `100` | V/m |
-| **E-field scale** | `VIRTUAL_MEP_EFIELD_SCALE` | `1.4` | factor |
-
-The MEP source itself is project data: the cortical element per channel is
-assigned in the project, not here. The page shows the configured channel names
-and the EMG sources file. **Edit in Project** opens the Project tab; the source
-elements stay with that subject. See [EMG channels and MEP windows](prepare/emg.md)
-for the model and the key descriptions.
 
 ## Study (mapping)
 
@@ -181,8 +154,35 @@ placements, target order, E-field library, results file, EMG sources — with:
 | **Load project…** | same as Project › Load |
 | **Edit in Project tab** | jumps to the Project page |
 
-The tab shows all four scopes in one window: Lab and Simulation first, Study
-next, Subject here.
+The tab shows all four scopes in one window: Lab first, then Study and Subject,
+with Simulation last.
+
+## Simulation
+
+The Simulation page tunes the virtual EMG. It is used in simulation and
+training modes; the fields are disabled in real and manual modes. The controller reads the
+values when it starts, and **Save simulation settings** writes `.env`, so
+restart to apply.
+
+<figure>
+  <img src="assets/screenshots/config-simulation.png" alt="Config › Simulation with the MEP model fields and the project MEP source summary.">
+  <figcaption>Config › Simulation. The MEP model is machine-local tuning; the
+  channel sources remain project data.</figcaption>
+</figure>
+
+| Field | Key | Default | Unit |
+|---|---|---|---|
+| **Noise sigma** | `VIRTUAL_MEP_NOISE_MV` | `0.001` | mV |
+| **Trial-to-trial variability** | `VIRTUAL_MEP_TRIAL_VARIABILITY` | `true` | on/off |
+| **Motor threshold** | `VIRTUAL_MEP_MT` | `60` | V/m |
+| **Upper limit** | `VIRTUAL_MEP_UPPER_LIMIT` | `100` | V/m |
+| **E-field scale (dI/dt)** | `VIRTUAL_MEP_EFIELD_SCALE` | `1.4` | factor |
+
+The MEP source itself is project data: the cortical element per channel is
+assigned in the project, not here. The page shows the configured channel names
+and the EMG sources file. **Edit in Project** opens the Project tab; the source
+elements stay with that subject. See [EMG channels and MEP windows](prepare/emg.md)
+for the model and the key descriptions.
 
 ## What applies when
 

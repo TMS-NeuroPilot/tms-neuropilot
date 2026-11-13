@@ -363,8 +363,8 @@ def run(args, project: Path) -> None:
             if win.tabWidget.tabText(index) == "Config":
                 win.tabWidget.setCurrentIndex(index)
                 break
-        for index, name in enumerate(("config-lab", "config-simulation",
-                                      "config-study", "config-subject")):
+        for index, name in enumerate(("config-lab", "config-study",
+                                      "config-subject", "config-simulation")):
             win.cfg_tabs.setCurrentIndex(index)
             await asyncio.sleep(0.8)
             grab_window(app, win, OUT / f"{name}.png")

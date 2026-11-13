@@ -57,7 +57,7 @@ Examples:
 - relay address, serial ports, EMG credentials, theme → Lab
 - fit function, ISI, amplitude, MEP windows, channel names → Study
 - mesh, ROI, library, placements, results path → Subject
-- simulated MEP noise, threshold, upper limit, E-field scale → Simulation
+- simulated MEP noise, threshold, upper limit, E-field scale (dI/dt) → Simulation
 - data folder, readiness timeout, GLFW library, "run the GUI at all" → `.env`
 
 ## What needs a restart

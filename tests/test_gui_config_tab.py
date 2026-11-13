@@ -385,11 +385,11 @@ def test_unknown_robot_stays_visible(window):
 
 # ── Simulation scope ───────────────────────────────────────────────────
 
-def test_simulation_page_sits_after_the_lab_page(window):
+def test_simulation_page_is_right_of_the_subject_page(window):
     titles = [window.cfg_tabs.tabText(i) for i in range(window.cfg_tabs.count())]
-    assert titles == ["Lab (hardware)", "Simulation", "Study (mapping)",
-                      "Subject (files)"]
-    assert window.cfg_tabs.widget(1) is window.cfg_tab_simulation
+    assert titles == ["Lab (hardware)", "Study (mapping)",
+                      "Subject (files)", "Simulation"]
+    assert window.cfg_tabs.widget(3) is window.cfg_tab_simulation
 
 
 def test_simulation_reload_fills_from_env(window, tmp_path):
@@ -479,3 +479,13 @@ def test_simulation_save_is_allowed_in_training(window, tmp_path, monkeypatch):
     window.cfg_sim_noise.setValue(0.02)
     window.on_sim_save()
     assert "VIRTUAL_MEP_NOISE_MV=0.02" in env.read_text()
+
+
+def test_every_config_dropdown_gets_the_tall_input_style(window, qapp):
+    from PyQt5 import QtWidgets
+    window.tabWidget.setCurrentWidget(window.tab6)
+    qapp.processEvents()
+    combos = window.cfg_tabs.findChildren(QtWidgets.QComboBox)
+    assert combos
+    for combo in combos:
+        assert combo.sizeHint().height() >= 36, combo.objectName()

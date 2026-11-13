@@ -169,6 +169,7 @@ QGroupBox[card="true"]::title {
 
 /* text roles */
 QLabel[role="cap"]     { font-size: 11px; color: %(muted)s; }
+QCheckBox[role="cap"]  { font-size: 11px; color: %(muted)s; }
 QLabel[role="value"]   { font-size: 15px; font-weight: 600; }
 QLabel[role="value-xl"]{ font-size: 16px; font-weight: 600; }
 QLabel[role="section"] { font-size: 11px; font-weight: 600; color: %(muted)s; }
@@ -221,9 +222,11 @@ QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
     padding: 4px 8px; min-height: 20px; font-size: 13px; color: %(ink)s;
     selection-background-color: %(accent)s; selection-color: %(on_accent)s;
 }
-QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
+QComboBox { min-height: 28px; padding: 6px 10px; }
+QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {
     border: 2px solid %(accent)s; padding: 3px 7px;
 }
+QComboBox:focus { border: 2px solid %(accent)s; padding: 5px 9px; }
 QLineEdit:disabled { background: %(disabled_bg)s; color: %(disabled_ink)s; }
 QLineEdit[role="path"] { font-family: 'DejaVu Sans Mono','Consolas',monospace;
                          font-size: 12px; color: %(mono)s; }
@@ -234,12 +237,12 @@ QLineEdit[role="name"]:focus { border: 2px solid %(accent)s; padding: 5px 7px; }
 QSpinBox::up-button, QSpinBox::down-button,
 QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
     width: 16px; border: 0; background: transparent; }
-QComboBox::drop-down { border: 0; width: 22px; }
+QComboBox::drop-down { border: 0; width: 28px; }
 QComboBox:disabled { color: %(disabled_ink)s; background: %(canvas)s; border-color: %(disabled_edge)s; }
 QComboBox QAbstractItemView { background: %(card)s; border: 1px solid %(edge)s;
     padding: 4px; selection-background-color: %(hover)s; selection-color: %(ink)s;
     outline: none; }
-QComboBox QAbstractItemView::item { min-height: 24px; padding: 2px 6px; }
+QComboBox QAbstractItemView::item { min-height: 28px; padding: 4px 8px; }
 
 /* tables, info boxes and menus (the pages use them for results/readouts) */
 QTableWidget, QTableView, QListWidget, QTreeWidget {

@@ -1664,7 +1664,7 @@ class MainWindow(QtWidgets.QMainWindow):
             row.setSpacing(8)
             cap = QtWidgets.QLabel(text)
             cap.setProperty("role", "cap")
-            cap.setMinimumWidth(120)
+            cap.setFixedWidth(160)
             row.addWidget(cap)
             row.addWidget(widget, 1)
             model_v.addLayout(row)
@@ -1691,9 +1691,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cfg_sim_scale.setRange(0.1, 10.0)
         self.cfg_sim_scale.setDecimals(2)
         self.cfg_sim_scale.setSingleStep(0.1)
-        add_row("E-field scale", self.cfg_sim_scale)
+        add_row("E-field scale (dI/dt)", self.cfg_sim_scale)
 
         self.cfg_sim_trial = QtWidgets.QCheckBox("Trial-to-trial variability")
+        self.cfg_sim_trial.setProperty("role", "cap")
         model_v.addWidget(self.cfg_sim_trial)
         variability_hint = QtWidgets.QLabel(
             "Off gives an ideal, repeatable curve; noise still applies.")
@@ -1716,7 +1717,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cfg_sim_sources = QtWidgets.QPlainTextEdit()
         self.cfg_sim_sources.setReadOnly(True)
         self.cfg_sim_sources.setProperty("role", "info")
-        self.cfg_sim_sources.setMaximumHeight(96)
+        self.cfg_sim_sources.setMinimumHeight(150)
+        self.cfg_sim_sources.setMaximumHeight(220)
         source_v.addWidget(self.cfg_sim_sources)
         self.cfg_sim_project_btn = QtWidgets.QPushButton("Edit in Project")
         self.cfg_sim_project_btn.setProperty("role", "transport")
@@ -1761,7 +1763,7 @@ class MainWindow(QtWidgets.QMainWindow):
         bottom.addWidget(self.cfg_sim_status, 1)
         root.addLayout(bottom)
 
-        self.cfg_tabs.insertTab(1, page, "Simulation")
+        self.cfg_tabs.addTab(page, "Simulation")
         self.cfg_tab_simulation = page
 
     def _lab_fields(self):
