@@ -455,11 +455,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.surrogate_library_label.setPlaceholderText(
             "data/<subject>/efield/e_surrogate.hdf5")
         self.surrogate_library_label.setToolTip(
-            "Dense E-field library for the Interpolated mode: e.hdf5 with the "
-            "E_mag dataset and an roi_hash, written by\n"
-            "scripts/02_create_roi_efield_library.py "
-            "--spatial-resolution 4 --angle-resolution 15 --n-placements 0.\n"
-            "Verified against the ROI surface on load.")
+            "Dense E-field library for the Interpolated mode "
+            "(E_mag plus roi_hash). Checked against the ROI surface on load.")
         self.surrogate_libraryBtn = QtWidgets.QToolButton()
         self.surrogate_libraryBtn.setObjectName("surrogate_libraryBtn")
         self.surrogate_libraryBtn.setText("...")
