@@ -25,6 +25,39 @@ neuropilot real [--launch-relay]           # real-hardware mode
 previous one is ready, all logs prefixed by role in one terminal. Ctrl+C
 shuts the whole stack down.
 
+## Running on Windows
+
+NeuroPilot's four components and the whole simulated stack are
+cross-platform. On Windows (Python 3.11+ in a conda env with the heavy deps
+installed — same `pipeline` environment as on Linux):
+
+```bat
+pip install -e . --no-deps
+neuropilot sim
+```
+
+Notes:
+
+- **Simulated stack (relay → robot + nav → controller) runs unchanged.** The
+  supervisor launches each component with `sys.executable`, so it works
+  regardless of interpreter path.
+- **Real-hardware mode** is primarily a Linux/MPI-lab deployment. The code is
+  import-safe, but the drivers themselves (`magicpy`, `pynibs`, InVesalius,
+  `tms-robot-control`) must be installable on the target machine. Set the
+  Windows serial port in `.env`, e.g. `STIMULATOR_PORT=COM3`; there is no
+  default TTL (parallel) port on Windows.
+- **Serial/TTL defaults are platform-aware**: `/dev/ttyS1` +
+  `/dev/parport0` on Linux, `COM3` + no TTL on Windows (override in
+  `Config › Lab` or `.env`).
+- The virtual stimulator's pulse "alert" sound uses `winsound` on Windows
+  instead of `paplay`.
+- **Tests**: run `pytest -m "not gui"` directly. `scripts/run_tests.sh` is a
+  bash helper for Linux CI. GUI tests run natively on Windows (no DISPLAY
+  needed).
+- `scripts/install_desktop_entry.sh` (a `.desktop` launcher) is
+  Linux-only; on Windows start it from the installed console script
+  (`neuropilot.exe` in the env's `Scripts/`).
+
 ## Documentation
 
 The full documentation — installation, subject-data preparation, every GUI page
@@ -142,9 +175,10 @@ the Config tab against a temporary `.env`, the study profile, exports and
 screenshots into deleted folders, manual mode, the status LEDs and
 recovery buttons, every button on every page (with an exception hook that
 turns a crashing slot into a failed test instead of an aborted run), the
-mesh/coil summary threads and their Qt signals, and close/teardown.  They
-need a display and are skipped automatically when `DISPLAY` and
-`WAYLAND_DISPLAY` are both unset.
+mesh/coil summary threads and their Qt signals, and close/teardown.  On
+Linux/macOS they need a display and are skipped automatically when `DISPLAY`
+and `WAYLAND_DISPLAY` are both unset; on Windows Qt uses the native display
+and they run normally.
 
 Everything the tests write goes to `tmp_path`: the session cache and the
 Config tab's `.env` are redirected in `tests/conftest.py`, and an autouse

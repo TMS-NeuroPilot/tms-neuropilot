@@ -536,7 +536,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.toggle_free_drive_set = True
 
         # list to store the emg data
-        #self.emg_results = []
         # New History Management
         self.emg_history = []  # List of dictionaries
         self.current_history_idx = -1
@@ -550,11 +549,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.history_targets = []
 
         # Storage (Over Time)
-        #history_meps = {
-        #    'ADC 0': [0.05, 0.06, 0.04, 0.08],  # A clean list of Y-values for plotting
-        #    'ADC 1': [0.12, 0.11, 0.13, 0.12],
-        #    'ADC 2': [0.02, 0.01, 0.02, 0.02]
-        #}
         self.history_meps = {}
 
         # 2nd. Tap (Connections)
@@ -1542,7 +1536,8 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         from .config_store import ConfigStore
         from .. import config as suite_config
-        from ..lab_profile import LabProfile
+        from ..lab_profile import (LabProfile, STIMULATOR_PORT_DEFAULT,
+                                   STIMULATOR_TTL_PORT_DEFAULT)
         # Hardware settings live in ~/.neuropilot/lab.yaml; .env stays the
         # bootstrap/override layer (see docs/CONFIG.md).
         self._config_store = ConfigStore()
@@ -1554,8 +1549,8 @@ class MainWindow(QtWidgets.QMainWindow):
             "NEUROPILOT_UI_SCALE": os.getenv("NEUROPILOT_UI_SCALE", ""),
             "ROBOT": os.getenv("ROBOT", "omron"),
             "TMS_ROBOT_CONTROL_PATH": os.getenv("TMS_ROBOT_CONTROL_PATH", ""),
-            "STIMULATOR_PORT": os.getenv("STIMULATOR_PORT", "/dev/ttyS1"),
-            "STIMULATOR_TTL_PORT": os.getenv("STIMULATOR_TTL_PORT", "/dev/parport0"),
+            "STIMULATOR_PORT": os.getenv("STIMULATOR_PORT", STIMULATOR_PORT_DEFAULT),
+            "STIMULATOR_TTL_PORT": os.getenv("STIMULATOR_TTL_PORT", STIMULATOR_TTL_PORT_DEFAULT),
             "EMG_CHANNELS": os.getenv("EMG_CHANNELS", "FDI,APB,ADM"),
             "EMG_COMPUTER_IP": os.getenv("EMG_COMPUTER_IP", "192.168.1.2"),
             "EMG_COMPUTER_USERNAME": os.getenv("EMG_COMPUTER_USERNAME", "neuro"),
@@ -3427,7 +3422,6 @@ class MainWindow(QtWidgets.QMainWindow):
         # "widget_emg_signal" is the objectName you set in Qt Designer
         if hasattr(self, 'widget_emg_signal'):
             time_vals = emg_data["Time"]
-            #print(f"time vals len/max: {len(time_vals)} / {max(time_vals)}")
             # Filter columns to only get the EMG channels (everything but Time)
 
             signal_dict = {col: pynibs.expio.butter_lowpass_filter(emg_data[col],

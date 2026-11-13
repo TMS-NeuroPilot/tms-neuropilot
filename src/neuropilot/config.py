@@ -10,6 +10,7 @@ time, e.g. the controller's ROOT_FOLDER).
 """
 
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -49,11 +50,14 @@ os.makedirs(ROOT_FOLDER, exist_ok=True)
 
 # ── MuJoCo viewer on Wayland machines ────────────────────────────────────────
 # GLFW ships an X11-only build in ~/.local/share/x11-glfw on this machine;
-# the supervisor exports it for the sim_robot child when present.
+# the supervisor exports it for the sim_robot child when present.  The
+# ~/.local/share path and .so.3 suffix are Linux-specific (Windows bundles
+# its own GLFW build), so auto-detection only runs there.
 PYGLFW_LIBRARY = os.getenv("PYGLFW_LIBRARY", "")
-_X11_GLFW = Path.home() / ".local/share/x11-glfw/lib/libglfw.so.3"
-if not PYGLFW_LIBRARY and _X11_GLFW.exists():
-    PYGLFW_LIBRARY = str(_X11_GLFW)
+if sys.platform.startswith("linux"):
+    _X11_GLFW = Path.home() / ".local/share/x11-glfw/lib/libglfw.so.3"
+    if not PYGLFW_LIBRARY and _X11_GLFW.exists():
+        PYGLFW_LIBRARY = str(_X11_GLFW)
 
 # ── Real mode ────────────────────────────────────────────────────────────────
 # Optional: path to a tms-robot-control checkout, used by

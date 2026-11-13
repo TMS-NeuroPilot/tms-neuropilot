@@ -144,14 +144,6 @@ class OnlineFEMManager:
         pos = realized_marker[0]
         ori = realized_marker[1]
 
-        #print(f"DEBUG pos = {pos} ori = {ori}")
-
-        #pos = [x + 5 for x in pos]
-        #pos[:2] = [x + 15 for x in pos[:2]]
-        #ori = [x + 5 for x in ori]
-
-        #print(f"DEBUG pos = {pos} ori = {ori}")
-
         # Build 4x4 matsimnibs matrix
         matsimnibs = np.eye(4)
         matsimnibs[:3, :3] = Rotation.from_euler("xyz", ori, degrees=True).as_matrix()

@@ -1,5 +1,6 @@
 import time
 import asyncio
+import sys
 from ..systems.system import System, SystemStatus
 import subprocess
 
@@ -75,15 +76,30 @@ class VirtualStimulator(System):
             self.armed = True
 
         time.sleep(self.fire_delay_s)  # emulate IO latency
-        # --- SOUND LOGIC ---
-        try:
-            # Spawns a background process to play the sound without freezing the GUI
-            subprocess.Popen(
-                ['paplay', '/usr/share/sounds/freedesktop/stereo/dialog-warning.oga'],
-                stderr=subprocess.DEVNULL
-            )
-        except FileNotFoundError:
-            # Fails silently if 'paplay' is missing on a different Linux machine
-            pass
-        # -------------------------------
+        # --- SOUND LOGIC (optional; platform-dependent, never fatal) ---
+        self._play_alert()
         print(f"[VirtualStimulator] *** FIRED *** | Amp: {self.amplitude}%, Wave: {self.waveform}")
+
+    def _play_alert(self):
+        """Best-effort alert on a pulse, without blocking the GUI.
+
+        Linux spawns ``paplay`` with the freedesktop alert sound in the
+        background; Windows uses the built-in console/``winsound`` beep; any
+        other platform stays silent. A missing audio tool is swallowed -- the
+        pulse itself is what matters.
+        """
+        if sys.platform.startswith("linux"):
+            try:
+                subprocess.Popen(
+                    ['paplay', '/usr/share/sounds/freedesktop/stereo/dialog-warning.oga'],
+                    stderr=subprocess.DEVNULL
+                )
+            except FileNotFoundError:
+                # Fails silently if 'paplay' is missing on a different Linux machine
+                pass
+        elif sys.platform.startswith("win"):
+            try:
+                import winsound
+                winsound.MessageBeep()
+            except Exception:                       # noqa: BLE001 - audio is optional
+                pass

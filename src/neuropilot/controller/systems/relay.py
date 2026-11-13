@@ -132,6 +132,9 @@ class RelaySystem(System):
                 stdout=self.log_handle,
                 stderr=subprocess.STDOUT,
                 text=True,
+                # Detach the relay from the controller's process group so a
+                # Ctrl+C in the terminal does not take the relay down with it.
+                # POSIX-only: Python ignores this kwarg on Windows.
                 start_new_session=True,
             )
             self.owned = True
