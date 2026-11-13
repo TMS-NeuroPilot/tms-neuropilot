@@ -15,6 +15,11 @@ class MessageHandlers:
         # Optional MuJoCoWorld: needed for the head-mesh override, which
         # replaces the phantom geometry at runtime.
         self.world = world
+        # Head requests are converted in worker threads; a later request
+        # (another subject, or a cleared field) must win over an older one.
+        self._head_request = 0
+        self._head_request_lock = threading.Lock()
+        self._head_apply_lock = threading.Lock()
 
     def handle(self, topic: str, data: dict) -> None:
         if topic == config.TOPIC_CREATE_MARKER:
@@ -171,17 +176,34 @@ class MessageHandlers:
         return data or {}
 
     # ── Head phantom override ──────────────────────────────────────────
+    def _next_head_request(self) -> int:
+        with self._head_request_lock:
+            self._head_request += 1
+            return self._head_request
+
+    def _head_request_is_current(self, token: int) -> bool:
+        with self._head_request_lock:
+            return token == self._head_request
+
     def _handle_set_head_mesh(self, data: dict) -> None:
         """
         The pipeline announces the head mesh entered in the project window.
         The scalp surface is converted to an STL for MuJoCo (cached) and the
-        phantom is replaced: immediately when running headless, otherwise on
-        the next simulator restart (the viewer cannot hot-swap the model).
+        phantom is replaced at runtime.  An empty path resets the default
+        phantom, so a stale subject mesh never outlives its project.
         """
         payload = self._unwrap(data)
         fn_msh = payload.get("mesh_path") if isinstance(payload, dict) else None
-        if not fn_msh or not os.path.isfile(fn_msh):
+        token = self._next_head_request()
+
+        if not fn_msh:
+            threading.Thread(target=self._reset_head_mesh,
+                             args=(token,), daemon=True).start()
+            return
+        if not os.path.isfile(fn_msh):
             log.warning(f"Head mesh announcement with invalid path: {fn_msh}")
+            threading.Thread(target=self._reset_head_mesh,
+                             args=(token,), daemon=True).start()
             return
         if fn_msh == self.state.head_mesh_source:
             log.debug(f"Head mesh already active: {fn_msh}")
@@ -199,26 +221,72 @@ class MessageHandlers:
                 stl_path = convert_head_mesh(fn_msh)
             except Exception as e:
                 log.error(f"Head mesh conversion failed: {e}")
+                self._reset_head_mesh(token)
                 return
 
-            # Persist so a simulator restart picks the override up.
-            try:
-                os.makedirs(os.path.dirname(config.HEAD_OVERRIDE_FILE), exist_ok=True)
-                with open(config.HEAD_OVERRIDE_FILE, "w") as f:
-                    json.dump({"msh_path": fn_msh, "stl_path": stl_path}, f)
-            except OSError as e:
-                log.error(f"Could not persist the head override: {e}")
+            with self._head_apply_lock:
+                if not self._head_request_is_current(token):
+                    log.debug("Head mesh request superseded; discarding result.")
+                    return
 
-            applied = False
-            if self.world is not None:
-                applied = self.world.reload_head(stl_path)
-            if applied:
+                applied = False
+                if self.world is not None:
+                    applied = self.world.reload_head(stl_path)
+                if not applied:
+                    # Do not leave a persisted mesh that the running model
+                    # rejected; reset to the neutral phantom instead.
+                    if self.world is not None:
+                        self.world.reload_head(None)
+                    try:
+                        os.remove(config.HEAD_OVERRIDE_FILE)
+                    except OSError:
+                        pass
+                    self.state.head_mesh_source = None
+                    log.warning("Head mesh converted but not applied; "
+                                "reset to the default phantom.")
+                    return
+
+                # Persist only after the running model accepted the mesh, so
+                # a restart never picks up a phantom that failed here.
+                try:
+                    os.makedirs(os.path.dirname(config.HEAD_OVERRIDE_FILE),
+                                exist_ok=True)
+                    with open(config.HEAD_OVERRIDE_FILE, "w") as f:
+                        json.dump({"msh_path": fn_msh, "stl_path": stl_path}, f)
+                except OSError as e:
+                    log.error(f"Could not persist the head override: {e}")
+
                 self.state.head_mesh_source = fn_msh
                 log.info("Head phantom updated from the project head mesh.")
-            else:
-                log.info("Head mesh converted and stored -- restart the "
-                         "simulator to apply it (viewer is running).")
 
         # Conversion takes seconds (simnibs import + decimation) -- off the
         # event loop.
         threading.Thread(target=_apply, daemon=True).start()
+
+    def _reset_head_mesh(self, token: int) -> None:
+        """Return to the default phantom and remove the persisted override."""
+        with self._head_apply_lock:
+            if not self._head_request_is_current(token):
+                return
+            world_override = getattr(self.world, "head_mesh_stl", None)
+            if (self.state.head_mesh_source is None and world_override is None
+                    and not os.path.isfile(config.HEAD_OVERRIDE_FILE)):
+                log.debug("Default head phantom already active.")
+                return
+
+            try:
+                os.remove(config.HEAD_OVERRIDE_FILE)
+            except FileNotFoundError:
+                pass
+            except OSError as e:
+                log.error(f"Could not remove the head override file: {e}")
+
+            applied = False
+            if self.world is not None:
+                applied = self.world.reload_head(None)
+            self.state.head_mesh_source = None
+            if applied:
+                log.info("Head phantom reset to the default head.stl.")
+            elif self.world is not None:
+                log.warning("Default head phantom could not be applied; "
+                            "restart the simulator to reset it.")

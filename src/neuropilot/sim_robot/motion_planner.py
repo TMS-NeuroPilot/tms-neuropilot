@@ -160,9 +160,18 @@ class MotionPlanner:
         self.state.set_tracking_valid(False)
 
     def _build_padded_initial(self) -> Optional[List[float]]:
-        if self.state.joint_positions:
-            return [0.0] + list(self.state.joint_positions) + [0.0, 0.0]
-        return None
+        """Place the current active joints at their ikpy chain indices."""
+        if not self.state.joint_positions:
+            return None
+        padded = [0.0] * len(self.ik_solver.chain.links)
+        for idx, value in zip(self.ik_solver.active_indices,
+                              self.state.joint_positions):
+            padded[idx] = value
+        return padded
+
+    def _active_joints(self, solution: List[float]) -> List[float]:
+        """Extract the movable joints from a full ikpy solution."""
+        return [float(solution[i]) for i in self.ik_solver.active_indices]
 
     # ────────────────────────────────────────────────────────────────
     # Path construction  (runs once per new target)
@@ -185,7 +194,7 @@ class MotionPlanner:
             log.warning(f"IK solve failed for target: {self.state.target.label or 'unnamed'}")
             return
 
-        target_active = joint_solution[1:7]
+        target_active = self._active_joints(joint_solution)
         self._target_active = target_active
         current_active = list(self.state.joint_positions)
 
@@ -286,8 +295,8 @@ class MotionPlanner:
         if sol_tgt is None:
             return None, None, None
 
-        above_curr_active = sol_curr[1:7]
-        above_tgt_active  = sol_tgt[1:7]
+        above_curr_active = self._active_joints(sol_curr)
+        above_tgt_active  = self._active_joints(sol_tgt)
 
         ascend   = self._interpolate_joints(current_active, above_curr_active)
         traverse = self._interpolate_joints(above_curr_active, above_tgt_active)
@@ -500,7 +509,7 @@ class MotionPlanner:
             log.debug(f"Press: IK failed at depth {self._press_depth:.1f} mm")
             return
 
-        self.world.reset_joint_positions(joint_solution[1:7])
+        self.world.reset_joint_positions(self._active_joints(joint_solution))
         self.world.step(n_steps=4)
         self._sync_state()
 
@@ -587,7 +596,7 @@ class MotionPlanner:
             self.state.set_objective(0)
             return
 
-        ascend_active = sol[1:7]
+        ascend_active = self._active_joints(sol)
         current_active = list(self.state.joint_positions)
         if not current_active:
             log.warning("Move-away skipped — no current joint positions")

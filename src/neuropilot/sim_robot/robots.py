@@ -29,6 +29,15 @@ PACKAGE_ROOT = Path(__file__).resolve().parent
 
 DEFAULT_ROBOT = "omron"
 
+# tms-robot-control selects the driver family in its own `.env`.  Accept
+# those names here, so one `ROBOT=` value works on both sides.
+ALIASES = {
+    "ur": "ur5",
+    "elfin": "elfin5",
+    "elfin_new_api": "elfin5",
+    "dobot": "cr5",
+}
+
 
 @dataclass(frozen=True)
 class RobotSpec:
@@ -74,6 +83,69 @@ ROBOTS = {
         notes=("6 joints. The coil flange and the B65 handle are part of the "
                "tool chain; coil_tcp_site is the stimulation point."),
     ),
+    "ur5": RobotSpec(
+        key="ur5",
+        label="Universal Robots UR5",
+        mjcf="assets/mjcf/ur5.xml",
+        urdf="assets/urdf/ur5.urdf",
+        base_body="base_link",
+        ee_site="coil_tcp_site",
+        ik_active_links=(False, False, True, True, True, True, True, True,
+                         False, False, False),
+        ik_base_elements=("base_link",),
+        ik_elbow_up=True,
+        base_position=(0.0, 0.0, 0.0),
+        base_orientation=(0.0, 0.0, 0.0),
+        camera_target=(0.22, -0.22, 0.15),
+        camera_offset=(0.35, -1.05, 0.20),
+        max_reach_m=0.85,
+        notes=("UR5, upstream driver 'ur'. 5 kg payload, 850 mm reach, "
+               "+/-0.1 mm repeatability (vendor data). The URDF carries the "
+               "same B65 holder and coil_tcp_site as the Omron model."),
+    ),
+    "elfin5": RobotSpec(
+        key="elfin5",
+        label="Han's Robot Elfin E5",
+        mjcf="assets/mjcf/elfin5.xml",
+        urdf="assets/urdf/elfin5.urdf",
+        base_body="elfin_base_link",
+        ee_site="coil_tcp_site",
+        ik_active_links=(False, False, True, True, True, True, True, True,
+                         False, False),
+        ik_base_elements=("elfin_base_link",),
+        ik_elbow_up=True,
+        # The Elfin URDF has a +90 deg z rotation on its base frame.
+        base_position=(0.0, 0.0, 0.0),
+        base_orientation=(0.0, 0.0, 90.0),
+        camera_target=(0.22, -0.22, 0.15),
+        camera_offset=(0.35, -1.05, 0.20),
+        max_reach_m=0.80,
+        notes=("Elfin E5, the arm used by the Aalto / BioMag Helsinki mTMS "
+               "platform and deployed at the University of Tübingen "
+               "(Matsuda et al. 2025, doi:10.1088/1361-6560/adf36e). "
+               "6 joints, 5 kg payload, 800 mm reach, +/-0.05 mm "
+               "repeatability. Upstream driver 'elfin' / 'elfin_new_api'."),
+    ),
+    "cr5": RobotSpec(
+        key="cr5",
+        label="Dobot CR5",
+        mjcf="assets/mjcf/cr5.xml",
+        urdf="assets/urdf/cr5.urdf",
+        base_body="base_link",
+        ee_site="coil_tcp_site",
+        ik_active_links=(False, True, True, True, True, True, True, False),
+        ik_base_elements=("base_link",),
+        ik_elbow_up=True,
+        base_position=(0.0, 0.0, 0.0),
+        base_orientation=(0.0, 0.0, 0.0),
+        camera_target=(0.22, -0.22, 0.15),
+        camera_offset=(0.35, -1.05, 0.20),
+        max_reach_m=0.90,
+        notes=("Dobot CR5 (the bundled CR-series model), upstream driver "
+               "'dobot'. 5 kg payload, 900 mm reach, +/-0.03 mm repeatability "
+               "(vendor data). The URDF is Dobot's TCP-IP-ROS-6AXis "
+               "description (MIT)."),
+    ),
 }
 
 
@@ -87,10 +159,17 @@ def labels():
     return [(key, spec.label) for key, spec in ROBOTS.items()]
 
 
+def normalize(key):
+    """Canonical simulator key for a driver name or a registry key."""
+    value = str(key).strip().lower()
+    return ALIASES.get(value, value)
+
+
 def get(key):
     """The spec for ``key``; KeyError with the known keys otherwise."""
+    key = normalize(key)
     try:
-        return ROBOTS[str(key).strip().lower()]
+        return ROBOTS[key]
     except KeyError:
         raise KeyError(
             f"ROBOT='{key}' is not a known robot. Known: {sorted(ROBOTS)}. "

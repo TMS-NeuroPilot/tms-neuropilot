@@ -815,11 +815,24 @@ class PipelineController:
         if qpos:
             self.control_panel.update_robot_scene(qpos)
 
-    def set_head_mesh(self, path: str):
-        """Announce the project head mesh to the robot (sim: replaces the
-        phantom; real robot: informational). Send path is fire-and-forget."""
-        if path:
-            self.remote.send_message(TOPIC_SET_HEAD_MESH, {"mesh_path": path})
+    def set_head_mesh(self, path):
+        """Announce the project head mesh to the robot.
+
+        ``None`` or an empty path resets the simulator to its default
+        phantom, so a stale subject mesh never outlives the project that
+        selected it.  The send is fire-and-forget.  During startup the
+        session cache can be applied before the qasync loop exists, so fall
+        back to a one-shot loop instead of raising.
+        """
+        coro = self.remote.send_message(
+            TOPIC_SET_HEAD_MESH, {"mesh_path": path or None})
+        try:
+            asyncio.get_running_loop().create_task(coro)
+        except RuntimeError:
+            try:
+                asyncio.run(coro)
+            except Exception as e:
+                print(f"[WARN] could not announce the head mesh: {e}")
 
     def apply_emg_config_elements(self, elements):
         """Apply already-projected channel elements on the GUI thread."""
@@ -870,7 +883,7 @@ class PipelineController:
         # Announce the head mesh configured in the project window (session
         # cache) so a freshly started robot sim applies it immediately.
         if self.control_panel:
-            fn_mesh = self.control_panel.loadmeshlabel.text().strip()
+            fn_mesh = self.control_panel.loadmeshlabel.text().strip() or None
             self.set_head_mesh(fn_mesh)
         if self.control_panel:
             await asyncio.gather(

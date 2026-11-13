@@ -27,7 +27,7 @@ class MuJoCoWorld:
         self.use_gui = use_gui
         self.end_effector_site_name = end_effector_site_name
         # Optional head phantom override (an STL path) replacing the default
-        # head88.stl — set from the project window's head mesh.
+        # head.stl, set from the project window's head mesh.
         self.head_mesh_stl = head_mesh_stl
 
         self.model: Optional[mujoco.MjModel] = None
@@ -52,9 +52,40 @@ class MuJoCoWorld:
     def connect(self):
         self._build_model()
         if self.use_gui:
-            self._running = True
-            self._viewer_thread = threading.Thread(target=self._viewer_loop, daemon=True)
-            self._viewer_thread.start()
+            self._start_viewer()
+
+    def _start_viewer(self) -> None:
+        if self._viewer_thread is not None:
+            return
+        self._running = True
+        self._viewer_thread = threading.Thread(target=self._viewer_loop, daemon=True)
+        self._viewer_thread.start()
+
+    def _stop_viewer(self) -> None:
+        """Stop the native viewer before the model is replaced.
+
+        The passive viewer keeps the model it was launched with, so a head
+        change needs a fresh viewer instance.  The controller's embedded view
+        is independent and reloads the written scene on its own.
+        """
+        self._running = False
+        handle = self._viewer_handle
+        self._viewer_handle = None
+        if handle is not None:
+            try:
+                handle.close()
+            except Exception:
+                pass
+        thread = self._viewer_thread
+        if thread is None:
+            return
+        if thread is not threading.current_thread():
+            thread.join(timeout=2.0)
+        if thread.is_alive():
+            log.warning("MuJoCo viewer did not stop within 2 s; a head "
+                        "reload will wait until the next simulator start.")
+        else:
+            self._viewer_thread = None
 
     def _build_model(self) -> None:
         """Compose the scene, compile the model and index its structure.
@@ -82,21 +113,28 @@ class MuJoCoWorld:
         self._index_bodies_and_geoms()
         self._index_site()
 
-    def reload_head(self, head_stl: str) -> bool:
-        """Replace the head phantom at runtime (headless worlds only — the
-        MuJoCo viewer keeps its own model copy and cannot hot-swap).
+    def reload_head(self, head_stl: Optional[str]) -> bool:
+        """Replace the head phantom at runtime, or reset it with ``None``.
 
-        Returns True on success. """
-        if self._viewer_thread is not None:
-            log.warning("Head mesh reload requested but the MuJoCo viewer is "
-                        "running -- restart the simulator to apply it.")
+        The model is rebuilt and the native viewer is restarted when it is
+        open.  The controller's embedded view reloads the regenerated scene
+        independently.  Returns True on success.
+        """
+        if head_stl and not os.path.isfile(head_stl):
+            log.error(f"Head mesh reload failed: file not found: {head_stl}")
             return False
+
         previous = self.head_mesh_stl
         self.head_mesh_stl = head_stl
+        viewer_was_running = self._viewer_thread is not None
+        if viewer_was_running:
+            self._stop_viewer()
+            if self._viewer_thread is not None:
+                self.head_mesh_stl = previous
+                return False
+
         try:
             self._build_model()
-            log.info(f"Head phantom replaced: {head_stl}")
-            return True
         except Exception as e:
             log.error(f"Head mesh reload failed: {e}")
             self.head_mesh_stl = previous
@@ -104,7 +142,17 @@ class MuJoCoWorld:
                 self._build_model()
             except Exception as e2:
                 log.error(f"Model restore failed: {e2}")
+            if viewer_was_running:
+                self._start_viewer()
             return False
+
+        if viewer_was_running:
+            self._start_viewer()
+        if head_stl:
+            log.info(f"Head phantom replaced: {head_stl}")
+        else:
+            log.info("Head phantom reset to the default head.stl")
+        return True
 
     def _compose_scene(self, head_mesh_stl: Optional[str] = None) -> str:
         """Compose the scene MJCF from config: robot geometry (per ROBOT),
@@ -153,26 +201,38 @@ class MuJoCoWorld:
 
         # Head mesh override: copy head.xml with the mesh file pointed at the
         # project-derived STL (absolute path, independent of the meshdir).
+        override_fn = os.path.join(composed_dir, "_head_override.xml")
         if head_mesh_stl and config.HEAD_MJCF_PATH:
             import re
+            from xml.sax.saxutils import escape as _xml_escape
             head_fn = os.path.join(PROJECT_ROOT, config.HEAD_MJCF_PATH)
-            head_xml = open(head_fn).read()
+            with open(head_fn, encoding="utf-8") as f:
+                head_xml = f.read()
+            mesh_fn = _xml_escape(os.path.abspath(head_mesh_stl),
+                                  {'"': "&quot;"})
             head_xml, n = re.subn(
                 r'(<mesh\s+file=")[^"]*(" name="head_mesh")',
-                rf'\g<1>{os.path.abspath(head_mesh_stl)}\g<2>',
+                lambda m: m.group(1) + mesh_fn + m.group(2),
                 head_xml,
             )
             if n != 1:
                 raise ValueError(f"head.xml has no unique head_mesh asset ({n} matches).")
-            override_fn = os.path.join(composed_dir, "_head_override.xml")
-            with open(override_fn, "w") as f:
+            with open(override_fn, "w", encoding="utf-8") as f:
                 f.write(head_xml)
             head_include = f'<include file="_head_override.xml"/>'
+        elif os.path.isfile(override_fn):
+            # The generated override is an artefact of a previous project;
+            # do not leave it behind once the default phantom is active.
+            try:
+                os.remove(override_fn)
+            except OSError as e:
+                log.warning(f"Could not remove stale head override: {e}")
         xml = f"""<mujoco model="{config.MODEL_NAME}">
   <include file="{_include_for(robot_mjcf)}"/>
   {head_include}
 
-  <option gravity="{gravity}" timestep="{config.SIM_TIMESTEP}">
+  <option gravity="{gravity}" timestep="{config.SIM_TIMESTEP}"
+          integrator="implicitfast">
     <flag contact="enable"/>
   </option>
 
@@ -230,16 +290,7 @@ class MuJoCoWorld:
         mujoco.mj_forward(self.model, self.data)
 
     def disconnect(self):
-        self._running = False
-        if self._viewer_handle is not None:
-            try:
-                self._viewer_handle.close()
-            except Exception:
-                pass
-            self._viewer_handle = None
-        if self._viewer_thread is not None:
-            self._viewer_thread.join(timeout=2.0)
-            self._viewer_thread = None
+        self._stop_viewer()
 
     def viewer_handle_closed(self) -> bool:
         """True when the viewer window has been closed (e.g. Alt+F4)."""
@@ -286,30 +337,35 @@ class MuJoCoWorld:
                 pass
 
     def _index_bodies_and_geoms(self):
+        """Index the robot and head by body identity, not by hard-coded names.
+
+        The scene is composed per robot, so the arm's link names differ
+        (Omron ``link_*``, UR ``*_link``, Elfin ``elfin_link*``, Dobot
+        ``Link*``).  Every non-world, non-head body belongs to the robot.
+        """
         self._robot_body_ids = []
         self._head_body_ids = []
         self._robot_geom_ids = []
         self._head_geom_ids = []
 
-        robot_body_names = {
-            "world", "link_0", "link_1", "link_2", "link_3",
-            "link_4", "link_5", "link_6", "flange",
-        }
-        head_body_names = {"head_link"}
-
+        head_id = mujoco.mj_name2id(
+            self.model, mujoco.mjtObj.mjOBJ_BODY, config.HEAD_BODY_NAME)
         for i in range(self.model.nbody):
-            name = self.model.body(i).name
-            if name in robot_body_names:
-                self._robot_body_ids.append(i)
-            elif name in head_body_names:
+            if i == 0:                       # world
+                continue
+            if i == head_id:
                 self._head_body_ids.append(i)
+            else:
+                self._robot_body_ids.append(i)
 
+        robot_set = set(self._robot_body_ids)
+        head_set = set(self._head_body_ids)
         for i in range(self.model.ngeom):
             body_id = int(self.model.geom(i).bodyid[0])
             contype = int(self.model.geom(i).contype[0])
-            if body_id in self._robot_body_ids and contype > 0:
+            if body_id in robot_set and contype > 0:
                 self._robot_geom_ids.append(i)
-            elif body_id in self._head_body_ids and contype > 0:
+            elif body_id in head_set and contype > 0:
                 self._head_geom_ids.append(i)
 
     def _index_site(self):

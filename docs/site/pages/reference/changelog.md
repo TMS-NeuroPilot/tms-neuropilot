@@ -7,6 +7,18 @@ suite is used.
 
 ## Unreleased
 
+### Simulator
+
+- Four robots now ship with the simulator: Omron TM5X-700, Universal Robots
+  UR5, Han's Robot Elfin E5 (the Aalto / BioMag Helsinki / Tübingen mTMS arm)
+  and Dobot CR5. The `tms-robot-control` driver names (`ur`, `elfin`,
+  `elfin_new_api`, `dobot`) are accepted directly in `ROBOT`.
+- The head phantom follows the project head mesh in the embedded view:
+  browsing, typing, clearing and project loading all update the simulator;
+  clearing returns to the bundled `head.stl` phantom.
+- The IK chain is now robot-agnostic (active joints are read from the mask,
+  not hard-coded slices), and the scene uses the `implicitfast` integrator.
+
 ### GUI
 
 - Large project files (head mesh, ROI surface, coil placements, E-field

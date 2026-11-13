@@ -24,7 +24,7 @@ from .utils.logging_utils import get_logger
 
 log = get_logger(__name__)
 
-# The default phantom (head88.stl) has 200k triangles; keep the converted
+# The default phantom (head.stl) has 200k triangles; keep the converted
 # skin in the same range so physics/contact behaviour stays comparable.
 MAX_TRIANGLES = 200_000
 CONVERTER_VERSION = 3  # bump to invalidate cached STLs after logic changes

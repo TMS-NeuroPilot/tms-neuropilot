@@ -51,7 +51,7 @@ class RobotState:
     last_status_text: str = "Idle"
 
     # Head phantom override: the project head mesh this phantom was built
-    # from (None = the default head88.stl). Used to skip redundant
+    # from (None = the default head.stl). Used to skip redundant
     # conversions when the pipeline re-announces the same mesh.
     head_mesh_source: Optional[str] = None
 

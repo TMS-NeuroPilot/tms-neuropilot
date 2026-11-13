@@ -29,6 +29,32 @@ A robot that exists in `tms-robot-control` but not in `robots.py` cannot be
 *simulated* (the pipeline still runs it in real mode — the simulator is only
 used by `neuropilot sim`).
 
+## Bundled robots
+
+The simulator ships four models.  The `tms-robot-control` driver names are
+accepted directly in `ROBOT`, so the same value can be used on both sides.
+
+| `ROBOT` / driver | Simulator key | Model | Notes |
+|---|---|---|---|
+| `omron` | `omron` | Omron TM5X-700 | MPI CBS deployment; TCP 5890 + Modbus 502 |
+| `ur` | `ur5` | Universal Robots UR5 | 6 joints, 5 kg, 850 mm, ±0.1 mm |
+| `elfin`, `elfin_new_api` | `elfin5` | Han's Robot Elfin E5 | Aalto / BioMag Helsinki mTMS platform, deployed at Tübingen; 6 joints, 5 kg, 800 mm, ±0.05 mm |
+| `dobot` | `cr5` | Dobot CR5 | CR-series TCP-IP model; 6 joints, 5 kg, 900 mm, ±0.03 mm |
+
+The Elfin entry records the model used by the Aalto / BioMag Helsinki mTMS
+platform and deployed at the University of Tübingen.  The source is Matsuda
+et al. 2025, *Phys. Med. Biol.* 70:165015,
+[doi:10.1088/1361-6560/adf36e](https://doi.org/10.1088/1361-6560/adf36e)
+(Methods: "Elfin E5 collaborative robot (Han's Robot Co Ltd, China). This
+robot has 6 joints, a 5 kg payload capacity, an operational range of up to
+80 cm, and a repeatability accuracy of ±0.05 mm.").
+
+All four models use the same B65 coil holder mesh and place
+`coil_tcp_site` 0.1 m along the tool Z axis.  The URDF carries a matching
+fixed `coil_tcp` link, so the ikpy tip and the MuJoCo site are the same
+physical point.  The UR5 and Dobot meshes/URDFs are third-party assets; see
+`src/neuropilot/sim_robot/assets/THIRD_PARTY_LICENSES.md`.
+
 ---
 
 ## 1. Simulated mode: one spec, two assets
@@ -66,12 +92,12 @@ ROBOTS = {
 
     "ur5": RobotSpec(
         key="ur5",
-        label="Universal Robots UR5e",
-        mjcf="assets/mjcf/ur5e.xml",            # with its meshes
-        urdf="assets/urdf/ur5e.urdf",
+        label="Universal Robots UR5",
+        mjcf="assets/mjcf/ur5.xml",             # with its meshes
+        urdf="assets/urdf/ur5.urdf",
         base_body="base_link",
         ee_site="coil_tcp_site",
-        ik_active_links=(False, True, True, True, True, True, True, False, False),
+        ik_active_links=(False, False, True, True, True, True, True, True, False, False, False),
         ik_base_elements=("base_link",),
         ik_elbow_up=True,
         base_position=(0.0, 0.0, 0.0),          # metres, room coordinates
@@ -161,7 +187,7 @@ Relay contract (verified against `sim_robot/message_handlers.py`):
 | `Neuronavigation to Robot: Set free drive` | in | `set: bool` |
 | `GUI to Robot: set default speed robot` | in | `default_speed_ratio: 0..1` |
 | `GUI to Robot: set tuning speed robot` | in | `tuning_speed_ratio: 0..1` |
-| `Pipeline to Robot: Set head mesh` | in | `mesh_path` (sim only; informational for hardware) |
+| `Pipeline to Robot: Set head mesh` | in | `mesh_path` (sim only; informational for hardware). `null` resets the default phantom |
 | `SIM - Robot to Neuronavigation: Tracking State` | out | `position` mm, `orientation` deg, `ik_success`, `collision`, `motion_done`, `tracking_valid`, `qpos` |
 | `Robot to Neuronavigation: Send force sensor data` | out | `force_feedback` |
 | `Robot to Pipeline: Health status` | out | `robot_id`, `status` (`ok`/`error`/`nan`), `message`, `info{}` |

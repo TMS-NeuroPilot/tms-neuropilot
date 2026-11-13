@@ -2,7 +2,7 @@
   <compiler meshdir="../meshes/" angle="radian"/>
 
   <asset>
-    <mesh file="head/head88.stl" name="head_mesh" scale="0.001 0.001 0.001"/>
+    <mesh file="head/head.stl" name="head_mesh" scale="0.001 0.001 0.001"/>
     <texture name="tex_skin" type="cube" builtin="flat" width="512" height="512"
              rgb1="1.0 0.8 0.7" rgb2="1.0 0.8 0.7"/>
     <material name="mat_skin" texture="tex_skin" specular="0.3" shininess="0.2" rgba="1.0 0.8 0.7 1.0"/>

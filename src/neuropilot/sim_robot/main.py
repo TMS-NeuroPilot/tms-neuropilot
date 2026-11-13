@@ -124,16 +124,22 @@ async def main():
     if os.path.isfile(config.HEAD_OVERRIDE_FILE):
         try:
             with open(config.HEAD_OVERRIDE_FILE) as f:
-                head_override = json.load(f).get("stl_path")
+                override = json.load(f)
+            head_override = override.get("stl_path")
             if head_override and os.path.isfile(head_override):
-                with open(config.HEAD_OVERRIDE_FILE) as f:
-                    state.head_mesh_source = json.load(f).get("msh_path")
+                state.head_mesh_source = override.get("msh_path")
                 log.info(f"Head phantom override active: {state.head_mesh_source}")
             else:
-                log.warning("Head override file missing -- using the default phantom.")
+                log.warning("Head override file missing -- using the default "
+                            "phantom (head.stl).")
                 head_override = None
+                try:
+                    os.remove(config.HEAD_OVERRIDE_FILE)
+                except OSError:
+                    pass
         except (OSError, ValueError) as e:
-            log.warning(f"Head override unreadable ({e}) -- using the default phantom.")
+            log.warning(f"Head override unreadable ({e}) -- using the default "
+                        "phantom (head.stl).")
             head_override = None
 
     world = MuJoCoWorld(
@@ -238,7 +244,6 @@ async def main():
     except asyncio.CancelledError:
         log.info("Simulator shutting down")
     finally:
-        streamer.stop()
         world.disconnect()
         log.info("MuJoCo disconnected — bye")
 

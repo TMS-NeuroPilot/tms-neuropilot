@@ -22,12 +22,12 @@ ROBOTS = {
 
     "ur5": RobotSpec(
         key="ur5",
-        label="Universal Robots UR5e",
-        mjcf="assets/mjcf/ur5e.xml",          # with its meshes
-        urdf="assets/urdf/ur5e.urdf",
+        label="Universal Robots UR5",
+        mjcf="assets/mjcf/ur5.xml",           # with its meshes
+        urdf="assets/urdf/ur5.urdf",
         base_body="base_link",
         ee_site="coil_tcp_site",
-        ik_active_links=(False, True, True, True, True, True, True, False, False),
+        ik_active_links=(False, False, True, True, True, True, True, True, False, False, False),
         ik_base_elements=("base_link",),
         ik_elbow_up=True,
         base_position=(0.0, 0.0, 0.0),        # metres, room coordinates

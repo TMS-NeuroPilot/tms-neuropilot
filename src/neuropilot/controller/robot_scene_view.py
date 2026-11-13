@@ -47,7 +47,7 @@ class RobotSceneView(QtCore.QObject):
         self._renderer = None
         self._render_size = (0, 0)
         self._scene_path = None
-        self._scene_mtime = 0.0
+        self._scene_stamp = None
         self._last_check = 0.0
         self._pending_qpos = None
         self._dirty = True
@@ -114,25 +114,37 @@ class RobotSceneView(QtCore.QObject):
             mujoco.mj_forward(self._model, self._data)
             self._scene_path = path
             try:
-                self._scene_mtime = os.path.getmtime(path)
+                stat = os.stat(path)
+                self._scene_stamp = (stat.st_mtime_ns, stat.st_size)
             except OSError:
-                self._scene_mtime = 0.0
+                self._scene_stamp = None
             if self._pending_qpos is not None:
                 self._apply_qpos(self._pending_qpos)
             return True
         return False
 
     def _maybe_reload(self):
-        """Reload when the robot rewrote the composed scene (head change)."""
-        if self._scene_path is None:
+        """Reload when the robot rewrote the composed scene (head change).
+
+        The view may have started on the robot-only fallback before the
+        simulated robot wrote ``_generated_scene.xml``.  Keep checking the
+        candidate order, not only the mtime of the file loaded first, or the
+        embedded view would never pick up the head.
+        """
+        candidate = next((p for p in self._candidates() if os.path.isfile(p)),
+                         None)
+        if candidate is None:
+            return
+        if self._scene_path != candidate:
             self._load_scene()
             return
         try:
-            mtime = os.path.getmtime(self._scene_path)
+            stat = os.stat(self._scene_path)
+            stamp = (stat.st_mtime_ns, stat.st_size)
         except OSError:
             return
-        if mtime != self._scene_mtime:
-            self._scene_mtime = mtime
+        if stamp != self._scene_stamp:
+            self._scene_stamp = stamp
             self._load_scene()
 
     # ── state ────────────────────────────────────────────────────────

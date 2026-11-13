@@ -3877,6 +3877,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self._load_mesh_async(file_path, "head")
             if self.controller:
                 self.controller.online_fem_mgr.set_mesh_fn_msh(file_path)
+                self.controller.set_head_mesh(file_path)
             self._check_paths_ready()
 
     def paste_mesh_path(self):
@@ -3886,6 +3887,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self._clear_mesh("head")
             if self.controller:
                 self.controller.online_fem_mgr.set_mesh_fn_msh(None)
+                self.controller.set_head_mesh(None)
             self._check_paths_ready()
 
         # Check if the file actually exists on the drive
@@ -3903,6 +3905,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self._clear_mesh("head")
             if self.controller:
                 self.controller.online_fem_mgr.set_mesh_fn_msh(None)
+                self.controller.set_head_mesh(None)
             self._check_paths_ready()
 
     # === END: Handlers for loading the Mesh ===

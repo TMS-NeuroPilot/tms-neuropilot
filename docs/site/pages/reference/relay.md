@@ -61,7 +61,7 @@ stimulation mark.
 |---|---|---|
 | `Press robot button` | `{"pressed": bool}` | press the coil against the head |
 | `STOP` | `{}` | stop motion now |
-| `Pipeline to Robot: Set head mesh` | `{"path": str}` | use this head model for collision |
+| `Pipeline to Robot: Set head mesh` | `{"mesh_path": str \| null}` | use this subject head for the simulated phantom; `null` resets the default |
 | `GUI to Robot: set default speed robot` | `{"default_speed_ratio": float}` | travel speed |
 | `GUI to Robot: set tuning speed robot` | `{"tuning_speed_ratio": float}` | speed near the head |
 

@@ -24,6 +24,14 @@ class IKPySolver:
         self.end_effector_link_name = end_effector_link_name
 
         self.chain = self._build_chain()
+        # The chain length differs per robot (fixed base/tool frames are
+        # included).  Active *movable* joints are the mask entries that are
+        # true and whose ikpy link is not fixed.
+        self.active_indices = [
+            i for i, link in enumerate(self.chain.links)
+            if link.joint_type != "fixed"
+            and (self.active_links_mask is None or self.active_links_mask[i])
+        ]
 
     def _build_chain(self) -> Chain:
         urdf_abs = os.path.join(PROJECT_ROOT, self.urdf_path)
@@ -109,16 +117,17 @@ class IKPySolver:
         Returns:
             (success, joint_solution) - same as solve()
         """
-        # Index of joint_3 in the full solution (the elbow joint)
-        # Chain structure: [base, link_0, link_1, link_2, link_3, link_4, link_5, link_6, flange, coil_tcp]
-        # joint_3 is at index 3 in the full solution
-        JOINT_3_IDX = 3
+        # The elbow is the third movable joint; its index in the full ikpy
+        # solution depends on the fixed links in the robot's URDF.
+        if len(self.active_indices) < 3:
+            return False, None
+        elbow_idx = self.active_indices[2]
 
         # First try with the provided initial position
         success, solution = self.solve(position_mm, orientation_deg, initial_position)
 
         if success and solution is not None:
-            joint_3_val = solution[JOINT_3_IDX]
+            joint_3_val = solution[elbow_idx]
             is_elbow_up = joint_3_val > 0
 
             if is_elbow_up == elbow_up:
@@ -139,13 +148,14 @@ class IKPySolver:
             # For elbow up: positive angle (e.g., +2.0 rad ≈ 115°)
             # For elbow down: negative angle (e.g., -2.0 rad ≈ -115°)
             if elbow_up:
-                new_initial[JOINT_3_IDX] = random.uniform(1.0, 2.5)  # positive = elbow up
+                new_initial[elbow_idx] = random.uniform(1.0, 2.5)  # positive = elbow up
             else:
-                new_initial[JOINT_3_IDX] = random.uniform(-2.5, -1.0)  # negative = elbow down
+                new_initial[elbow_idx] = random.uniform(-2.5, -1.0)  # negative = elbow down
 
-            # Also add some randomness to other joints to explore different configurations
-            for i in range(len(new_initial)):
-                if i != JOINT_3_IDX and self.active_links_mask[i]:
+            # Also add some randomness to other active joints to explore
+            # different configurations.
+            for i in self.active_indices:
+                if i != elbow_idx:
                     new_initial[i] += random.uniform(-0.5, 0.5)
 
             try:
@@ -156,7 +166,7 @@ class IKPySolver:
                 )
 
                 if joint_solution is not None:
-                    joint_3_val = joint_solution[JOINT_3_IDX]
+                    joint_3_val = joint_solution[elbow_idx]
                     is_elbow_up = joint_3_val > 0
 
                     if is_elbow_up == elbow_up:

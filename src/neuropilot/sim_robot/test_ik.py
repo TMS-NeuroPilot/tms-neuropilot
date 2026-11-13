@@ -66,7 +66,7 @@ success, joint_solution = solver.solve(
 
 print(f"  Success: {success}")
 if success and joint_solution is not None:
-    active_joints_rad = joint_solution[1:7]
+    active_joints_rad = [joint_solution[i] for i in solver.active_indices]
     active_joints_deg = [round(math.degrees(j), 2) for j in active_joints_rad]
     print(f"  Joints (deg): {active_joints_deg}")
     print(f"  joint_3 (elbow): {'UP' if active_joints_rad[2] > 0 else 'DOWN'} ({active_joints_deg[2]:+.2f} deg)")
@@ -85,7 +85,7 @@ success, joint_solution = solver.solve_with_config(
 
 print(f"  Success: {success}")
 if success and joint_solution is not None:
-    active_joints_rad = joint_solution[1:7]
+    active_joints_rad = [joint_solution[i] for i in solver.active_indices]
     active_joints_deg = [round(math.degrees(j), 2) for j in active_joints_rad]
     print(f"  Joints (deg): {active_joints_deg}")
     print(f"  joint_3 (elbow): {'UP' if active_joints_rad[2] > 0 else 'DOWN'} ({active_joints_deg[2]:+.2f} deg)")

@@ -1,5 +1,7 @@
 """The embedded MuJoCo robot view (simulation only)."""
 
+import os
+
 import numpy as np
 import pytest
 
@@ -85,6 +87,29 @@ def test_start_and_stop_the_timer(view):
     assert view._timer.isActive()
     view.stop()
     assert not view._timer.isActive()
+
+
+def test_view_switches_from_the_fallback_to_the_generated_scene(view):
+    """The robot writes _generated_scene.xml after the window starts.
+
+    The view initially loads the robot-only fallback.  It must pick up the
+    higher-priority scene later, otherwise the subject head never appears.
+    """
+    from neuropilot.controller import robot_scene_view as rsv
+
+    tmp = rsv._scene_dir()
+    generated = os.path.join(tmp, "_generated_scene.xml")
+    if os.path.exists(generated):
+        os.remove(generated)
+    assert view._load_scene() is True
+    assert view._scene_path.endswith("robot_tm5x_700.xml")
+
+    with open(generated, "w") as f:
+        f.write('<mujoco><worldbody><body name="generated_body">'
+                '<geom size="0.05"/></body></worldbody></mujoco>')
+    view._maybe_reload()
+    assert view._scene_path == generated
+    assert view._model.body("generated_body").id >= 0
 
 
 def test_stop_without_a_renderer_is_safe(view):

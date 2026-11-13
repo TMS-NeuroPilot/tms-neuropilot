@@ -13,7 +13,8 @@ RELAY_PORT = 5000
 # URDF, IK chain, frames).  ROBOT selects one; every constant below is derived
 # from it, so adding a robot is one entry in that table plus its two assets
 # (see docs/ROBOTS.md).
-from .robots import DEFAULT_ROBOT, ROBOTS, check as check_robot, get as get_robot
+from .robots import (DEFAULT_ROBOT, ROBOTS, check as check_robot,
+                     get as get_robot, normalize as normalize_robot)
 
 ROBOT = os.getenv("ROBOT", "")
 
@@ -32,7 +33,8 @@ def _robot_from_tms_robot_control_env() -> str:
         pass
     return ""
 
-ROBOT = (ROBOT or _robot_from_tms_robot_control_env() or DEFAULT_ROBOT).lower()
+ROBOT = normalize_robot(
+    ROBOT or _robot_from_tms_robot_control_env() or DEFAULT_ROBOT)
 ROBOT_KNOWN = ROBOT in ROBOTS
 if not ROBOT_KNOWN:
     print(f"[WARN] ROBOT='{ROBOT}' is not a known robot ({sorted(ROBOTS)}); "

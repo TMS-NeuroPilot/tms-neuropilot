@@ -34,7 +34,7 @@ page documents the controls.
 
 | Field | Key | Notes |
 |---|---|---|
-| **Model** | `ROBOT` | the list comes from `sim_robot/robots.py`; an unknown value stays visible and is reported on save |
+| **Model** | `ROBOT` | the list comes from `sim_robot/robots.py`: Omron TM5X-700, Universal Robots UR5, Han's Robot Elfin E5, Dobot CR5; driver names (`ur`, `elfin`, `dobot`) are accepted too. An unknown value stays visible and is reported on save |
 | **tms-robot-control** | `TMS_ROBOT_CONTROL_PATH` | used by `--launch-relay` and the Relay card to start the production relay |
 
 ### Stimulator

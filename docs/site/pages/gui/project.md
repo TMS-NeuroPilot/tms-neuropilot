@@ -43,6 +43,10 @@ background. The row shows **loading...** while the read runs, the rest of the
 window stays usable, and Start remains disabled until the file has been
 applied. Changing a path starts a new read and discards the old result.
 
+The head mesh also replaces the head phantom in the simulated robot view.
+Selecting or typing a mesh updates it directly; clearing the field returns the
+simulator to its bundled default phantom (`head.stl`).
+
 !!! tip "Browse buttons"
     Every row's browse button opens the dialog in the folder of the *current*
     value, or in your home folder. The head-mesh dialog filters for `.msh` and

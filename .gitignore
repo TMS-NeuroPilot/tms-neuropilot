@@ -8,3 +8,4 @@ mjmodel.txt
 *.egg-info/
 src/neuropilot/sim_robot/assets/mjcf/_generated_scene.xml
 public/
+src/neuropilot/sim_robot/assets/mjcf/_head_override.xml
