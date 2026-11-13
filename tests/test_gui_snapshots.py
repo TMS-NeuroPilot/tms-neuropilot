@@ -1,4 +1,7 @@
-"""Screenshot/structure snapshots of the seven pages.
+"""Screenshot/structure snapshots of the main pages.
+
+The About page is intentionally not fingerprinted here: it is static
+text/labels, and regenerating a baseline needs a display on a workstation.
 
 A coarse pixel fingerprint (32x24 grayscale) plus the geometry of the named
 widgets catches a broken ``.ui`` file or a style-sheet regression without being

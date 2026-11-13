@@ -26,7 +26,7 @@ def test_invalid_ui_scale_does_not_stop_startup(qapp, gui_env, monkeypatch,
     monkeypatch.setenv("NEUROPILOT_UI_SCALE", value)
     win = make_window(qapp, gui_env, monkeypatch, tmp_path)
     try:
-        assert win.tabWidget.count() == 7
+        assert win.tabWidget.count() == 8   # 6 .ui pages + Collision test + About
     finally:
         win.close()
         win.deleteLater()
@@ -88,7 +88,7 @@ def test_corrupt_session_cache_is_ignored(qapp, gui_env, monkeypatch, tmp_path):
     cache.write_text("key: [unclosed\n")
     win = make_window(qapp, gui_env, monkeypatch, tmp_path)
     try:
-        assert win.tabWidget.count() == 7
+        assert win.tabWidget.count() == 8   # 6 .ui pages + Collision test + About
     finally:
         win.close()
         win.deleteLater()
@@ -128,7 +128,7 @@ def test_session_cache_directory_replaced_by_a_file(qapp, gui_env, monkeypatch,
     try:
         win.cfg_relay_host.setText("x")          # triggers a cache write attempt
         qapp.processEvents()
-        assert win.tabWidget.count() == 7
+        assert win.tabWidget.count() == 8   # 6 .ui pages + Collision test + About
     finally:
         win.close()
         win.deleteLater()
