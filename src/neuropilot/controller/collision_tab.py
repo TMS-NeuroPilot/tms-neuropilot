@@ -85,7 +85,7 @@ class PoseEditor(QtWidgets.QGroupBox):
 
     def apply_ui_scale(self, scale=1.0):
         """Keep the fields, axis labels and buttons aligned after a rescale."""
-        spin_width = max(80, round(96 * float(scale)))
+        spin_width = max(80, round(104 * float(scale)))
         for spin in self._spins:
             spin.setFixedWidth(spin_width)
         if self._caps:
