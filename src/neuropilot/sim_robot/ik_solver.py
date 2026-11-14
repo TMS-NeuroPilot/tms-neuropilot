@@ -16,11 +16,17 @@ class IKPySolver:
         urdf_path: str,
         active_links_mask: Optional[List[bool]] = None,
         base_elements: Optional[List[str]] = None,
+        tip: str = "coil_tcp",
         end_effector_link_name: Optional[str] = None,
     ):
         self.urdf_path = urdf_path
         self.active_links_mask = active_links_mask
+        # ikpy >= 4.4 deprecates base_elements (removed in 5.0).  The new
+        # API takes the base link name; our specs always pass exactly one.
         self.base_elements = base_elements
+        # The URDF link where the chain ends (the tool point); the new ikpy
+        # API needs it explicitly when several branches leave the base link.
+        self.tip = tip
         self.end_effector_link_name = end_effector_link_name
 
         self.chain = self._build_chain()
@@ -43,7 +49,9 @@ class IKPySolver:
             kwargs["active_links_mask"] = self.active_links_mask
 
         if self.base_elements is not None:
-            kwargs["base_elements"] = self.base_elements
+            kwargs["base"] = self.base_elements[0]
+
+        kwargs["tip"] = self.tip
 
         if self.end_effector_link_name is not None:
             kwargs["last_link_vector"] = None

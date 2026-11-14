@@ -92,6 +92,7 @@ class CollisionTestSession:
             self.spec.urdf,
             active_links_mask=list(self.spec.ik_active_links),
             base_elements=list(self.spec.ik_base_elements),
+            tip=self.spec.ik_tip,
         )
         self.reset_to_start()
 

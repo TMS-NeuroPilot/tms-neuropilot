@@ -206,6 +206,12 @@ def parse_target_order_file(path):
         raise ValueError("No target order file selected.")
     if not os.path.isfile(path):
         raise ValueError(f"Target order file not found: {path}")
+    with open(path) as f:
+        text = f.read()
+    if not text.strip():
+        # genfromtxt would warn on an empty file; this is the same rejection
+        # the empty case already gets below.
+        raise ValueError(f"Target order {os.path.basename(path)} is empty or not numeric.")
     try:
         order = np.genfromtxt(path)
     except (OSError, ValueError) as e:
@@ -621,16 +627,30 @@ class PipelineController:
     def set_pause_true(self):
         self.is_paused = True
 
+    def _send_async(self, topic, data=None):
+        """Fire-and-forget relay send.
+
+        The GUI slots can run before the qasync loop exists; without a
+        running loop the send is dropped (same semantics as a disconnected
+        relay), never raised.  The loop is checked before the coroutine is
+        created, so a dropped send cannot warn "coroutine was never
+        awaited" from the garbage collector."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        loop.create_task(self.remote.send_message(topic, data=data))
+
     def toggle_free_drive(self, value):
-        asyncio.create_task(self.remote.send_message('Neuronavigation to Robot: Set free drive', data={'set': value}))
+        self._send_async('Neuronavigation to Robot: Set free drive', data={'set': value})
         print(f"Free drive has been set to {value}")
 
     def set_default_speed(self, value):
-        asyncio.create_task(self.remote.send_message('GUI to Robot: set default speed robot', data={'default_speed_ratio': value/100}))
+        self._send_async('GUI to Robot: set default speed robot', data={'default_speed_ratio': value/100})
         print(f"Default speed {value} has been sent to the Robot")
 
     def set_tuning_speed(self, value):
-        asyncio.create_task(self.remote.send_message('GUI to Robot: set tuning speed robot', data={'tuning_speed_ratio': value/100}))
+        self._send_async('GUI to Robot: set tuning speed robot', data={'tuning_speed_ratio': value/100})
         print(f"Tuning speed {value} has been sent to the Robot")
 
     def push_robot_settings(self):

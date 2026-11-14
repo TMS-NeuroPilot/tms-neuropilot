@@ -110,7 +110,10 @@ class MplGraphWidget(QWidget):
         self.figure = Figure(figsize=(5, 4), dpi=100)
         # Consistent, readable text sizes for axes/ticks/labels (matplotlib's
         # 9-10pt defaults are unreadably small next to the scaled UI fonts).
-        self.figure.set_constrained_layout(False)
+        # set_constrained_layout is pending-deprecated since matplotlib 3.6;
+        # the 'none' layout engine is its replacement and keeps the manual
+        # subplots_adjust below working.
+        self.figure.set_layout_engine("none")
         self.figure.subplots_adjust(left=0.16, right=0.95, top=0.90, bottom=0.18)
         self.figure.texts  # (no-op) sizes applied per-axes below
 

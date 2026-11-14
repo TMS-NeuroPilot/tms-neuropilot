@@ -98,6 +98,7 @@ FLOOR_POSITION = [0.0, 0.0, -1.5]           # ground plane 1.5m below robot
 # ─────────────────────────────────────────────
 IK_ACTIVE_LINKS_MASK = list(ROBOT_SPEC.ik_active_links)   # one entry per ikpy chain link
 IK_BASE_ELEMENTS     = list(ROBOT_SPEC.ik_base_elements)
+IK_TIP               = ROBOT_SPEC.ik_tip        # URDF link where the chain ends
 IK_ELBOW_UP          = ROBOT_SPEC.ik_elbow_up
 IK_MAX_RETRIES       = 10              # max retries to find desired configuration
 
