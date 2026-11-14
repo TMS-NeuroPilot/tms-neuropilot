@@ -37,6 +37,11 @@ PENETRATION_M = -0.004
 SCAN_STEPS = 30
 
 
+def _canonical_angle(value: float) -> float:
+    """Represent a periodic joint angle in [-pi, pi]."""
+    return (float(value) + np.pi) % (2.0 * np.pi) - np.pi
+
+
 class CollisionTestSession:
     """Local robot/head world used by the Collision test tab."""
 
@@ -129,7 +134,8 @@ class CollisionTestSession:
         return list(self._require_ready().get_joint_positions())
 
     def set_current_joints(self, joints: Sequence[float]) -> None:
-        self._require_ready().reset_joint_positions(list(joints))
+        self._require_ready().reset_joint_positions(
+            [_canonical_angle(value) for value in joints])
 
     # ── IK / jogging ─────────────────────────────────────────────────
     def _full_solution(self, active: Sequence[float]) -> List[float]:
@@ -139,17 +145,20 @@ class CollisionTestSession:
         return solution
 
     def branch_of_active(self, active: Sequence[float]) -> Tuple[str, str, str]:
+        active = [_canonical_angle(value) for value in active]
         return ("left" if active[0] > 0 else "right",
                 "up" if active[2] > 0 else "down",
                 "normal" if active[4] >= 0 else "flipped")
 
     def set_start_from_current(self) -> Tuple[List[float], Tuple[str, str]]:
-        self.start_joints = self.current_joints()
+        self.start_joints = [_canonical_angle(value)
+                             for value in self.current_joints()]
         self.branch = self.branch_of_active(self.start_joints)
         return list(self.start_joints), self.branch
 
     def reset_to_start(self) -> None:
-        self._require_ready().reset_joint_positions(self.start_joints)
+        self._require_ready().reset_joint_positions(
+            [_canonical_angle(value) for value in self.start_joints])
 
     def world_to_base_pose(self, position_mm: Sequence[float],
                            orientation_deg: Sequence[float]
@@ -181,8 +190,14 @@ class CollisionTestSession:
                 orientation_deg: Sequence[float],
                 shoulder: Optional[str] = None,
                 elbow: Optional[str] = None,
-                wrist: Optional[str] = None) -> bool:
-        """Solve IK for a world-frame coil pose and move the local model."""
+                wrist: Optional[str] = None,
+                fallback: bool = False) -> bool:
+        """Solve IK for a world-frame coil pose and move the local model.
+
+        ``fallback`` is for jogging: if the stored branch has no solution at
+        a singular pose, the free simulation IK may still move the arm. The
+        branch-selection presets leave it off so they remain strict.
+        """
         if not self.ready:
             self.ensure_ready()
         shoulder = shoulder if shoulder is not None else self.branch[0]
@@ -196,11 +211,19 @@ class CollisionTestSession:
             shoulder=shoulder, elbow=elbow, wrist=wrist,
             initial_position=self._full_solution(active),
         )
+        if (not ok or solution is None) and fallback:
+            ok, solution = self.ik.solve_with_config(
+                base_pos, base_ori,
+                initial_position=self._full_solution(active),
+                elbow_up=sim_config.IK_ELBOW_UP,
+                max_retries=sim_config.IK_MAX_RETRIES,
+            )
         if not ok or solution is None:
             return False
-        target = [solution[i] for i in self.ik.active_indices]
+        target = [_canonical_angle(solution[i])
+                  for i in self.ik.active_indices]
         self.world.reset_joint_positions(target)
-        self.branch = (shoulder, elbow, wrist)
+        self.branch = self.branch_of_active(target)
         return True
 
     def jog(self, dx_mm: float = 0.0, dy_mm: float = 0.0,
@@ -215,7 +238,7 @@ class CollisionTestSession:
             "xyz", [drx_deg, dry_deg, drz_deg], degrees=True)
         new_ori = (current_r * delta_r).as_euler(
             "xyz", degrees=True).tolist()
-        return self.move_to(new_pos, new_ori)
+        return self.move_to(new_pos, new_ori, fallback=True)
 
     # ── collision state ─────────────────────────────────────────────
     def collision_state(self) -> Dict[str, object]:
@@ -386,7 +409,8 @@ class CollisionTestSession:
                         "completed": self._scan_completed})
             self.stop_scan("no IK solution")
             return
-        target = [solution[i] for i in self.ik.active_indices]
+        target = [_canonical_angle(solution[i])
+                  for i in self.ik.active_indices]
         current = self.current_joints()
         self._scan_path = self._interpolate(current, target)
         self._scan_path_i = 0

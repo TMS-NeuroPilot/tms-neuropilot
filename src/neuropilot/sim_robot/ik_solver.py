@@ -121,8 +121,27 @@ class IKPySolver:
             raise ValueError(f"Unknown wrist branch: {wrist!r}")
         return s, e, w
 
+    @staticmethod
+    def _canonical_angle(angle: float) -> float:
+        """Represent a periodic joint angle in [-pi, pi]."""
+        return (float(angle) + math.pi) % (2.0 * math.pi) - math.pi
+
+    def canonical_solution(self, solution: List[float]) -> List[float]:
+        """Normalise the active periodic joints without changing the pose.
+
+        The URDF allows some joints to turn through +/-2*pi.  ikpy then
+        returns the same physical solution as, for example, +6.20 rad or
+        -0.08 rad.  The branch buttons must compare the physical sign, not
+        the arbitrary 2*pi representation.
+        """
+        result = [float(value) for value in solution]
+        for index in self.active_indices:
+            result[index] = self._canonical_angle(result[index])
+        return result
+
     def branch_of(self, solution: List[float]):
         """``('left'/'right', 'up'/'down')`` for a full ikpy solution."""
+        solution = self.canonical_solution(solution)
         sh = solution[self.active_indices[0]]
         el = solution[self.active_indices[2]]
         wr = solution[self.active_indices[4]] if len(self.active_indices) > 4 else 0.0
@@ -157,15 +176,16 @@ class IKPySolver:
         rng = random.Random(0 if seed is None else seed)
 
         def _matches(solution):
-            if not ((solution[sh_idx] > 0) == (sh_sign > 0)
-                    and (solution[el_idx] > 0) == (el_sign > 0)):
+            candidate = self.canonical_solution(solution)
+            if not ((candidate[sh_idx] > 0) == (sh_sign > 0)
+                    and (candidate[el_idx] > 0) == (el_sign > 0)):
                 return False
             if (wr_idx is not None
-                    and (solution[wr_idx] >= 0) != (wr_sign > 0)):
+                    and (candidate[wr_idx] >= 0) != (wr_sign > 0)):
                 return False
             # ikpy can return a local minimum without raising.  A branch
             # preset must actually reach the requested Cartesian pose.
-            achieved_pos, achieved_ori = self.forward(solution)
+            achieved_pos, achieved_ori = self.forward(candidate)
             pos_err = np.linalg.norm(
                 np.asarray(achieved_pos) - np.asarray(position_mm, dtype=float))
             ori_err = Rotation.from_euler(
@@ -176,12 +196,12 @@ class IKPySolver:
         if initial_position is not None:
             # Holding the current pose must not send the arm through a
             # different IK solution just because one exists.
-            if _matches(list(initial_position)):
-                return True, list(initial_position)
-            ok, solution = self.solve(position_mm, orientation_deg,
-                                      initial_position)
+            initial = self.canonical_solution(initial_position)
+            if _matches(initial):
+                return True, initial
+            ok, solution = self.solve(position_mm, orientation_deg, initial)
             if ok and solution is not None and _matches(solution):
-                return True, solution
+                return True, self.canonical_solution(solution)
 
         base = ([0.0] * len(self.chain.links)
                 if initial_position is None else list(initial_position))
@@ -197,7 +217,7 @@ class IKPySolver:
             ok, solution = self.solve(position_mm, orientation_deg,
                                       seed_position)
             if ok and solution is not None and _matches(solution):
-                return True, solution
+                return True, self.canonical_solution(solution)
         return False, None
 
     def solve_with_config(

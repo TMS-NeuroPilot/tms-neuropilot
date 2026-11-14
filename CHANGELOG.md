@@ -34,6 +34,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   **Reset to start** remains in the scan row. Nudge buttons are compact and
   centred on their numeric fields, and the collision control column scales
   with the window instead of clipping labels and units at 2x.
+- **Wrist-flip fix.** IK solutions are canonicalised to [-180°, 180°] before
+  the shoulder, arm and wrist signs are compared, so **Wrist normal** and
+  **Wrist flipped** are physically distinct instead of the same pose written
+  360° apart.
 - **Start-pose feedback.** **Reset to start** reports whether it moved the
   arm or the arm was already at the saved configuration.
 - **Collision scan progress.** The collision 3D view now carries the same

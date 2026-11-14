@@ -88,6 +88,10 @@ branch never depends on a dropdown popup:
 - **Arm up** or **Arm down**, the sign of the third active joint;
 - **Wrist normal** or **Wrist flipped**, the sign of the fifth active joint.
 
+The wrist sign is evaluated on the canonical joint angle in
+[-180°, 180°], not on an arbitrary 360° representation. This keeps normal and
+flipped physically distinct instead of showing the same pose twice.
+
 A 6R arm can have up to eight IK solutions. Some are unreachable because of
 joint limits or collisions. Press **Set start pose from selection** to solve the
 chosen branch. It tries a Cartesian home point above the subject, several

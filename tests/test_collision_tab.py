@@ -571,3 +571,29 @@ def test_failed_branch_apply_keeps_the_radio_selection(window, monkeypatch):
         assert "Selection kept" in tab.status_label.text()
     finally:
         tab._disable()
+
+
+def test_wrist_choice_changes_the_start_pose(window, qapp):
+    import math
+
+    tab = window.collision_tab
+    tab._enable()
+    qapp.processEvents()
+    try:
+        starts = {}
+        for wrist in ("normal", "flipped"):
+            tab.shoulder_choice.setCurrentIndex(
+                tab.shoulder_choice.findData("right"))
+            tab.arm_choice.setCurrentIndex(tab.arm_choice.findData("up"))
+            tab.wrist_choice.setCurrentIndex(tab.wrist_choice.findData(wrist))
+            tab._apply_branch()
+            qapp.processEvents()
+            assert tab.session.branch[2] == wrist
+            starts[wrist] = np.asarray(tab.session.start_joints)
+        assert not np.allclose(starts["normal"], starts["flipped"])
+        assert starts["normal"][4] >= 0.0
+        assert starts["flipped"][4] < 0.0
+        assert abs(abs(starts["normal"][5] - starts["flipped"][5])
+                   - math.pi) < 0.2
+    finally:
+        tab._disable()
