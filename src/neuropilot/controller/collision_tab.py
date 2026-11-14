@@ -52,8 +52,8 @@ class PoseEditor(QtWidgets.QGroupBox):
             spin.setDecimals(1)
             spin.setSingleStep(1.0)
             spin.setKeyboardTracking(False)
-            spin.setMinimumWidth(110)
-            spin.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
+            spin.setMinimumWidth(80)
+            spin.setSizePolicy(QtWidgets.QSizePolicy.Preferred,
                                QtWidgets.QSizePolicy.Fixed)
             if unit == "mm":
                 spin.setRange(-5000.0, 5000.0)
@@ -83,8 +83,11 @@ class PoseEditor(QtWidgets.QGroupBox):
         self.set_values(position_m, orientation_deg)
         self.apply_ui_scale()
 
-    def apply_ui_scale(self):
-        """Keep the axis labels and nudge buttons aligned after a font rescale."""
+    def apply_ui_scale(self, scale=1.0):
+        """Keep the fields, axis labels and buttons aligned after a rescale."""
+        spin_width = max(80, round(96 * float(scale)))
+        for spin in self._spins:
+            spin.setFixedWidth(spin_width)
         if self._caps:
             label_width = max(cap.sizeHint().width() for cap in self._caps)
             for cap in self._caps:
@@ -251,8 +254,8 @@ class CollisionTestTab(QtWidgets.QWidget):
         scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         # The control stack gets the larger share; the 3D view yields width.
         # The handle stays draggable for an operator who wants more room.
-        scroll.setMinimumWidth(760)
-        scroll.setMaximumWidth(1000)
+        scroll.setMinimumWidth(560)
+        scroll.setMaximumWidth(760)
         self.scroll = scroll
         controls = QtWidgets.QWidget()
         left = QtWidgets.QVBoxLayout(controls)
@@ -294,10 +297,12 @@ class CollisionTestTab(QtWidgets.QWidget):
             line.setSpacing(4)
             cap = QtWidgets.QLabel(axis)
             cap.setProperty("role", "cap")
+            if axis in ("X", "Y", "Z"):
+                cap.setProperty("axis", axis.lower())
             self._jog_caps.append(cap)
             line.addWidget(cap)
             value = QtWidgets.QLabel("—")
-            value.setProperty("role", "value")
+            value.setProperty("role", "jog-value")
             value.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
             value.setToolTip(
                 "Current coil-site pose in world millimetres and tool degrees")
@@ -354,13 +359,15 @@ class CollisionTestTab(QtWidgets.QWidget):
             "Solve the selected shoulder, arm and wrist branch.")
         self.apply_branch_btn.clicked.connect(self._apply_branch)
         start_layout.addLayout(branch_row)
-        start_layout.addWidget(self.apply_branch_btn)
+        start_layout.addWidget(self.apply_branch_btn, 0,
+                               QtCore.Qt.AlignHCenter)
         self.set_start_btn = QtWidgets.QPushButton("Set start from current")
         self.set_start_btn.setToolTip(
             "Store the current six joint angles as the start pose.")
         self.set_start_btn.setProperty("role", "branch")
         self.set_start_btn.clicked.connect(self._capture_start)
-        start_layout.addWidget(self.set_start_btn)
+        start_layout.addWidget(self.set_start_btn, 0,
+                               QtCore.Qt.AlignHCenter)
         self.start_label = QtWidgets.QLabel("")
         self.start_label.setProperty("role", "cap")
         self.start_label.setWordWrap(True)
@@ -381,10 +388,12 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.scan_btn.clicked.connect(self._start_scan)
         self.stop_btn.clicked.connect(self._stop_scan)
         self.reset_btn.clicked.connect(self._go_start)
-        scan_layout.addWidget(self.scan_btn)
+        scan_layout.addWidget(self.scan_btn, 0, QtCore.Qt.AlignHCenter)
         scan_actions = QtWidgets.QHBoxLayout()
+        scan_actions.addStretch(1)
         scan_actions.addWidget(self.stop_btn)
         scan_actions.addWidget(self.reset_btn)
+        scan_actions.addStretch(1)
         scan_layout.addLayout(scan_actions)
         self.progress = QtWidgets.QProgressBar()
         self.progress.setRange(0, 1)
@@ -477,31 +486,38 @@ class CollisionTestTab(QtWidgets.QWidget):
         also re-measure their label widths here.
         """
         s = max(1.0, float(scale))
-        self.base_editor.apply_ui_scale()
-        self.head_editor.apply_ui_scale()
+        self.base_editor.apply_ui_scale(s)
+        self.head_editor.apply_ui_scale(s)
         if self._jog_caps:
             label_width = max(cap.sizeHint().width() for cap in self._jog_caps)
             for cap in self._jog_caps:
                 cap.setFixedWidth(label_width)
         for value in self._jog_value_labels:
-            value.setFixedWidth(round(100 * s))
+            value.setFixedWidth(round(92 * s))
         if self._jog_nudges:
             width = max(button.sizeHint().width()
                         for button in self._jog_nudges)
             for button in self._jog_nudges:
                 button.setFixedWidth(width)
+        for button in (self.apply_branch_btn, self.set_start_btn,
+                       self.scan_btn):
+            button.setMinimumWidth(round(340 * s))
+            button.setMaximumWidth(round(420 * s))
+        for button in (self.stop_btn, self.reset_btn):
+            button.setMinimumWidth(round(150 * s))
+            button.setMaximumWidth(round(200 * s))
         if (self._last_ui_scale is not None
                 and abs(s - self._last_ui_scale) < 0.01):
             self._apply_split(s)
             return
         self._last_ui_scale = s
-        self.scroll.setMinimumWidth(round(700 * s))
-        self.scroll.setMaximumWidth(round(900 * s))
+        self.scroll.setMinimumWidth(round(560 * s))
+        self.scroll.setMaximumWidth(round(760 * s))
         self.view_label.setMinimumSize(round(300 * s), round(300 * s))
         self._apply_split(s)
 
     def _apply_split(self, s):
-        """Give the controls a narrower 60% share, once per real width."""
+        """Give the controls a narrower 52% share, once per real width."""
         total = self.splitter.width()
         if total < round(1100 * s):
             return
@@ -509,8 +525,8 @@ class CollisionTestTab(QtWidgets.QWidget):
                 and abs(total - self._last_split_total) < max(4, total * 0.02)):
             return
         view_min = round(300 * s)
-        desired = max(round(700 * s),
-                      min(round(total * 0.60), round(900 * s)))
+        desired = max(round(560 * s),
+                      min(round(total * 0.52), round(760 * s)))
         target = min(desired, max(1, total - view_min))
         self.splitter.setSizes([target, max(1, total - target)])
         self._last_split_total = total

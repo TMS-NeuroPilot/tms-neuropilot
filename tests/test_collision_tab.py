@@ -206,10 +206,10 @@ def test_controls_fit_before_the_3d_view_at_the_design_size(window, qapp):
     scroll = next(s for s in tab.findChildren(QtWidgets.QScrollArea)
                   if s.widget() is not None
                   and tab.isAncestorOf(s.widget()))
-    assert 700 <= scroll.width() <= 900
+    assert 560 <= scroll.width() <= 760
     assert tab.view_label.width() >= 300
     assert tab.view_label.minimumWidth() == 300
-    assert scroll.maximumWidth() == 900
+    assert scroll.maximumWidth() == 760
     assert scroll.verticalScrollBar().maximum() == 0
     assert not scroll.verticalScrollBar().isVisible()
 
@@ -346,10 +346,25 @@ def test_collision_controls_scale_with_the_window(window, qapp):
     tab = window.collision_tab
     tab._last_ui_scale = None
     tab.apply_ui_scale(2.0)
-    assert tab.scroll.minimumWidth() >= 1400
+    assert tab.scroll.minimumWidth() >= 1100
     assert tab.view_label.minimumWidth() >= 600
     assert all(button.width() < spin.width() for button, spin in zip(
         tab.base_editor._nudge_buttons[::2], tab.base_editor._spins))
+
+
+def test_collision_controls_are_compact_and_axes_are_coloured(window):
+    tab = window.collision_tab
+    tab._last_ui_scale = None
+    tab.apply_ui_scale(1.0)
+    assert tab.scan_btn.maximumWidth() <= 420
+    assert tab.stop_btn.maximumWidth() <= 200
+    caps = {cap.text(): cap for cap in tab._jog_caps}
+    assert [caps[axis].property("axis") for axis in ("X", "Y", "Z")] == [
+        "x", "y", "z"]
+    assert all(caps[axis].property("axis") is None
+               for axis in ("RX", "RY", "RZ"))
+    assert all(label.property("role") == "jog-value"
+               for label in tab._jog_value_labels)
 
 
 def test_scan_reports_a_branch_change_from_the_production_solver(monkeypatch):

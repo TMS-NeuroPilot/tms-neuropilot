@@ -18,7 +18,7 @@ TOKENS = (
     "ok", "ok_soft", "warn", "danger", "danger_soft", "danger_edge",
     "bed", "bed_ink", "bed_muted", "bed_sel",
     "scroll", "scroll_hover", "led_off", "grid",
-    "series",
+    "series", "axis_x", "axis_y", "axis_z",
 )
 
 DEFAULT_THEME = "Workstation Light"
@@ -41,6 +41,7 @@ THEMES = {
         "scroll": "#C6CCD4", "scroll_hover": "#AEB6C0",
         "led_off": "#C9CFD6", "grid": "#E4E7EB",
         "series": ["#1D4ED8", "#C2410C", "#15803D", "#7E22CE", "#0F766E", "#BE185D"],
+        "axis_x": "#B91C1C", "axis_y": "#15803D", "axis_z": "#1D4ED8",
     },
     # Warm ivory paper, terracotta primary: lower glare in a bright room and
     # figures that read well when pasted into a manuscript.
@@ -58,6 +59,7 @@ THEMES = {
         "scroll": "#C8BFAE", "scroll_hover": "#B2A897",
         "led_off": "#CFC8BB", "grid": "#E9E2D4",
         "series": ["#1D4ED8", "#C2410C", "#15803D", "#7E22CE", "#0F766E", "#BE185D"],
+        "axis_x": "#A81F1C", "axis_y": "#146B33", "axis_z": "#1D4ED8",
     },
     # Cool slate with a deep instrumentation blue: amber stays free to mean
     # "warming up", so chrome and status never collide.
@@ -75,6 +77,7 @@ THEMES = {
         "scroll": "#C0CBD9", "scroll_hover": "#A7B3C3",
         "led_off": "#C5CDD8", "grid": "#E1E7EF",
         "series": ["#1D4ED8", "#C2410C", "#15803D", "#7E22CE", "#0F766E", "#BE185D"],
+        "axis_x": "#B91C1C", "axis_y": "#15803D", "axis_z": "#1D4ED8",
     },
     # Neutral two-level charcoal for long sessions: no hue in the chrome, so
     # the log bed, the camera view and the six series colours keep their
@@ -93,6 +96,7 @@ THEMES = {
         "scroll": "#3E444A", "scroll_hover": "#565D64",
         "led_off": "#3C4247", "grid": "#2A2F34",
         "series": ["#58A6FF", "#F5A65B", "#4ADE80", "#C58BFF", "#43D9C8", "#FF8FA3"],
+        "axis_x": "#F87171", "axis_y": "#4ADE80", "axis_z": "#58A6FF",
     },
     # Blue-black for a dark room where the neuronavigation screen is the
     # reference: the canvas sits below that screen so the workstation recedes,
@@ -111,6 +115,7 @@ THEMES = {
         "scroll": "#313C4A", "scroll_hover": "#48566A",
         "led_off": "#38475A", "grid": "#232E3A",
         "series": ["#58A6FF", "#F5A65B", "#4ADE80", "#C58BFF", "#43D9C8", "#FF8FA3"],
+        "axis_x": "#FF7A70", "axis_y": "#4ADE80", "axis_z": "#58A6FF",
     },
 }
 
@@ -171,9 +176,13 @@ QGroupBox[card="true"]::title {
 QLabel[role="cap"]     { font-size: 11px; color: %(muted)s; }
 QCheckBox[role="cap"]  { font-size: 11px; color: %(muted)s; }
 QLabel[role="value"]   { font-size: 15px; font-weight: 600; }
+QLabel[role="jog-value"] { font-size: 12px; font-weight: 500; }
 QLabel[role="value-xl"]{ font-size: 16px; font-weight: 600; }
 QLabel[role="section"] { font-size: 11px; font-weight: 600; color: %(muted)s; }
 QLabel[role="badge"]   { font-size: 11px; font-weight: 600; }
+QLabel[role="cap"][axis="x"] { color: %(axis_x)s; font-weight: 600; }
+QLabel[role="cap"][axis="y"] { color: %(axis_y)s; font-weight: 600; }
+QLabel[role="cap"][axis="z"] { color: %(axis_z)s; font-weight: 600; }
 QRadioButton[role="choice"] { font-size: 12px; color: %(soft)s; spacing: 6px; }
 QLabel[role="mono"]    { font-family: 'DejaVu Sans Mono','Consolas',monospace;
                          font-size: 12px; color: %(mono)s; }
