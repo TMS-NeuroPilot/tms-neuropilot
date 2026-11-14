@@ -66,6 +66,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   look clear. Self-contacts shallower than 2 mm are treated as mesh overlap;
   a self-penetration of 2 mm or more still stops the scan. The collision
   label's tooltip reports the measured self-overlap.
+- **Link-3/link-5 false contact removed.** MuJoCo convexifies mesh geoms, so
+  the convex hull of the forearm filled the wrist fork and reported a
+  collision although the visual links were about 15 mm apart. The pair is
+  excluded; the other self-collision pairs remain checked.
 
 - **Adding a robot is data, not code.**  Every robot-specific value now
   lives in one `RobotSpec` table (`sim_robot/robots.py`: MuJoCo model,

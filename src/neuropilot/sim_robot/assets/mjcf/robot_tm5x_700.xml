@@ -126,6 +126,11 @@
     <exclude body1="link_3" body2="link_4"/>
     <exclude body1="link_4" body2="link_5"/>
     <exclude body1="link_5" body2="link_6"/>
+    <!-- MuJoCo convexifies mesh geoms.  The convex hull of the link-3 arm
+         fills the wrist fork and reports a false contact with link 5 even
+         though the visual meshes are about 15 mm apart in a normal folded
+         pose.  Ignore this pair; the other self pairs remain checked. -->
+    <exclude body1="link_3" body2="link_5"/>
     <exclude body1="link_6" body2="flange"/>
   </contact>
 </mujoco>

@@ -158,7 +158,10 @@ are the validated cell description and remain part of the project record.
 
 - subject shoulders, torso, chair and table;
 - the production controller's exact blend, force-control and press trajectory;
-- cable routing and the robot's real joint limits beyond the URDF model.
+- cable routing and the robot's real joint limits beyond the URDF model;
+- link 3 against link 5 self-contact, because MuJoCo convexifies mesh geoms and
+  the convex hull of the forearm fills the wrist fork; the visual meshes have
+  about 15 mm clearance in the folded pose that used to report a collision.
 
 Use the page to eliminate obvious bad layouts, then confirm the final cell on
 the real robot at low speed.

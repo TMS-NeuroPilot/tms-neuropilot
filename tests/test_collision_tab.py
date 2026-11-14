@@ -754,3 +754,31 @@ def test_shallow_self_mesh_overlap_is_not_a_collision(monkeypatch):
         assert deep["self_collision"] is True
     finally:
         session.dispose()
+
+
+def test_known_link3_link5_false_contact_is_excluded():
+    session = CollisionTestSession()
+    session.ensure_ready()
+    try:
+        session.world.reset_joint_positions(np.radians(
+            [-9.0, 28.97, 91.86, -120.93, 9.0, 0.0]).tolist())
+        state = session.collision_state()
+        assert state["collision"] is False
+        assert state["self_collision"] is False
+        assert state["self_contact_mm"] is None
+    finally:
+        session.dispose()
+
+
+def test_self_collision_still_detects_a_real_fold():
+    session = CollisionTestSession()
+    session.ensure_ready()
+    try:
+        session.world.reset_joint_positions(np.radians(
+            [131.3, -321.2, -86.7, -227.3, -233.3, 224.7]).tolist())
+        state = session.collision_state()
+        assert state["collision"] is True
+        assert state["self_collision"] is True
+        assert state["self_contact_mm"] < -2.0
+    finally:
+        session.dispose()
