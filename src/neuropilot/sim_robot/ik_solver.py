@@ -82,7 +82,16 @@ class IKPySolver:
         position_mm: List[float],
         orientation_deg: List[float],
         initial_position: Optional[List[float]] = None,
+        verify: bool = True,
     ) -> Tuple[bool, Optional[List[float]]]:
+        """Solve IK and, by default, verify the achieved Cartesian pose.
+
+        ikpy returns a best-effort local minimum for many unreachable or
+        orientation-infeasible targets.  Without the verification gate a
+        caller would drive to that local minimum and never signal
+        ``motion_done``.  ``verify=False`` is only for callers that
+        deliberately want the raw numerical result.
+        """
         try:
             target_frame = self.build_target_frame(position_mm, orientation_deg)
 
@@ -98,7 +107,11 @@ class IKPySolver:
             if joint_solution is None:
                 return False, None
 
-            return True, [float(v) for v in joint_solution]
+            solution = [float(v) for v in joint_solution]
+            if verify and not self._solution_matches(
+                    solution, position_mm, orientation_deg):
+                return False, None
+            return True, solution
 
         except Exception as exc:
             print(f"[tms-robot-sim] IK solve failed: {exc}")
@@ -147,6 +160,30 @@ class IKPySolver:
             result[index] = self._canonical_angle(result[index])
         return result
 
+    def _solution_matches(
+        self,
+        solution: List[float],
+        position_mm: List[float],
+        orientation_deg: List[float],
+        position_tolerance_mm: float = 0.5,
+        orientation_tolerance_deg: float = 0.5,
+    ) -> bool:
+        """Whether a joint solution reaches the requested Cartesian pose.
+
+        The tolerances match the branch presets: a solution that is only a
+        local minimum must not be reported as reaching the target.
+        """
+        candidate = self.canonical_solution(solution)
+        achieved_pos, achieved_ori = self.forward(candidate)
+        pos_err = np.linalg.norm(
+            np.asarray(achieved_pos, dtype=float)
+            - np.asarray(position_mm, dtype=float))
+        ori_err = Rotation.from_euler(
+            "xyz", achieved_ori, degrees=True).inv() * Rotation.from_euler(
+                "xyz", orientation_deg, degrees=True)
+        return (pos_err <= position_tolerance_mm
+                and np.degrees(ori_err.magnitude()) <= orientation_tolerance_deg)
+
     def branch_of(self, solution: List[float]):
         """``('left'/'right', 'up'/'down')`` for a full ikpy solution."""
         solution = self.canonical_solution(solution)
@@ -193,13 +230,8 @@ class IKPySolver:
                 return False
             # ikpy can return a local minimum without raising.  A branch
             # preset must actually reach the requested Cartesian pose.
-            achieved_pos, achieved_ori = self.forward(candidate)
-            pos_err = np.linalg.norm(
-                np.asarray(achieved_pos) - np.asarray(position_mm, dtype=float))
-            ori_err = Rotation.from_euler(
-                "xyz", achieved_ori, degrees=True).inv() * Rotation.from_euler(
-                    "xyz", orientation_deg, degrees=True)
-            return pos_err <= 0.5 and np.degrees(ori_err.magnitude()) <= 0.5
+            return self._solution_matches(
+                candidate, position_mm, orientation_deg)
 
         if initial_position is not None:
             # Holding the current pose must not send the arm through a
@@ -207,7 +239,8 @@ class IKPySolver:
             initial = self.canonical_solution(initial_position)
             if _matches(initial):
                 return True, initial
-            ok, solution = self.solve(position_mm, orientation_deg, initial)
+            ok, solution = self.solve(
+                position_mm, orientation_deg, initial, verify=False)
             if ok and solution is not None and _matches(solution):
                 return True, self.canonical_solution(solution)
 
@@ -223,7 +256,7 @@ class IKPySolver:
                 if idx not in (sh_idx, el_idx, wr_idx):
                     seed_position[idx] += rng.uniform(-0.5, 0.5)
             ok, solution = self.solve(position_mm, orientation_deg,
-                                      seed_position)
+                                      seed_position, verify=False)
             if ok and solution is not None and _matches(solution):
                 return True, self.canonical_solution(solution)
         return False, None
@@ -235,6 +268,7 @@ class IKPySolver:
         initial_position: Optional[List[float]] = None,
         elbow_up: bool = True,
         max_retries: int = 10,
+        seed: Optional[int] = None,
     ) -> Tuple[bool, Optional[List[float]]]:
         """
         Solve IK with configuration preference (elbow up/down).
@@ -245,6 +279,7 @@ class IKPySolver:
             initial_position: Initial joint positions (padded with inactive links)
             elbow_up: True for elbow up (joint_3 positive), False for elbow down
             max_retries: Maximum number of retries with different initial positions
+            seed: Retry seed.  Defaults to 0 so repeated scans are deterministic.
 
         Returns:
             (success, joint_solution) - same as solve()
@@ -254,17 +289,22 @@ class IKPySolver:
         if len(self.active_indices) < 3:
             return False, None
         elbow_idx = self.active_indices[2]
+        # Never draw retries from the process-global random state: the same
+        # target and initial pose must produce the same path every scan.
+        rng = random.Random(0 if seed is None else seed)
+        fallback = None
 
-        # First try with the provided initial position
-        success, solution = self.solve(position_mm, orientation_deg, initial_position)
+        # First try with the provided initial position.  Verify below, so the
+        # raw solver call does not duplicate the forward-kinematics check.
+        success, solution = self.solve(
+            position_mm, orientation_deg, initial_position, verify=False)
 
         if success and solution is not None:
-            joint_3_val = solution[elbow_idx]
-            is_elbow_up = joint_3_val > 0
-
-            if is_elbow_up == elbow_up:
-                # Solution matches desired configuration
-                return True, solution
+            candidate = self.canonical_solution(solution)
+            if self._solution_matches(candidate, position_mm, orientation_deg):
+                fallback = candidate
+                if (candidate[elbow_idx] > 0) == elbow_up:
+                    return True, candidate
 
         # Solution doesn't match desired configuration, retry with different initial positions
         target_frame = self.build_target_frame(position_mm, orientation_deg)
@@ -280,15 +320,15 @@ class IKPySolver:
             # For elbow up: positive angle (e.g., +2.0 rad ≈ 115°)
             # For elbow down: negative angle (e.g., -2.0 rad ≈ -115°)
             if elbow_up:
-                new_initial[elbow_idx] = random.uniform(1.0, 2.5)  # positive = elbow up
+                new_initial[elbow_idx] = rng.uniform(1.0, 2.5)
             else:
-                new_initial[elbow_idx] = random.uniform(-2.5, -1.0)  # negative = elbow down
+                new_initial[elbow_idx] = rng.uniform(-2.5, -1.0)
 
             # Also add some randomness to other active joints to explore
             # different configurations.
             for i in self.active_indices:
                 if i != elbow_idx:
-                    new_initial[i] += random.uniform(-0.5, 0.5)
+                    new_initial[i] += rng.uniform(-0.5, 0.5)
 
             try:
                 joint_solution = self.chain.inverse_kinematics_frame(
@@ -296,22 +336,26 @@ class IKPySolver:
                     initial_position=new_initial,
                     orientation_mode="all",
                 )
-
-                if joint_solution is not None:
-                    joint_3_val = joint_solution[elbow_idx]
-                    is_elbow_up = joint_3_val > 0
-
-                    if is_elbow_up == elbow_up:
-                        print(f"[IK] Found elbow {'up' if elbow_up else 'down'} solution on retry {retry + 1}")
-                        return True, [float(v) for v in joint_solution]
+                if joint_solution is None:
+                    continue
+                candidate = self.canonical_solution(
+                    [float(v) for v in joint_solution])
+                if not self._solution_matches(
+                        candidate, position_mm, orientation_deg):
+                    continue
+                if fallback is None:
+                    fallback = candidate
+                if (candidate[elbow_idx] > 0) == elbow_up:
+                    print(f"[IK] Found elbow {'up' if elbow_up else 'down'} solution on retry {retry + 1}")
+                    return True, candidate
 
             except Exception:
                 continue
 
-        # If we couldn't find a matching configuration, return the original solution
-        if success and solution is not None:
+        # If we found a verified pose but not the requested elbow, prefer it.
+        if fallback is not None:
             print(f"[IK] Warning: Could not find elbow {'up' if elbow_up else 'down'} solution after {max_retries} retries, using best available")
-            return True, solution
+            return True, fallback
 
         return False, None
 

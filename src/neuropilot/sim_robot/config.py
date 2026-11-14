@@ -114,6 +114,9 @@ HEALTH_INTERVAL_SEC  = 1.0        # 1 Hz  — how often health status is publish
 # ─────────────────────────────────────────────
 COLLISION_DISTANCE_THRESHOLD_M = 0.01   # 1 cm — below this = collision
 PENTRATION_TOLERANCE = -0.004 # ( ALLOWS 4 mm PENETRATION FOR COIL CONTACT)
+# Arm collision meshes overlap by about 1 mm at some wrist configurations.
+# Ignore sub-2 mm self-mesh overlap; deeper penetration remains a collision.
+SELF_PENETRATION_TOLERANCE = -0.002
 CONTACT_FORCE_SCALE            = 10.0   # multiplier: normal_force → force_feedback value
 
 # ─────────────────────────────────────────────

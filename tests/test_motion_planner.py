@@ -6,8 +6,6 @@ the collision halt and its release on a new target, a target change
 mid-motion, and the tracking state the pipeline collects data on.
 """
 
-import random
-
 import pytest
 
 from neuropilot.sim_robot import config as sim_config
@@ -50,10 +48,6 @@ def planner(monkeypatch):
     # cannot produce deterministically; the press is the analogue of the
     # real robot's pressure PID and not what these tests gate on.
     monkeypatch.setattr(sim_config, "PRESS_ENABLED", False)
-    # solve_with_config draws its IK retries from the global random module;
-    # unseeded, the returned solution differs between runs and a path can
-    # flip between clear and self-colliding.  Seed it per test.
-    random.seed(0)
     try:
         yield mp, state, world, ik
     finally:
@@ -77,6 +71,22 @@ def _target_near(world, dx_mm=0.0, dy_mm=0.0):
 
 
 # ── path construction ──────────────────────────────────────────────────
+
+def test_self_collision_uses_the_shared_mesh_overlap_tolerance():
+    class FakeWorld:
+        def __init__(self):
+            self.contacts = []
+
+        def get_self_collision_contacts(self):
+            return self.contacts
+
+    world = FakeWorld()
+    checker = CollisionChecker(world)
+    world.contacts = [{"dist": -0.001}]
+    assert checker.check_self_collision() is False
+    world.contacts = [{"dist": -0.010}]
+    assert checker.check_self_collision() is True
+
 
 def test_interpolation_is_linear_and_excludes_the_start():
     n = sim_config.PATH_INTERPOLATION_STEPS
@@ -134,10 +144,9 @@ def test_a_target_change_mid_motion_recomputes_and_reaches_the_new_target(planne
         if state.motion_done:
             break
     # A reachable second target, known by construction: perturb the stored
-    # solution's wrist joint slightly and take its forward kinematics.  An
-    # arbitrary world-frame shift can be orientation-infeasible, in which
-    # case the IK returns a best-effort pose that never settles (see the
-    # report on solve_with_config's unverified results).
+    # solution's wrist joint slightly and take its forward kinematics.  The
+    # pose is reachable by definition, so the test does not depend on the
+    # numerical solver finding a valid orientation for an arbitrary shift.
     solution = list(state.target_joint_positions)
     solution[mp.ik_solver.active_indices[-1]] += 0.1
     padded = [0.0] * len(ik.chain.links)

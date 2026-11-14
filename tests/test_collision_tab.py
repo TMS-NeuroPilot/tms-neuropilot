@@ -11,7 +11,7 @@ pytest.importorskip("PyQt5.QtWidgets")
 pytest.importorskip("mujoco")
 pytest.importorskip("ikpy")
 
-from neuropilot.controller.collision_test import CollisionTestSession
+from neuropilot.controller.collision_test import SCAN_STEPS, CollisionTestSession
 from neuropilot.controller.pipeline_controller import read_simnibs_targets_data
 from neuropilot.lab_profile import LabProfile
 from neuropilot.sim_robot.utils.transforms import orientation_distance_deg
@@ -352,15 +352,17 @@ def test_collision_controls_scale_with_the_window(window, qapp):
         tab.base_editor._nudge_buttons[::2], tab.base_editor._spins))
 
 
-def test_selected_branch_retries_with_the_simulation_solver(monkeypatch):
+def test_scan_reports_a_branch_change_from_the_production_solver(monkeypatch):
     session = CollisionTestSession()
     session.ensure_ready()
     try:
         solution = [0.0] * len(session.ik.chain.links)
         for index in session.ik.active_indices:
             solution[index] = 0.1
-        monkeypatch.setattr(session.ik, "solve_branch",
-                            lambda *args, **kwargs: (False, None))
+        branch_calls = []
+        monkeypatch.setattr(
+            session.ik, "solve_branch",
+            lambda *args, **kwargs: branch_calls.append(True) or (False, None))
         monkeypatch.setattr(session.ik, "solve_with_config",
                             lambda *args, **kwargs: (True, solution))
         session._scan_active = True
@@ -383,16 +385,15 @@ def test_selected_branch_retries_with_the_simulation_solver(monkeypatch):
             "used": ["left", "up", "normal"],
         }]
         assert session.branch == ("right", "down", "flipped")
+        assert branch_calls == []
     finally:
         session.dispose()
 
 
-def test_both_solvers_failing_is_reported_as_ik_not_collision(monkeypatch):
+def test_ik_failure_is_reported_as_ik_not_collision(monkeypatch):
     session = CollisionTestSession()
     session.ensure_ready()
     try:
-        monkeypatch.setattr(session.ik, "solve_branch",
-                            lambda *args, **kwargs: (False, None))
         monkeypatch.setattr(session.ik, "solve_with_config",
                             lambda *args, **kwargs: (False, None))
         session._scan_active = True
@@ -648,6 +649,71 @@ def test_jog_values_show_the_current_tool_pose(window, qapp):
         assert all(label.text() != "—" for label in tab._jog_value_labels)
     finally:
         tab._disable()
+
+
+def test_collision_preflight_shares_the_simulator_limits():
+    from neuropilot.controller import collision_test
+    from neuropilot.sim_robot import config as sim_config
+
+    assert collision_test.NEAR_MISS_M == sim_config.COLLISION_DISTANCE_THRESHOLD_M
+    assert collision_test.PENETRATION_M == sim_config.PENTRATION_TOLERANCE
+    assert collision_test.SELF_PENETRATION_M == sim_config.SELF_PENETRATION_TOLERANCE
+    assert collision_test.SCAN_STEPS == sim_config.PATH_INTERPOLATION_STEPS
+
+
+def test_shallow_head_contact_is_tolerated_and_deep_contact_is_not(monkeypatch):
+    session = CollisionTestSession()
+    session.ensure_ready()
+    try:
+        monkeypatch.setattr(session.world, "get_self_collision_contacts", lambda: [])
+        monkeypatch.setattr(
+            session.world, "get_robot_head_closest_distance",
+            lambda **kw: -0.001)
+        monkeypatch.setattr(
+            session.world, "get_robot_head_contacts",
+            lambda: [{"dist": -0.001}])
+        shallow = session.collision_state()
+        assert shallow["collision"] is False
+        assert shallow["head_contact"] is False
+        assert shallow["warning"] is True
+
+        monkeypatch.setattr(
+            session.world, "get_robot_head_closest_distance",
+            lambda **kw: -0.010)
+        monkeypatch.setattr(
+            session.world, "get_robot_head_contacts",
+            lambda: [{"dist": -0.010}])
+        deep = session.collision_state()
+        assert deep["collision"] is True
+        assert deep["head_contact"] is True
+    finally:
+        session.dispose()
+
+
+def test_crane_path_is_used_for_large_moves(monkeypatch):
+    session = CollisionTestSession()
+    session.ensure_ready()
+    try:
+        solution = [0.0] * len(session.ik.chain.links)
+        for index in session.ik.active_indices:
+            solution[index] = 0.2
+        monkeypatch.setattr(
+            session, "current_end_effector",
+            lambda: ([0.0, 0.0, 0.0], [0.0, 0.0, 0.0]))
+        monkeypatch.setattr(
+            session.ik, "solve_with_config",
+            lambda *args, **kwargs: (True, solution))
+        target = [0.0] * len(session.ik.active_indices)
+
+        large = session._build_motion_path(
+            target, target, ([100.0, 0.0, 0.0], [0.0, 0.0, 0.0]))
+        small = session._build_motion_path(
+            target, target, ([10.0, 0.0, 0.0], [0.0, 0.0, 0.0]))
+
+        assert len(large) == 3 * SCAN_STEPS
+        assert len(small) == SCAN_STEPS
+    finally:
+        session.dispose()
 
 
 def test_shallow_self_mesh_overlap_is_not_a_collision(monkeypatch):

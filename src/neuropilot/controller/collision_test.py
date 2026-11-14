@@ -29,16 +29,12 @@ from ..sim_robot.utils.transforms import (
     pose_to_matrix,
 )
 
-# Collision thresholds mirror the simulator's safety defaults.  The scan
-# stops on a true collision (penetration/contact) and reports proximity as a
-# warning, so a near miss is visible before it becomes a hardware problem.
-NEAR_MISS_M = 0.010
-PENETRATION_M = -0.004
-# Consecutive arm meshes overlap slightly at some wrist configurations even
-# when the rendered links look clear. Ignore sub-2 mm self-mesh overlaps;
-# deeper penetration still stops the scan.
-SELF_PENETRATION_M = -0.002
-SCAN_STEPS = 30
+# These mirror the simulator's own collision and crane parameters.  Keep the
+# preflight and the Control simulation on one set of thresholds.
+NEAR_MISS_M = sim_config.COLLISION_DISTANCE_THRESHOLD_M
+PENETRATION_M = sim_config.PENTRATION_TOLERANCE
+SELF_PENETRATION_M = sim_config.SELF_PENETRATION_TOLERANCE
+SCAN_STEPS = sim_config.PATH_INTERPOLATION_STEPS
 
 
 def _canonical_angle(value: float) -> float:
@@ -73,6 +69,7 @@ class CollisionTestSession:
         self._scan_active = False
         self._scan_message = ""
         self._scan_base_targets: List[Tuple[List[float], List[float]]] = []
+        self._scan_world_targets: List[Tuple[List[float], List[float]]] = []
         self._scan_target_ids: List[int] = []
         self._scan_order_indices: List[int] = []
         self._scan_reps: List[int] = []
@@ -261,7 +258,11 @@ class CollisionTestSession:
                          if contact.get("dist", 0.0) <= SELF_PENETRATION_M]
         self_contact_mm = (min(float(contact["dist"]) for contact in all_self)
                            * 1000.0 if all_self else None)
-        head_contacts = world.get_robot_head_contacts()
+        # The production simulator allows 4 mm of coil-head penetration,
+        # because the coil is pressed against the scalp.  Use the same
+        # tolerance here so a valid target is not rejected as a collision.
+        head_contacts = [contact for contact in world.get_robot_head_contacts()
+                         if contact.get("dist", 0.0) <= PENETRATION_M]
         collision = bool(self_contacts) or bool(head_contacts) or (
             distance is not None and distance <= PENETRATION_M)
         warning = (distance is not None and
@@ -315,6 +316,7 @@ class CollisionTestSession:
         else:
             order = [int(value) for value in target_ids]
         self._scan_base_targets = []
+        self._scan_world_targets = []
         self._scan_target_ids = []
         self._scan_order_indices = []
         self._scan_reps = []
@@ -327,10 +329,12 @@ class CollisionTestSession:
             world_pos, world_ori = pipeline_target_to_mujoco_world(
                 list(pos_mm), list(ori_deg),
                 self.head_pose[0], self.head_pose[1])
+            world_target = (m_to_mm(world_pos), list(world_ori))
             base_pose = self.world_to_base_pose(
-                m_to_mm(world_pos), world_ori)
+                world_target[0], world_target[1])
             for rep in range(1, self._scan_repetitions + 1):
                 self._scan_base_targets.append(base_pose)
+                self._scan_world_targets.append(world_target)
                 self._scan_target_ids.append(target_id)
                 self._scan_order_indices.append(order_index)
                 self._scan_reps.append(rep)
@@ -381,36 +385,29 @@ class CollisionTestSession:
         active = self.current_joints()
         initial = self._full_solution(active)
         selected = (self.branch[0], self.branch[1], self.branch[2])
-        ok, solution = self.ik.solve_branch(
+        # Use the same free solver as the Control simulation.  The selected
+        # branch shapes the start pose and the initial configuration; it is
+        # not a per-target lock, because the simulated planner can choose a
+        # different branch to reach a target.
+        ok, solution = self.ik.solve_with_config(
             target_pos, target_ori,
-            shoulder=selected[0], elbow=selected[1], wrist=selected[2],
             initial_position=initial,
+            elbow_up=sim_config.IK_ELBOW_UP,
+            max_retries=sim_config.IK_MAX_RETRIES,
         )
         used = selected
-        if not ok or solution is None:
-            # The production sim planner does not lock shoulder/wrist; it
-            # asks for the configured elbow preference and accepts another
-            # solution if needed.  Retry with that solver before calling the
-            # target unreachable, so this scan does not stop where the real
-            # simulation would still move.
-            ok, solution = self.ik.solve_with_config(
-                target_pos, target_ori,
-                initial_position=initial,
-                elbow_up=sim_config.IK_ELBOW_UP,
-                max_retries=sim_config.IK_MAX_RETRIES,
-            )
-            if ok and solution is not None:
-                used_active = [solution[i] for i in self.ik.active_indices]
-                used = self.branch_of_active(used_active)
-                if used != selected:
-                    self._scan_branch_changes.append({
-                        "index": idx,
-                        "target_id": entry["target_id"],
-                        "order_index": entry["order_index"],
-                        "rep": entry["rep"],
-                        "selected": list(selected),
-                        "used": list(used),
-                    })
+        if ok and solution is not None:
+            used_active = [solution[i] for i in self.ik.active_indices]
+            used = self.branch_of_active(used_active)
+            if used != selected:
+                self._scan_branch_changes.append({
+                    "index": idx,
+                    "target_id": entry["target_id"],
+                    "order_index": entry["order_index"],
+                    "rep": entry["rep"],
+                    "selected": list(selected),
+                    "used": list(used),
+                })
         if not ok or solution is None:
             self._record_result(
                 False, "IK failed", collision=False,
@@ -422,12 +419,68 @@ class CollisionTestSession:
         target = [_canonical_angle(solution[i])
                   for i in self.ik.active_indices]
         current = self.current_joints()
-        self._scan_path = self._interpolate(current, target)
+        world_target = (self._scan_world_targets[idx]
+                        if idx < len(self._scan_world_targets) else None)
+        self._scan_path = self._build_motion_path(
+            current, target, world_target)
         self._scan_path_i = 0
         note = " (IK branch changed)" if used != selected else ""
         self._scan_message = (
             f"pulse {entry['order_index']} · {entry['rep']}/"
             f"{self._scan_repetitions} · target {entry['target_id']}{note}")
+
+    def _build_motion_path(
+        self,
+        current: Sequence[float],
+        target: Sequence[float],
+        world_target: Optional[Tuple[Sequence[float], Sequence[float]]],
+    ) -> List[List[float]]:
+        """Mirror the simulated robot's crane path when possible.
+
+        The Control simulation lifts large moves to a 350 mm safe height,
+        traverses, then descends.  Checking only a direct joint-space line
+        reports collisions that the simulated robot never performs.
+        """
+        if world_target is None:
+            return self._interpolate(current, target)
+        current_pos, current_ori = self.current_end_effector()
+        target_pos, target_ori = world_target
+        displacement = float(np.linalg.norm(
+            np.asarray(target_pos, dtype=float)
+            - np.asarray(current_pos, dtype=float)))
+        if displacement <= sim_config.CRANE_DISPLACEMENT_THRESHOLD_MM:
+            return self._interpolate(current, target)
+
+        safe_z_mm = sim_config.SAFE_HEIGHT_M * 1000.0
+        above_current = [current_pos[0], current_pos[1], safe_z_mm]
+        above_target = [target_pos[0], target_pos[1], safe_z_mm]
+        initial = self._full_solution(current)
+        ok_current, solution_current = self.ik.solve_with_config(
+            above_current, current_ori,
+            initial_position=initial,
+            elbow_up=sim_config.IK_ELBOW_UP,
+            max_retries=sim_config.IK_MAX_RETRIES,
+        )
+        ok_target, solution_target = self.ik.solve_with_config(
+            above_target, target_ori,
+            initial_position=initial,
+            elbow_up=sim_config.IK_ELBOW_UP,
+            max_retries=sim_config.IK_MAX_RETRIES,
+        )
+        if not (ok_current and solution_current is not None
+                and ok_target and solution_target is not None):
+            return self._interpolate(current, target)
+
+        above_current_active = [
+            _canonical_angle(solution_current[index])
+            for index in self.ik.active_indices]
+        above_target_active = [
+            _canonical_angle(solution_target[index])
+            for index in self.ik.active_indices]
+        return (self._interpolate(current, above_current_active)
+                + self._interpolate(above_current_active,
+                                    above_target_active)
+                + self._interpolate(above_target_active, target))
 
     @staticmethod
     def _interpolate(start: Sequence[float], end: Sequence[float],

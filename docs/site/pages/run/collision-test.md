@@ -28,11 +28,15 @@ after the base is moved.
 
 The scene is compiled from the selected robot's MJCF model and the subject
 skin surface. MuJoCo evaluates contacts and nearest distances; ikpy solves the
-same URDF chain that the simulated robot uses. The direct path between two
-placements is sampled at 30 joint-space waypoints, and every waypoint is
-checked. Head contact and self-penetration of 2 mm or more count as
-collisions. A head clearance of 10 mm or less is a near miss and is reported
-without stopping the scan.
+same URDF chain that the simulated robot uses. The scan follows the simulated
+planner's motion strategy: moves above 20 mm lift to a 350 mm safe height,
+traverse, then descend, and shorter moves use a direct joint-space line. Each
+segment is sampled at 30 waypoints and every waypoint is checked.
+
+A head penetration of 4 mm or more and a self-penetration of 2 mm or more
+count as collisions. The 4 mm head allowance matches the production
+simulation, where the coil is pressed into the scalp. A head clearance of
+10 mm or less is a near miss and is reported without stopping the scan.
 
 Self-collision ignores overlaps shallower than 2 mm. The robot's collision
 meshes overlap by about 1 mm at some wrist configurations even though the
@@ -129,13 +133,13 @@ arm stays at the colliding waypoint. Move the base, head or start pose, press
 **Reset to start**, and run it again.
 
 An **IK failure is not a collision**. It means the solver could not find a
-joint configuration for that target from the previous pose. The scan first
-tries the shoulder/arm/wrist branch selected for the start pose, then retries
-with the same free IK solver that the simulated experiment uses. A successful
-retry is reported as an IK branch change, and the scan continues. If both
-solvers fail, the arm remains at the last reached target and the status says
-so. The simulated experiment may still reach such a target because it does not
-lock the start-pose shoulder/wrist branch and may choose another approach.
+joint configuration for that target from the previous pose. The scan uses the
+same free IK solver and elbow preference as the simulated experiment. The
+shoulder/arm/wrist selection shapes the start pose and the initial joint
+configuration; it is not a per-target lock, because the simulated planner can
+choose another branch. If the solver lands in a different branch, the scan
+reports an IK branch change and continues. If the solver fails, the arm remains
+at the last reached target and the status says so.
 
 ## Save and use the result
 
@@ -153,7 +157,7 @@ are the validated cell description and remain part of the project record.
 ## What is not modelled yet
 
 - subject shoulders, torso, chair and table;
-- the production controller's crane, blend and force-control trajectory;
+- the production controller's exact blend, force-control and press trajectory;
 - cable routing and the robot's real joint limits beyond the URDF model.
 
 Use the page to eliminate obvious bad layouts, then confirm the final cell on

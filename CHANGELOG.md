@@ -43,6 +43,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the jog pad shows the live coil-site pose next to each axis, the step menu
   is compact, and **Start collision scan** sits above **Stop** / **Reset to
   start**.
+- **Collision preflight follows the Control path.** The scan now uses the
+  simulated planner's crane strategy for moves above 20 mm, the same free IK
+  solver and elbow preference, and the same 4 mm coil-head contact allowance.
+  A direct joint-space line made valid targets look like head collisions even
+  though Control reached them with a lift, traverse and descend path.
+- **Verified, repeatable IK.** `solve` and `solve_with_config` reject local
+  minima that miss the requested pose, and `solve_with_config` uses a local
+  seeded retry generator. An infeasible target now fails visibly instead of
+  settling a few millimetres off target and leaving `motion_done` false.
 - **Start-pose feedback.** **Reset to start** reports whether it moved the
   arm or the arm was already at the saved configuration.
 - **Collision scan progress.** The collision 3D view now carries the same
@@ -50,8 +59,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   follows the project's target-order file and repetition count so pulse and
   target IDs agree. Pulse boundaries wait for the rendered arm, and the scan
   distinguishes an IK failure from a collision: it reports the failed pulse
-  and target, the selected branch, the last reached target and whether the
-  production simulation IK could still solve the target with another branch.
+  and target, the selected start branch, the last reached target and any
+  branch the production simulation IK chose instead.
 - **Small self-mesh overlaps are not collisions.** Arm collision meshes
   overlap by about 1 mm at some wrist configurations while the rendered links
   look clear. Self-contacts shallower than 2 mm are treated as mesh overlap;

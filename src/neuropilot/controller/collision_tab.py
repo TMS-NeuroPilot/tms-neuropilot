@@ -1342,7 +1342,11 @@ class CollisionTestTab(QtWidgets.QWidget):
             self.collision_label.setText(text)
             self.collision_label.setStyleSheet("color: #B42318;")
         elif state["warning"]:
-            self.collision_label.setText(f"NEAR MISS  {distance:.1f} mm")
+            if distance is not None and distance < 0:
+                self.collision_label.setText(
+                    f"HEAD CONTACT  {abs(distance):.1f} mm (tolerated)")
+            else:
+                self.collision_label.setText(f"NEAR MISS  {distance:.1f} mm")
             self.collision_label.setStyleSheet("color: #B45309;")
         else:
             self.collision_label.setText("Current pose: no collision.")

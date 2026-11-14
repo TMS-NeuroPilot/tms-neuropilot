@@ -40,7 +40,8 @@ class CollisionChecker:
 
     def check_self_collision(self) -> bool:
         contacts = self.world.get_self_collision_contacts()
-        if contacts:
+        if any(contact.get("dist", 0.0) <= config.SELF_PENETRATION_TOLERANCE
+               for contact in contacts):
             log.warning("Self-collision detected")
             return True
         return False
