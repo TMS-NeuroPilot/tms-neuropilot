@@ -28,10 +28,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- **Readable dropdowns.** Every combo box is taller, and its popup uses
-  item rows of at least 44 px. The popup height is set on the item delegate
-  because the Fusion style ignores the stylesheet's item height, and every
-  popup reserves room for its visible items.
+- **Readable dropdowns.** The popup of every combo box uses item rows of at
+  least 44 px. The popup height is set on the item delegate because the
+  Fusion style ignores the stylesheet's item height, and every popup
+  reserves room for its visible items. The closed field matches the other
+  inputs (30 px) — the earlier 52 px field was padding stacked on top of
+  the minimum height.
 - **Visible start-pose choices.** The collision start pose uses three
   stacked radio groups instead of dropdowns, so all six branch choices stay
   visible and the selected branch is applied in place. Applying a branch

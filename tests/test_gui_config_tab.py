@@ -481,14 +481,17 @@ def test_simulation_save_is_allowed_in_training(window, tmp_path, monkeypatch):
     assert "VIRTUAL_MEP_NOISE_MV=0.02" in env.read_text()
 
 
-def test_every_config_dropdown_gets_the_tall_input_style(window, qapp):
+def test_every_config_dropdown_keeps_a_readable_field_and_tall_rows(window,
+                                                                    qapp):
     from PyQt5 import QtWidgets
     window.tabWidget.setCurrentWidget(window.tab6)
     qapp.processEvents()
     combos = window.cfg_tabs.findChildren(QtWidgets.QComboBox)
     assert combos
     for combo in combos:
-        assert combo.sizeHint().height() >= 48, combo.objectName()
+        # The closed field matches the other inputs (~30 px); the earlier
+        # 52 px field was the padding stacked on top of the min-height.
+        assert 28 <= combo.sizeHint().height() <= 34, combo.objectName()
         assert combo.view().sizeHintForRow(0) >= 44, combo.objectName()
         expected = combo.view().sizeHintForRow(0) * min(combo.count(), 8)
         assert combo.view().minimumHeight() >= expected, combo.objectName()
