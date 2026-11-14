@@ -17,7 +17,7 @@ from PyQt5 import QtCore, QtWidgets
 
 from ..lab_profile import LabProfile
 from ..sim_robot import config as sim_config
-from .collision_test import CollisionTestSession
+from .collision_test import SELF_PENETRATION_M, CollisionTestSession
 from .robot_scene_view import RobotSceneView
 
 
@@ -1323,6 +1323,14 @@ class CollisionTestTab(QtWidgets.QWidget):
             return
         state = self.session.collision_state()
         distance = state["distance_mm"]
+        self_contact = state.get("self_contact_mm")
+        if self_contact is not None:
+            tolerance_mm = abs(SELF_PENETRATION_M) * 1000.0
+            self.collision_label.setToolTip(
+                f"Smallest self-mesh overlap {abs(self_contact):.1f} mm; "
+                f"overlaps shallower than {tolerance_mm:.1f} mm are tolerated.")
+        else:
+            self.collision_label.setToolTip("")
         if state["collision"]:
             text = "COLLISION"
             if state["self_collision"]:

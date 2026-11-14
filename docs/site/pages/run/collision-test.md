@@ -30,8 +30,15 @@ The scene is compiled from the selected robot's MJCF model and the subject
 skin surface. MuJoCo evaluates contacts and nearest distances; ikpy solves the
 same URDF chain that the simulated robot uses. The direct path between two
 placements is sampled at 30 joint-space waypoints, and every waypoint is
-checked. A contact or penetration is a collision; a clearance of 10 mm or less
-is a near miss and is reported without stopping the scan.
+checked. Head contact and self-penetration of 2 mm or more count as
+collisions. A head clearance of 10 mm or less is a near miss and is reported
+without stopping the scan.
+
+Self-collision ignores overlaps shallower than 2 mm. The robot's collision
+meshes overlap by about 1 mm at some wrist configurations even though the
+rendered links look clear, so these shallow self-contacts are treated as mesh
+overlap. A self-penetration of 2 mm or more still stops the scan. This
+tolerance is a modelling limit, not a hardware safety margin.
 
 MuJoCo is described in Todorov, Erez and Tassa (2012), *MuJoCo: A physics
 engine for model-based control*, IEEE/RSJ International Conference on

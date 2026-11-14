@@ -34,6 +34,10 @@ from ..sim_robot.utils.transforms import (
 # warning, so a near miss is visible before it becomes a hardware problem.
 NEAR_MISS_M = 0.010
 PENETRATION_M = -0.004
+# Consecutive arm meshes overlap slightly at some wrist configurations even
+# when the rendered links look clear. Ignore sub-2 mm self-mesh overlaps;
+# deeper penetration still stops the scan.
+SELF_PENETRATION_M = -0.002
 SCAN_STEPS = 30
 
 
@@ -251,7 +255,11 @@ class CollisionTestSession:
         distance = world.get_robot_head_closest_distance(
             distance_threshold=0.02)
         distance_mm = None if distance is None else distance * 1000.0
-        self_contacts = world.get_self_collision_contacts()
+        all_self = world.get_self_collision_contacts()
+        self_contacts = [contact for contact in all_self
+                         if contact.get("dist", 0.0) <= SELF_PENETRATION_M]
+        self_contact_mm = (min(float(contact["dist"]) for contact in all_self)
+                           * 1000.0 if all_self else None)
         head_contacts = world.get_robot_head_contacts()
         collision = bool(self_contacts) or bool(head_contacts) or (
             distance is not None and distance <= PENETRATION_M)
@@ -261,6 +269,7 @@ class CollisionTestSession:
             "collision": collision,
             "warning": warning,
             "self_collision": bool(self_contacts),
+            "self_contact_mm": self_contact_mm,
             "head_contact": bool(head_contacts),
             "distance_mm": distance_mm,
         }

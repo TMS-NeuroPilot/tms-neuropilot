@@ -648,3 +648,28 @@ def test_jog_values_show_the_current_tool_pose(window, qapp):
         assert all(label.text() != "—" for label in tab._jog_value_labels)
     finally:
         tab._disable()
+
+
+def test_shallow_self_mesh_overlap_is_not_a_collision(monkeypatch):
+    session = CollisionTestSession()
+    session.ensure_ready()
+    try:
+        monkeypatch.setattr(session.world, "get_robot_head_contacts", lambda: [])
+        monkeypatch.setattr(
+            session.world, "get_robot_head_closest_distance", lambda **kw: None)
+        monkeypatch.setattr(
+            session.world, "get_self_collision_contacts",
+            lambda: [{"dist": -0.0010}])
+        shallow = session.collision_state()
+        assert shallow["collision"] is False
+        assert shallow["self_collision"] is False
+        assert shallow["self_contact_mm"] == pytest.approx(-1.0)
+
+        monkeypatch.setattr(
+            session.world, "get_self_collision_contacts",
+            lambda: [{"dist": -0.010}])
+        deep = session.collision_state()
+        assert deep["collision"] is True
+        assert deep["self_collision"] is True
+    finally:
+        session.dispose()

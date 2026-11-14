@@ -52,6 +52,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   distinguishes an IK failure from a collision: it reports the failed pulse
   and target, the selected branch, the last reached target and whether the
   production simulation IK could still solve the target with another branch.
+- **Small self-mesh overlaps are not collisions.** Arm collision meshes
+  overlap by about 1 mm at some wrist configurations while the rendered links
+  look clear. Self-contacts shallower than 2 mm are treated as mesh overlap;
+  a self-penetration of 2 mm or more still stops the scan. The collision
+  label's tooltip reports the measured self-overlap.
 
 - **Adding a robot is data, not code.**  Every robot-specific value now
   lives in one `RobotSpec` table (`sim_robot/robots.py`: MuJoCo model,
