@@ -10,6 +10,7 @@ The Collision test page has dedicated coverage in ``test_collision_tab.py``.
 
 
 import sys
+from datetime import datetime
 
 import numpy as np
 import pytest
@@ -174,6 +175,12 @@ def test_transport_buttons_forward(window, recorder, qapp):
     assert ("switch_step", ("skip",)) in recorder.calls
     window.back_btn.click()
     assert ("switch_step", ("previous",)) in recorder.calls
+    # Finish forwards only while a session runs; with no session it is
+    # disabled and the click is a no-op.
+    assert not window.finish_btn.isEnabled()
+    recorder.start_of_experiment = datetime.now()
+    window.update_button_states()
+    assert window.finish_btn.isEnabled()
     window.finish_btn.click()
     assert ("finish_experiment", ()) in recorder.calls
     window.enableBtn.setEnabled(True)          # normally enabled by the health loop
@@ -475,3 +482,73 @@ def test_scores_from_a_worker_thread_reach_the_table(window, qapp):
 
 
 pytestmark = pytest.mark.gui
+
+
+# ── Finish / Reset ─────────────────────────────────────────────────────
+
+def _running_session(controller):
+    """A session that started and is writing (the target loop alive)."""
+    from datetime import datetime
+    controller.start_of_experiment = datetime.now()
+    controller.is_paused = False
+    controller._run_done = False
+
+
+def _drained_session(controller):
+    """A finished session whose work has stopped (Reset is due)."""
+    from datetime import datetime
+    controller.start_of_experiment = datetime.now()
+    controller.is_finished = True
+    controller._run_done = True
+
+
+def test_finish_disables_the_transport_row_and_shows_the_spinner(gui):
+    window = gui
+    _running_session(window.controller)
+    window.update_button_states()
+    assert window.finish_btn.isEnabled()
+
+    window.on_finish_clicked()
+
+    assert not window.back_btn.isEnabled()
+    assert not window.start_btn.isEnabled()
+    assert not window.skiptarget.isEnabled()
+    assert not window.finish_btn.isEnabled()
+    assert window.finish_btn.isDown()
+    assert window.finish_btn.text().startswith("Finishing")
+
+
+def test_the_drained_session_offers_reset(gui):
+    window = gui
+    _drained_session(window.controller)
+    window.update_button_states()
+
+    assert window.finish_btn.text() == "Reset"
+    assert window.finish_btn.isEnabled()
+    # no transport until Reset starts a new session
+    assert not window.start_btn.isEnabled()
+    assert not window.back_btn.isEnabled()
+    assert not window.skiptarget.isEnabled()
+
+
+def test_reset_reenables_the_transport_row(gui):
+    window = gui
+    controller = window.controller
+    _drained_session(controller)
+    window.relay_ready = True
+    window.stim_ready = True
+    window.emg_ready = True
+    window.robot_ready = True
+    window.efield_mode_selected = True
+    controller.e_matrix = object()        # precomputed mode, matrix loaded
+    window.update_button_states()
+
+    window.on_finish_clicked()            # routes to reset
+
+    assert controller.is_finished is False
+    assert controller.is_paused is True   # waiting for Start again
+    assert window.finish_btn.text() == "Finish"
+    assert not window.finish_btn.isEnabled()
+    assert window.start_btn.isEnabled()   # a new session can start
+    assert window.back_btn.isEnabled()
+    assert window.skiptarget.isEnabled()

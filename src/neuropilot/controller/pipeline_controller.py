@@ -407,6 +407,10 @@ class PipelineController:
         #Start/pause
         self.is_paused = True
         self.is_finished = False
+        # The target loop is not running until a session starts; the GUI
+        # polls is_draining() so Finish can show a spinner while the run
+        # is still writing after Finish was pressed.
+        self._run_done = True
 
         ## Show the Control Panel after system initializations
         if self.control_panel:
@@ -896,6 +900,18 @@ class PipelineController:
             )
 
     async def run_algorithm(self):
+        """Run the target loop, tracking whether it is still draining.
+
+        The GUI keeps the Finish button pressed until this returns: after
+        Finish was pressed (or the run ended on its own) the loop and the
+        final analysis wait may still be writing."""
+        self._run_done = False
+        try:
+            await self._run_target_loop()
+        finally:
+            self._run_done = True
+
+    async def _run_target_loop(self):
         """
         Asynchronously reads coil targets and then runs the algorithm through the step sequence until all targets have been completed.
 
@@ -1193,18 +1209,53 @@ class PipelineController:
         if self.manual:
             return
         try:
-            asyncio.create_task(self.remote.send_message('STOP', data={}))
-            asyncio.create_task(self.remote.send_message(
-                "Press robot button", data={'pressed': False}))
+            # The loop is checked before the coroutine is created, so a
+            # dropped send cannot warn "coroutine was never awaited".
+            loop = asyncio.get_running_loop()
         except RuntimeError:
             # No running loop (GUI-only session or a unit test): the relay
             # sends are best effort.
-            pass
+            return
+        loop.create_task(self.remote.send_message('STOP', data={}))
+        loop.create_task(self.remote.send_message(
+            "Press robot button", data={'pressed': False}))
 
     @property
     def is_running(self):
         """A session has started and has not finished yet."""
         return self.start_of_experiment is not None and not self.is_finished
+
+    def is_draining(self):
+        """Finish was pressed (or the run ended on its own) and work may
+        still be writing: the target loop or an in-flight analysis.
+
+        The GUI keeps the Finish button pressed with a spinner until this
+        clears.  The cobot's own deceleration after the STOP release is not
+        observable from the controller; the release is sent at Finish and
+        the robot system only reports connection health."""
+        if not self.is_finished:
+            return False
+        if not self._run_done:
+            return True
+        return any(not task.done() for task in self.running_analyses_tasks)
+
+    def reset_session(self):
+        """Back to the pre-session state so Start can begin a new run.
+
+        The results file is kept: the overwrite switch asks before the next
+        run overwrites it."""
+        self.is_finished = False
+        self.is_paused = True                  # waiting for Start again
+        self.start_of_experiment = None
+        self.current_target_order_idx = 0
+        self.current_target_index = None
+        self.current_step = Step.INIT
+        self.current_step_start_time = None
+        self.current_rep = 1
+        self._go_back = False
+        self.move_coil_up_flag = False
+        self._run_done = True
+        self.reset_algorithm()
 
     def switch_step(self, new_step):
         """

@@ -6,6 +6,7 @@ with the steps stubbed where the hardware would be involved.
 
 import asyncio
 import time
+from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
@@ -92,6 +93,86 @@ def test_finish_ends_the_run_even_when_a_system_is_down(loop_controller):
     assert ctrl.is_finished is True
     assert ctrl.current_step is Step.COMPLETE
     assert any("Held at" in line for line in ctrl.control_panel.lines)
+
+
+def test_the_run_drains_until_the_algorithm_loop_is_done(loop_controller):
+    ctrl = loop_controller
+    assert ctrl.is_draining() is False       # no session yet
+
+    async def scenario():
+        task = asyncio.create_task(ctrl.run_algorithm())
+        await asyncio.sleep(0.2)
+        ctrl.finish_experiment()
+        assert ctrl.is_draining() is True    # the loop is still writing
+        await task
+    run(scenario())
+
+    assert ctrl.is_finished is True
+    assert ctrl.is_draining() is False       # everything drained
+    assert ctrl._run_done is True
+
+
+def test_an_in_flight_analysis_keeps_the_run_draining(loop_controller):
+    ctrl = loop_controller
+
+    class Pending:
+        def done(self):
+            return False
+
+    ctrl.is_finished = True
+    ctrl._run_done = True
+    ctrl.running_analyses_tasks = [Pending()]
+    assert ctrl.is_draining() is True
+    ctrl.running_analyses_tasks = []
+    assert ctrl.is_draining() is False
+
+
+def test_reset_session_restores_the_pre_session_state(loop_controller):
+    ctrl = loop_controller
+    ctrl.start_of_experiment = datetime.now()
+    ctrl.is_finished = True
+    ctrl.current_target_order_idx = 3
+    ctrl.current_target_index = 2
+    ctrl.current_step = Step.COMPLETE
+    ctrl.current_rep = 2
+    ctrl.target_reached = True
+
+    ctrl.reset_session()
+
+    assert ctrl.is_finished is False
+    assert ctrl.is_paused is True            # waiting for Start again
+    assert ctrl.start_of_experiment is None
+    assert ctrl.current_target_order_idx == 0
+    assert ctrl.current_target_index is None
+    assert ctrl.current_step is Step.INIT
+    assert ctrl.current_rep == 1
+    assert ctrl.target_reached is False
+    assert ctrl.results_fn is not None       # the results file is kept
+
+
+def test_a_new_session_runs_from_the_first_target_after_reset(loop_controller):
+    ctrl = loop_controller
+    ctrl.systems = [FakeSystem(SystemStatus.ERROR)]
+    ctrl.start_of_experiment = datetime.now()
+    ctrl.is_finished = True
+    ctrl.current_target_order_idx = 2
+    ctrl.reset_session()
+
+    # The operator presses Start (the GUI clears the pause) and the run
+    # begins at target 000 again, not where the old session stopped.  The
+    # error system holds the loop at SEND_MARKER; Finish ends the session.
+    ctrl.is_paused = False
+
+    async def scenario():
+        task = asyncio.create_task(ctrl.run_algorithm())
+        await asyncio.sleep(0.3)
+        ctrl.finish_experiment()
+        await task
+    run(scenario())
+
+    assert any("BEGIN TARGET 000" in line
+               for line in ctrl.control_panel.lines)
+    assert ctrl.is_finished is True
 
 
 def test_the_hold_message_is_written_once(loop_controller):

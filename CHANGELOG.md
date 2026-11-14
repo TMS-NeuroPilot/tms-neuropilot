@@ -7,6 +7,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Finish drains, then Reset.** Pressing Finish deactivates back, pause and
+  next and keeps Finish pressed with a spinner while the session drains (the
+  target loop or an in-flight analysis may still be writing). When the drain
+  completes, the button becomes **Reset**: a click starts a new session from
+  the first target. The results file is kept — the overwrite switch asks
+  before the next run overwrites it.
+
 - **About tab.** The controller's last tab condenses the project description,
   research-use notice, scientific references, resources, license and citation
   information.

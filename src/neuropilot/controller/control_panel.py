@@ -741,6 +741,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.enableBtn.clicked.connect(self.on_enable_clicked)
         self.fireBtn.clicked.connect(self.on_fire_stim_clicked)
 
+        # Finish/Reset state machine: the timer animates the drain spinner
+        # and notices a drained session without waiting for another signal.
+        self._finish_spinner_frame = 0
+        self._finish_timer = QtCore.QTimer(self)
+        self._finish_timer.setInterval(150)
+        self._finish_timer.timeout.connect(self._update_finish_button)
+        self._finish_timer.start()
+
         self.slider.valueChanged.connect(self.slider1_spinbox1)
         self.spinBox.valueChanged.connect(self.slider1_spinbox1)
 
@@ -3621,13 +3629,17 @@ class MainWindow(QtWidgets.QMainWindow):
         running = bool(self.controller
                        and getattr(self.controller, "start_of_experiment", None)
                        and not getattr(self.controller, "is_finished", False))
+        finished = bool(self.controller
+                        and getattr(self.controller, "is_finished", False))
         loads_pending = bool(getattr(self, "_pending_loads", None)) and not running
 
         if not self.efield_mode_selected:
             for button in (self.start_btn, self.skiptarget, self.back_btn,
                            self.move_coil_up):
                 button.setEnabled(False)
-            self.finish_btn.setEnabled(running)
+            if finished:
+                self._disable_finished_transport()
+            self._update_finish_button()
             return
 
         fem_ok = True
@@ -3654,8 +3666,17 @@ class MainWindow(QtWidgets.QMainWindow):
         for button in (self.start_btn, self.skiptarget, self.back_btn,
                        self.move_coil_up):
             button.setEnabled(ready)
-        self.finish_btn.setEnabled(ready or running)
+        if finished:
+            self._disable_finished_transport()
+        self._update_finish_button()
         self._update_efield_hint()
+
+    def _disable_finished_transport(self):
+        """Back, pause and next only make sense mid-run: a finished session
+        (draining or waiting for Reset) has no transport.  They come back
+        when Reset starts a new session."""
+        for button in (self.start_btn, self.skiptarget, self.back_btn):
+            button.setEnabled(False)
 
     def _update_efield_hint(self):
         """One line under the E-field radios: what the mode is doing now."""
@@ -4817,8 +4838,64 @@ class MainWindow(QtWidgets.QMainWindow):
             self.controller.trigger_stim()
 
     def on_finish_clicked(self):
-        if self.controller:
-            self.controller.finish_experiment()
+        if not self.controller:
+            return
+        if (getattr(self.controller, "is_finished", False)
+                and not self.controller.is_draining()):
+            self.on_reset_clicked()
+            return
+        self.controller.finish_experiment()
+        self.update_button_states()
+
+    def on_reset_clicked(self):
+        """Start a new session: reset the controller, clear the run log and
+        re-gate the transport row.  The results file is kept; the overwrite
+        switch asks before the next run overwrites it."""
+        if not self.controller:
+            return
+        self.controller.reset_session()
+        self.finishedsteps.clear()
+        self.update_button_states()
+
+    _FINISH_SPINNER = "◐◓◑◒"
+
+    def _update_finish_button(self):
+        """The Finish button is a small state machine.
+
+        running   'Finish', enabled (the session can always be stopped)
+        draining  pressed, disabled, spinner (the target loop or an
+                  in-flight analysis may still be writing)
+        finished  'Reset', enabled (a click starts a new session)
+        idle      'Finish', disabled
+        """
+        controller = self.controller
+        running = bool(controller
+                       and getattr(controller, "start_of_experiment", None)
+                       and not getattr(controller, "is_finished", False))
+        finished = bool(controller and getattr(controller, "is_finished", False))
+        draining = bool(finished and controller.is_draining())
+        btn = self.finish_btn
+        if running:
+            self._finish_spinner_frame = 0
+            btn.setText("Finish")
+            btn.setEnabled(True)
+            btn.setDown(False)
+        elif draining:
+            frame = self._FINISH_SPINNER[self._finish_spinner_frame % 4]
+            self._finish_spinner_frame += 1
+            btn.setText(f"Finishing {frame}")
+            btn.setEnabled(False)
+            btn.setDown(True)
+        elif finished:
+            self._finish_spinner_frame = 0
+            btn.setText("Reset")
+            btn.setEnabled(True)
+            btn.setDown(False)
+        else:
+            self._finish_spinner_frame = 0
+            btn.setText("Finish")
+            btn.setEnabled(False)
+            btn.setDown(False)
 
     def on_move_coil_up(self):
         if self.controller:
