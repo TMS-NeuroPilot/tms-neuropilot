@@ -324,22 +324,19 @@ class CollisionTestTab(QtWidgets.QWidget):
         start_layout = QtWidgets.QVBoxLayout(start)
         start_layout.setContentsMargins(6, 4, 6, 4)
         start_layout.setSpacing(2)
-        branch_row = QtWidgets.QGridLayout()
-        branch_row.setHorizontalSpacing(8)
-        branch_row.setVerticalSpacing(3)
+        branch_row = QtWidgets.QVBoxLayout()
+        branch_row.setSpacing(3)
         self.shoulder_choice = BranchChoice(
             (("Shoulder left", "left"), ("Shoulder right", "right")))
         self.arm_choice = BranchChoice(
             (("Arm up", "up"), ("Arm down", "down")))
         self.wrist_choice = BranchChoice(
             (("Wrist normal", "normal"), ("Wrist flipped", "flipped")))
-        for column, choice in enumerate((self.shoulder_choice,
-                                         self.arm_choice,
-                                         self.wrist_choice)):
+        for choice in (self.shoulder_choice, self.arm_choice,
+                       self.wrist_choice):
             choice.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
                                  QtWidgets.QSizePolicy.Fixed)
-            branch_row.addWidget(choice, 0, column)
-            branch_row.setColumnStretch(column, 1)
+            branch_row.addWidget(choice)
         self.apply_branch_btn = QtWidgets.QPushButton(
             "Set start pose from selection")
         self.apply_branch_btn.setProperty("role", "branch")
@@ -348,20 +345,12 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.apply_branch_btn.clicked.connect(self._apply_branch)
         start_layout.addLayout(branch_row)
         start_layout.addWidget(self.apply_branch_btn)
-        actions = QtWidgets.QHBoxLayout()
         self.set_start_btn = QtWidgets.QPushButton("Set start from current")
         self.set_start_btn.setToolTip(
             "Store the current six joint angles as the start pose.")
-        self.go_start_btn = QtWidgets.QPushButton("Move to current start pose")
-        self.go_start_btn.setToolTip(
-            "Return the local robot to the saved six-joint start pose.")
-        for button in (self.set_start_btn, self.go_start_btn):
-            button.setProperty("role", "branch")
+        self.set_start_btn.setProperty("role", "branch")
         self.set_start_btn.clicked.connect(self._capture_start)
-        self.go_start_btn.clicked.connect(self._go_start)
-        actions.addWidget(self.set_start_btn)
-        actions.addWidget(self.go_start_btn)
-        start_layout.addLayout(actions)
+        start_layout.addWidget(self.set_start_btn)
         self.start_label = QtWidgets.QLabel("")
         self.start_label.setProperty("role", "cap")
         self.start_label.setWordWrap(True)
@@ -650,7 +639,7 @@ class CollisionTestTab(QtWidgets.QWidget):
 
     def _set_controls_enabled(self, enabled: bool):
         for widget in (self.base_editor, self.head_editor,
-                       self.set_start_btn, self.go_start_btn,
+                       self.set_start_btn,
                        self.apply_branch_btn, self.shoulder_choice,
                        self.arm_choice, self.wrist_choice,
                        self.scan_btn, self.stop_btn, self.reset_btn,
@@ -1016,37 +1005,68 @@ class CollisionTestTab(QtWidgets.QWidget):
             self._stop_scan()
         previous_branch = tuple(self.session.branch)
         self._has_setup = True
-        # Prefer a home point above the subject, but never accept a start
-        # that is already in collision.  Fall back to the pose the operator
-        # is currently holding.
         original_joints = self.session.current_joints()
         original_pos, original_ori = self.session.current_end_effector()
         home_pos, home_ori = self.session.home_pose()
-        for pos, ori, note in (
-                (home_pos, home_ori, ""),
-                (original_pos, original_ori, "Home pose was not usable; ")):
+        head = np.asarray(self.session.head_pose[0], dtype=float)
+        # Try the preferred home point, nearby heights, and finally the pose
+        # the operator is holding. The selected branch is enforced by the IK
+        # solver; a failed candidate must not silently reset the radio group.
+        candidates = [(home_pos, home_ori, "home")]
+        for dz in (0.30, 0.35, 0.40, 0.50, 0.55):
+            candidates.append((
+                [home_pos[0], home_pos[1], (head[2] + dz) * 1000.0],
+                home_ori, "home"))
+        candidates.append((original_pos, original_ori, "current"))
+        seen = set()
+        fallback = None
+        for pos, ori, source in candidates:
+            key = tuple(round(float(v), 3) for v in (*pos, *ori))
+            if key in seen:
+                continue
+            seen.add(key)
             self.session.set_current_joints(original_joints)
             if not self.session.move_to(pos, ori, shoulder=shoulder,
                                         elbow=elbow, wrist=wrist):
                 continue
             if self.session.collision_state()["collision"]:
+                if fallback is None:
+                    fallback = (self.session.current_joints(), source)
                 continue
             self.session.set_start_from_current()
             self._sync_start_label()
             self._sync_view()
             self._update_collision()
-            if note:
-                self._set_status(note + "the current pose is now the start.")
+            self._set_status(
+                "Start pose set to the selected branch"
+                + (" at the current pose." if source == "current" else "."))
+            return
+        if fallback is not None:
+            # The branch exists but the tested pose collides. Keep the
+            # selection and the pose so the operator can adjust the cell,
+            # instead of pretending the selection failed.
+            joints, source = fallback
+            self.session.set_current_joints(joints)
+            self.session.set_start_from_current()
+            self._sync_start_label()
+            self._sync_view()
+            self._update_collision()
+            self._set_status(
+                "Start pose set but it collides. Adjust base/head.", True)
+            self.status_label.setToolTip(
+                f"Selected {shoulder}/{elbow}/{wrist} was reachable "
+                f"from the {source} candidate, but the pose collides.")
             return
         self.session.set_current_joints(original_joints)
         self.session.branch = previous_branch
-        self._sync_start_label()
+        self._sync_start_label(sync_branch=False)
         self._sync_view()
         self._update_collision()
-        self._set_status("No collision-free start found.", True)
+        self._set_status(
+            "No IK solution for selected branch. Selection kept.", True)
         self.status_label.setToolTip(
-            f"No collision-free {shoulder}/{elbow} start found. "
-            "Jog to a clear pose and use Set start from current.")
+            f"Selected {shoulder}/{elbow}/{wrist}; no collision-free pose "
+            "was found at home, nearby heights, or the current pose.")
 
     def _capture_start(self):
         if self.session is None:
@@ -1245,17 +1265,19 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.head_editor.set_values(*self.session.head_pose)
         self._sync_start_label()
 
-    def _sync_start_label(self):
+    def _sync_start_label(self, sync_branch=True):
         if self.session is None:
             self.start_label.setText("")
-            self._sync_branch_controls()
+            if sync_branch:
+                self._sync_branch_controls()
             return
         joints = self.session.start_joints
         self.start_label.setText(
             f"{self.session.branch[0]} / {self.session.branch[1]} / "
             f"{self.session.branch[2]}  |  "
             + ", ".join(f"{np.degrees(v):.1f}°" for v in joints))
-        self._sync_branch_controls()
+        if sync_branch:
+            self._sync_branch_controls()
 
     def _sync_branch_controls(self):
         """Show the branch that is currently stored as the start pose."""

@@ -90,16 +90,17 @@ branch never depends on a dropdown popup:
 
 A 6R arm can have up to eight IK solutions. Some are unreachable because of
 joint limits or collisions. Press **Set start pose from selection** to solve the
-chosen branch. It first tries a Cartesian home point above the subject. If that
-point is unreachable or in collision, it tries the pose you are currently
-holding. If neither gives a collision-free branch, it restores the current pose
-and asks you to jog to a clear one. The resulting six joints become the start
-configuration.
+chosen branch. It tries a Cartesian home point above the subject, several
+nearby heights, and finally the pose you are currently holding. If only a
+colliding solution exists, it still stores that pose and warns you to adjust
+the base/head before scanning. If no solution exists, it leaves the current
+pose untouched, keeps your radio selection, and asks you to jog or move the
+cell. The resulting six joints become the start configuration.
 
 Use **Set start from current** to store the six joint angles of the pose you
-reached by jogging. **Move to current start pose** returns the arm to that
-saved configuration. The status line reports whether the arm moved or was
-already at the saved pose.
+reached by jogging. **Reset to start** in the placement-scan row returns the
+arm to that saved configuration. The status line reports whether the arm moved
+or was already at the saved pose.
 
 ## Run the scan
 

@@ -25,13 +25,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   item rows of at least 44 px. The popup height is set on the item delegate
   because the Fusion style ignores the stylesheet's item height, and every
   popup reserves room for its visible items.
-- **Visible start-pose choices.** The collision start pose uses three radio
-  groups instead of dropdowns, so all six branch choices stay visible. The
-  nudge buttons are compact and centred on their numeric fields; the
-  collision control column also scales with the window instead of clipping
-  labels and units at 2x.
-- **Start-pose feedback.** **Move to current start pose** reports whether it
-  moved the arm or the arm was already at the saved configuration.
+- **Visible start-pose choices.** The collision start pose uses three
+  stacked radio groups instead of dropdowns, so all six branch choices stay
+  visible and the selected branch is applied in place. Applying a branch
+  tries the home point, nearby heights and the current pose, keeps the radio
+  selection if no solution exists, and warns when only a colliding solution
+  exists. The redundant **Move to current start pose** button is gone;
+  **Reset to start** remains in the scan row. Nudge buttons are compact and
+  centred on their numeric fields, and the collision control column scales
+  with the window instead of clipping labels and units at 2x.
+- **Start-pose feedback.** **Reset to start** reports whether it moved the
+  arm or the arm was already at the saved configuration.
 - **Collision scan progress.** The collision 3D view now carries the same
   **Total targets** / **Current** overlay as the Control viewer, and the scan
   follows the project's target-order file and repetition count so pulse and

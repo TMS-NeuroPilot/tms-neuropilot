@@ -297,7 +297,6 @@ def test_collision_action_labels_and_short_tooltips(window):
     assert tab.save_lab_btn.text() == "Make lab default"
     assert tab.use_btn.text() == "Use at start pose"
     assert tab.set_start_btn.text() == "Set start from current"
-    assert tab.go_start_btn.text() == "Move to current start pose"
     assert tab.apply_branch_btn.text() == "Set start pose from selection"
     assert tab.wrist_choice.count() == 2
     for button in (tab.save_project_btn, tab.save_lab_btn, tab.use_btn):
@@ -329,13 +328,13 @@ def test_go_start_returns_to_the_saved_pose_and_reports_it(window, qapp):
         assert not np.allclose(tab.session.current_joints(), before)
         assert not np.allclose(tab.session.current_joints(), start)
 
-        tab.go_start_btn.click()
+        tab.reset_btn.click()
         qapp.processEvents()
         assert np.allclose(tab.session.current_joints(), start)
         assert tab.status_label.text() == "Moved to the saved start pose."
         assert tab.scan_status.text() == "Idle."
 
-        tab.go_start_btn.click()
+        tab.reset_btn.click()
         qapp.processEvents()
         assert tab.status_label.text() == "Already at the saved start pose."
         assert tab.scan_status.text() == "Idle."
@@ -554,3 +553,21 @@ def test_start_scan_passes_the_project_order_and_repetitions(
         tab.session = None
         window.target_order_LineEdit.clear()
         window.n_repetitions_spinBox.setValue(1)
+
+
+def test_failed_branch_apply_keeps_the_radio_selection(window, monkeypatch):
+    tab = window.collision_tab
+    tab._enable()
+    try:
+        monkeypatch.setattr(tab.session, "move_to", lambda *args, **kwargs: False)
+        tab.shoulder_choice.setCurrentIndex(
+            tab.shoulder_choice.findData("right"))
+        tab.arm_choice.setCurrentIndex(tab.arm_choice.findData("up"))
+        tab.wrist_choice.setCurrentIndex(tab.wrist_choice.findData("flipped"))
+        tab._apply_branch()
+        assert tab.shoulder_choice.currentData() == "right"
+        assert tab.arm_choice.currentData() == "up"
+        assert tab.wrist_choice.currentData() == "flipped"
+        assert "Selection kept" in tab.status_label.text()
+    finally:
+        tab._disable()
