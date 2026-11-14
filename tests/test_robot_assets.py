@@ -22,7 +22,8 @@ KEYS = robots.keys()
 def _chain(spec):
     return ikpy_chain.Chain.from_urdf_file(
         str(ASSETS / spec.urdf),
-        base_elements=list(spec.ik_base_elements),
+        base=list(spec.ik_base_elements)[0],
+        tip=spec.ik_tip,
         active_links_mask=list(spec.ik_active_links),
     )
 

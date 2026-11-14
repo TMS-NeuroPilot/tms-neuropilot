@@ -155,6 +155,7 @@ async def main():
         urdf_path=config.ROBOT_URDF_PATH,
         active_links_mask=config.IK_ACTIVE_LINKS_MASK,
         base_elements=config.IK_BASE_ELEMENTS,
+        tip=config.IK_TIP,
     )
     log.info("IK solver ready")
 

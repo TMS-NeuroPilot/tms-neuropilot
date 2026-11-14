@@ -51,6 +51,7 @@ class RobotSpec:
     ee_site: str                      # site in the MJCF used as the tool point
     ik_active_links: tuple            # ikpy chain mask (one bool per chain link)
     ik_base_elements: tuple = ("base",)
+    ik_tip: str = "coil_tcp"          # URDF link where the chain ends (tool point)
     ik_elbow_up: bool = True
     # Room layout defaults (metres, degrees, XYZ Euler "sxyz").
     base_position: tuple = (0.0, 0.0, 0.0)
@@ -277,7 +278,7 @@ def _ikpy_chain_length(spec, urdf, problems):
         return None
     try:
         chain = Chain.from_urdf_file(
-            str(urdf), base_elements=list(spec.ik_base_elements),
+            str(urdf), base=list(spec.ik_base_elements)[0], tip=spec.ik_tip,
             active_links_mask=list(spec.ik_active_links))
     except Exception as e:                      # noqa: BLE001 - report anything
         problems.append(f"ikpy cannot build the chain from {urdf.name}: {e}")
