@@ -73,8 +73,10 @@ do not move the real robot base; they record the arrangement you validated.
 ## Jog the coil
 
 The jog pad moves the coil site in **world XYZ** and rotates about the **tool
-axes**. The IK solver converts each request to joint angles and rejects a
-target it cannot reach; the status line says when a jog failed.
+axes**. The numbers beside the axis names show the current coil-site pose in
+world millimetres and tool degrees. The IK solver converts each request to
+joint angles and rejects a target it cannot reach; the status line says when a
+jog failed.
 
 Use a small step for final placement. A red `COLLISION` or amber `NEAR MISS`
 label updates after every jog.
@@ -93,13 +95,13 @@ The wrist sign is evaluated on the canonical joint angle in
 flipped physically distinct instead of showing the same pose twice.
 
 A 6R arm can have up to eight IK solutions. Some are unreachable because of
-joint limits or collisions. Press **Set start pose from selection** to solve the
-chosen branch. It tries a Cartesian home point above the subject, several
-nearby heights, and finally the pose you are currently holding. If only a
-colliding solution exists, it still stores that pose and warns you to adjust
-the base/head before scanning. If no solution exists, it leaves the current
-pose untouched, keeps your radio selection, and asks you to jog or move the
-cell. The resulting six joints become the start configuration.
+joint limits or collisions. Press **Set start pose from selection** to solve
+the chosen branch for the coil pose the robot currently holds. The coil
+placement stays fixed; only the arm configuration changes. If only a colliding
+solution exists, it still stores that pose and warns you to adjust the
+base/head before scanning. If no solution exists, it leaves the current pose
+untouched, keeps your radio selection, and asks you to jog to another pose.
+The resulting six joints become the start configuration.
 
 Use **Set start from current** to store the six joint angles of the pose you
 reached by jogging. **Reset to start** in the placement-scan row returns the

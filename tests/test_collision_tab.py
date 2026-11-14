@@ -206,10 +206,10 @@ def test_controls_fit_before_the_3d_view_at_the_design_size(window, qapp):
     scroll = next(s for s in tab.findChildren(QtWidgets.QScrollArea)
                   if s.widget() is not None
                   and tab.isAncestorOf(s.widget()))
-    assert scroll.width() >= 850
+    assert 700 <= scroll.width() <= 900
     assert tab.view_label.width() >= 300
     assert tab.view_label.minimumWidth() == 300
-    assert scroll.maximumWidth() == 1000
+    assert scroll.maximumWidth() == 900
     assert scroll.verticalScrollBar().maximum() == 0
     assert not scroll.verticalScrollBar().isVisible()
 
@@ -312,7 +312,7 @@ def test_start_pose_uses_visible_radio_buttons(window):
         assert choice.count() == 2
         assert tuple(button.text() for button in choice.buttons()) == labels
         assert sum(button.isChecked() for button in choice.buttons()) == 1
-    assert tab.step_combo.sizeHint().height() >= 48
+    assert tab.step_combo.sizeHint().height() < 48
     assert tab.step_combo.view().sizeHintForRow(0) >= 44
 
 
@@ -346,7 +346,7 @@ def test_collision_controls_scale_with_the_window(window, qapp):
     tab = window.collision_tab
     tab._last_ui_scale = None
     tab.apply_ui_scale(2.0)
-    assert tab.scroll.minimumWidth() >= 1520
+    assert tab.scroll.minimumWidth() >= 1400
     assert tab.view_label.minimumWidth() >= 600
     assert all(button.width() < spin.width() for button, spin in zip(
         tab.base_editor._nudge_buttons[::2], tab.base_editor._spins))
@@ -573,6 +573,16 @@ def test_failed_branch_apply_keeps_the_radio_selection(window, monkeypatch):
         tab._disable()
 
 
+def _set_branch_demo_pose(session):
+    session.set_head_pose([0.4, -0.4, 0.0], [0.0, 0.0, -90.0])
+    session.set_base_pose([0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
+    session.start_joints = [
+        -0.15631573099595975, 0.4073160988551985, 1.5014451367930322,
+        -1.9087544049119525, 0.15631507765144684, 6.798270264983551e-06]
+    session.branch = ("right", "up", "normal")
+    session.reset_to_start()
+
+
 def test_wrist_choice_changes_the_start_pose(window, qapp):
     import math
 
@@ -580,6 +590,7 @@ def test_wrist_choice_changes_the_start_pose(window, qapp):
     tab._enable()
     qapp.processEvents()
     try:
+        _set_branch_demo_pose(tab.session)
         starts = {}
         for wrist in ("normal", "flipped"):
             tab.shoulder_choice.setCurrentIndex(
@@ -595,5 +606,45 @@ def test_wrist_choice_changes_the_start_pose(window, qapp):
         assert starts["flipped"][4] < 0.0
         assert abs(abs(starts["normal"][5] - starts["flipped"][5])
                    - math.pi) < 0.2
+    finally:
+        tab._disable()
+
+
+def test_shoulder_choice_keeps_the_coil_placement(window, qapp):
+    tab = window.collision_tab
+    tab._enable()
+    qapp.processEvents()
+    try:
+        _set_branch_demo_pose(tab.session)
+        poses = {}
+        for shoulder in ("right", "left"):
+            tab.shoulder_choice.setCurrentIndex(
+                tab.shoulder_choice.findData(shoulder))
+            tab.arm_choice.setCurrentIndex(tab.arm_choice.findData("up"))
+            tab.wrist_choice.setCurrentIndex(tab.wrist_choice.findData("normal"))
+            tab._apply_branch()
+            qapp.processEvents()
+            assert tab.session.branch[0] == shoulder
+            poses[shoulder] = tab.session.current_end_effector()
+        np.testing.assert_allclose(poses["right"][0], poses["left"][0],
+                                   atol=0.5)
+        assert orientation_distance_deg(
+            poses["right"][1], poses["left"][1]) < 0.5
+    finally:
+        tab._disable()
+
+
+def test_jog_values_show_the_current_tool_pose(window, qapp):
+    tab = window.collision_tab
+    tab._enable()
+    qapp.processEvents()
+    try:
+        assert all(label.text() != "—" for label in tab._jog_value_labels)
+        before = [label.text() for label in tab._jog_value_labels]
+        tab._jog("X", 1)
+        qapp.processEvents()
+        after = [label.text() for label in tab._jog_value_labels]
+        assert after != before
+        assert all(label.text() != "—" for label in tab._jog_value_labels)
     finally:
         tab._disable()

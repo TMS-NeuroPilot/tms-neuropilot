@@ -28,9 +28,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Visible start-pose choices.** The collision start pose uses three
   stacked radio groups instead of dropdowns, so all six branch choices stay
   visible and the selected branch is applied in place. Applying a branch
-  tries the home point, nearby heights and the current pose, keeps the radio
-  selection if no solution exists, and warns when only a colliding solution
-  exists. The redundant **Move to current start pose** button is gone;
+  solves that branch for the current coil pose, so the coil placement does
+  not change; it keeps the radio selection if no solution exists and warns
+  when only a colliding solution exists. The redundant **Move to current
+  start pose** button is gone;
   **Reset to start** remains in the scan row. Nudge buttons are compact and
   centred on their numeric fields, and the collision control column scales
   with the window instead of clipping labels and units at 2x.
@@ -38,6 +39,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the shoulder, arm and wrist signs are compared, so **Wrist normal** and
   **Wrist flipped** are physically distinct instead of the same pose written
   360° apart.
+- **Compact collision layout.** The collision controls take 60% of the page,
+  the jog pad shows the live coil-site pose next to each axis, the step menu
+  is compact, and **Start collision scan** sits above **Stop** / **Reset to
+  start**.
 - **Start-pose feedback.** **Reset to start** reports whether it moved the
   arm or the arm was already at the saved configuration.
 - **Collision scan progress.** The collision 3D view now carries the same

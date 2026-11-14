@@ -229,10 +229,12 @@ QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
     selection-background-color: %(accent)s; selection-color: %(on_accent)s;
 }
 QComboBox { min-height: 34px; padding: 8px 10px; }
+QComboBox[role="step"] { min-height: 18px; padding: 3px 8px; }
 QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {
     border: 2px solid %(accent)s; padding: 3px 7px;
 }
 QComboBox:focus { border: 2px solid %(accent)s; padding: 7px 9px; }
+QComboBox[role="step"]:focus { padding: 2px 7px; }
 QLineEdit:disabled { background: %(disabled_bg)s; color: %(disabled_ink)s; }
 QLineEdit[role="path"] { font-family: 'DejaVu Sans Mono','Consolas',monospace;
                          font-size: 12px; color: %(mono)s; }

@@ -188,6 +188,7 @@ class CollisionTestTab(QtWidgets.QWidget):
         self._placement_error = False
         self._scan_placements: List = []
         self._last_ui_scale = None
+        self._last_split_total = None
         self._last_scan_render_key = None
 
         self._scan_timer = QtCore.QTimer(self)
@@ -271,11 +272,13 @@ class CollisionTestTab(QtWidgets.QWidget):
         jog_layout.setSpacing(2)
         self._jog_nudges: List[QtWidgets.QPushButton] = []
         self._jog_caps: List[QtWidgets.QLabel] = []
+        self._jog_value_labels: List[QtWidgets.QLabel] = []
         row = QtWidgets.QHBoxLayout()
         step_caption = QtWidgets.QLabel("Step")
         step_caption.setProperty("role", "cap")
         row.addWidget(step_caption)
         self.step_combo = QtWidgets.QComboBox()
+        self.step_combo.setProperty("role", "step")
         for value in (1, 2, 5, 10, 20):
             self.step_combo.addItem(f"{value} mm / {value} deg", value)
         self.step_combo.setCurrentIndex(2)
@@ -293,6 +296,13 @@ class CollisionTestTab(QtWidgets.QWidget):
             cap.setProperty("role", "cap")
             self._jog_caps.append(cap)
             line.addWidget(cap)
+            value = QtWidgets.QLabel("—")
+            value.setProperty("role", "value")
+            value.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            value.setToolTip(
+                "Current coil-site pose in world millimetres and tool degrees")
+            self._jog_value_labels.append(value)
+            line.addWidget(value)
             minus = QtWidgets.QPushButton("−")
             plus = QtWidgets.QPushButton("+")
             for button in (minus, plus):
@@ -362,7 +372,6 @@ class CollisionTestTab(QtWidgets.QWidget):
         scan_layout = QtWidgets.QVBoxLayout(scan)
         scan_layout.setContentsMargins(6, 4, 6, 4)
         scan_layout.setSpacing(2)
-        scan_actions = QtWidgets.QHBoxLayout()
         self.scan_btn = QtWidgets.QPushButton("Start collision scan")
         self.scan_btn.setProperty("role", "primary")
         self.stop_btn = QtWidgets.QPushButton("Stop")
@@ -372,7 +381,8 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.scan_btn.clicked.connect(self._start_scan)
         self.stop_btn.clicked.connect(self._stop_scan)
         self.reset_btn.clicked.connect(self._go_start)
-        scan_actions.addWidget(self.scan_btn)
+        scan_layout.addWidget(self.scan_btn)
+        scan_actions = QtWidgets.QHBoxLayout()
         scan_actions.addWidget(self.stop_btn)
         scan_actions.addWidget(self.reset_btn)
         scan_layout.addLayout(scan_actions)
@@ -473,6 +483,8 @@ class CollisionTestTab(QtWidgets.QWidget):
             label_width = max(cap.sizeHint().width() for cap in self._jog_caps)
             for cap in self._jog_caps:
                 cap.setFixedWidth(label_width)
+        for value in self._jog_value_labels:
+            value.setFixedWidth(round(100 * s))
         if self._jog_nudges:
             width = max(button.sizeHint().width()
                         for button in self._jog_nudges)
@@ -480,19 +492,39 @@ class CollisionTestTab(QtWidgets.QWidget):
                 button.setFixedWidth(width)
         if (self._last_ui_scale is not None
                 and abs(s - self._last_ui_scale) < 0.01):
+            self._apply_split(s)
             return
         self._last_ui_scale = s
-        self.scroll.setMinimumWidth(round(760 * s))
-        self.scroll.setMaximumWidth(round(1000 * s))
-        view_min = round(300 * s)
-        self.view_label.setMinimumSize(view_min, view_min)
+        self.scroll.setMinimumWidth(round(700 * s))
+        self.scroll.setMaximumWidth(round(900 * s))
+        self.view_label.setMinimumSize(round(300 * s), round(300 * s))
+        self._apply_split(s)
+
+    def _apply_split(self, s):
+        """Give the controls a narrower 60% share, once per real width."""
         total = self.splitter.width()
-        # Before the first real layout the splitter still reports a
-        # placeholder width; splitting then would pin the controls to their
-        # minimum and the deferred style pass may not run again at 1x.
-        if total >= round(1100 * s):
-            target = min(round(900 * s), max(1, total - view_min))
-            self.splitter.setSizes([target, max(1, total - target)])
+        if total < round(1100 * s):
+            return
+        if (self._last_split_total is not None
+                and abs(total - self._last_split_total) < max(4, total * 0.02)):
+            return
+        view_min = round(300 * s)
+        desired = max(round(700 * s),
+                      min(round(total * 0.60), round(900 * s)))
+        target = min(desired, max(1, total - view_min))
+        self.splitter.setSizes([target, max(1, total - target)])
+        self._last_split_total = total
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        scale = getattr(self.window, "_current_scale", lambda: 1.0)()
+        # The splitter has no real width until this page has been laid out.
+        QtCore.QTimer.singleShot(0, lambda: self.apply_ui_scale(scale))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        scale = getattr(self.window, "_current_scale", lambda: 1.0)()
+        QtCore.QTimer.singleShot(0, lambda: self._apply_split(scale))
 
     def eventFilter(self, obj, event):
         if obj is self.view_label and event.type() in (
@@ -936,6 +968,7 @@ class CollisionTestTab(QtWidgets.QWidget):
                 "Move the base/head, jog the coil, then run the placement scan.")
         if self.view is not None:
             self._update_scan_ui(self.session.scan_status())
+        self._update_jog_values()
 
     def shutdown(self):
         """Release the local world before the main window is destroyed."""
@@ -970,6 +1003,8 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.scan_total_value.setText("—")
         self.scan_current_value.setText("idle")
         self._scan_overlay.hide()
+        for label in self._jog_value_labels:
+            label.setText("—")
         self._set_status("Collision test is off.")
 
     # ── pose / start / jog ──────────────────────────────────────────
@@ -1005,68 +1040,40 @@ class CollisionTestTab(QtWidgets.QWidget):
             self._stop_scan()
         previous_branch = tuple(self.session.branch)
         self._has_setup = True
+        # The branch choice changes the arm configuration, never the coil
+        # placement. Solve the selected branch for the exact pose the tool
+        # currently occupies, so the coil stays put while the arm flips.
         original_joints = self.session.current_joints()
-        original_pos, original_ori = self.session.current_end_effector()
-        home_pos, home_ori = self.session.home_pose()
-        head = np.asarray(self.session.head_pose[0], dtype=float)
-        # Try the preferred home point, nearby heights, and finally the pose
-        # the operator is holding. The selected branch is enforced by the IK
-        # solver; a failed candidate must not silently reset the radio group.
-        candidates = [(home_pos, home_ori, "home")]
-        for dz in (0.30, 0.35, 0.40, 0.50, 0.55):
-            candidates.append((
-                [home_pos[0], home_pos[1], (head[2] + dz) * 1000.0],
-                home_ori, "home"))
-        candidates.append((original_pos, original_ori, "current"))
-        seen = set()
-        fallback = None
-        for pos, ori, source in candidates:
-            key = tuple(round(float(v), 3) for v in (*pos, *ori))
-            if key in seen:
-                continue
-            seen.add(key)
+        target_pos, target_ori = self.session.current_end_effector()
+        self.session.set_current_joints(original_joints)
+        if not self.session.move_to(target_pos, target_ori,
+                                    shoulder=shoulder, elbow=elbow,
+                                    wrist=wrist):
             self.session.set_current_joints(original_joints)
-            if not self.session.move_to(pos, ori, shoulder=shoulder,
-                                        elbow=elbow, wrist=wrist):
-                continue
-            if self.session.collision_state()["collision"]:
-                if fallback is None:
-                    fallback = (self.session.current_joints(), source)
-                continue
-            self.session.set_start_from_current()
-            self._sync_start_label()
+            self.session.branch = previous_branch
+            self._sync_start_label(sync_branch=False)
             self._sync_view()
             self._update_collision()
             self._set_status(
-                "Start pose set to the selected branch"
-                + (" at the current pose." if source == "current" else "."))
+                "No IK solution for selected branch. Selection kept.", True)
+            self.status_label.setToolTip(
+                f"Selected {shoulder}/{elbow}/{wrist} cannot reach the current "
+                "coil pose. Jog to another pose and try again.")
             return
-        if fallback is not None:
-            # The branch exists but the tested pose collides. Keep the
-            # selection and the pose so the operator can adjust the cell,
-            # instead of pretending the selection failed.
-            joints, source = fallback
-            self.session.set_current_joints(joints)
-            self.session.set_start_from_current()
-            self._sync_start_label()
-            self._sync_view()
-            self._update_collision()
+        collides = self.session.collision_state()["collision"]
+        self.session.set_start_from_current()
+        self._sync_start_label()
+        self._sync_view()
+        self._update_collision()
+        if collides:
             self._set_status(
                 "Start pose set but it collides. Adjust base/head.", True)
             self.status_label.setToolTip(
-                f"Selected {shoulder}/{elbow}/{wrist} was reachable "
-                f"from the {source} candidate, but the pose collides.")
-            return
-        self.session.set_current_joints(original_joints)
-        self.session.branch = previous_branch
-        self._sync_start_label(sync_branch=False)
-        self._sync_view()
-        self._update_collision()
-        self._set_status(
-            "No IK solution for selected branch. Selection kept.", True)
-        self.status_label.setToolTip(
-            f"Selected {shoulder}/{elbow}/{wrist}; no collision-free pose "
-            "was found at home, nearby heights, or the current pose.")
+                f"Selected {shoulder}/{elbow}/{wrist} reaches the current coil "
+                "pose, but the arm/head pose collides.")
+        else:
+            self._set_status(
+                "Start pose set to the selected branch; coil placement kept.")
 
     def _capture_start(self):
         if self.session is None:
@@ -1254,7 +1261,27 @@ class CollisionTestTab(QtWidgets.QWidget):
             self._report_scan_end(state)
 
     # ── view / status sync ─────────────────────────────────────────
+    def _update_jog_values(self):
+        labels = getattr(self, "_jog_value_labels", ())
+        if not labels:
+            return
+        if self.session is None or not getattr(self.session, "ready", False):
+            for label in labels:
+                label.setText("—")
+            return
+        try:
+            position_mm, orientation_deg = self.session.current_end_effector()
+        except Exception:
+            for label in labels:
+                label.setText("—")
+            return
+        values = [*position_mm, *orientation_deg]
+        for index, (label, value) in enumerate(zip(labels, values)):
+            suffix = "°" if index >= 3 else " mm"
+            label.setText(f"{value:.1f}{suffix}")
+
     def _sync_view(self):
+        self._update_jog_values()
         if self.view is not None:
             self.view.refresh()
 
