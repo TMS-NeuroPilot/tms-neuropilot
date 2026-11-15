@@ -18,9 +18,9 @@ from PyQt5 import QtCore, QtWidgets
 from ..lab_profile import LabProfile
 from ..sim_robot import config as sim_config
 from .collision_test import (
+    DEFAULT_BRANCH,
     SELF_PENETRATION_M,
     CollisionTestSession,
-    branch_of_active,
 )
 from .robot_scene_view import RobotSceneView
 
@@ -456,7 +456,7 @@ class CollisionTestTab(QtWidgets.QWidget):
         scan.setProperty("card", True)
         scan.setProperty("compact", True)
         scan_layout = QtWidgets.QVBoxLayout(scan)
-        scan_layout.setContentsMargins(6, 1, 6, 0)
+        scan_layout.setContentsMargins(6, 0, 6, 0)
         scan_layout.setSpacing(0)
         self.scan_btn = QtWidgets.QPushButton("Start collision scan")
         self.scan_btn.setProperty("role", "primary")
@@ -480,10 +480,15 @@ class CollisionTestTab(QtWidgets.QWidget):
         scan_actions.addWidget(self.next_btn)
         scan_actions.addStretch(1)
         scan_layout.addLayout(scan_actions)
+        # A plain spacing item can collapse to zero when the scroll area is
+        # shorter than the design height, so keep the gap as a fixed widget.
+        scan_gap = QtWidgets.QWidget()
+        scan_gap.setFixedHeight(15)
+        scan_layout.addWidget(scan_gap)
         self.progress = QtWidgets.QProgressBar()
         self.progress.setRange(0, 1)
         self.progress.setValue(0)
-        self.progress.setFixedHeight(24)
+        self.progress.setFixedHeight(22)
         self.progress.setStyleSheet(
             "QProgressBar { background: palette(base); "
             "border: 1px solid palette(mid); "
@@ -492,12 +497,17 @@ class CollisionTestTab(QtWidgets.QWidget):
             "QProgressBar::chunk { background: palette(highlight); "
             "border-radius: 2px; }")
         scan_layout.addWidget(self.progress)
+        self.scan_status = QtWidgets.QLabel("Idle.")
+        self.scan_status.setProperty("role", "cap")
+        self.scan_status.setWordWrap(True)
+        scan_layout.addWidget(self.scan_status)
         speed_row = QtWidgets.QHBoxLayout()
         speed_row.setSpacing(6)
         speed_caption = QtWidgets.QLabel("Movement speed")
         speed_caption.setProperty("role", "cap")
         self.speed_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.speed_slider.setRange(1, 100)
+        self.speed_slider.setFixedHeight(22)
         self.speed_slider.setFixedWidth(110)
         self.speed_slider.setToolTip(
             "Collision-scan playback speed. Linked to Default speed on the "
@@ -513,7 +523,8 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.collision_label = QtWidgets.QLabel("Current pose: clear.")
         self.collision_label.setProperty("role", "cap")
         self.collision_label.setWordWrap(True)
-        self.contact_colors_chk = QtWidgets.QCheckBox("Colour")
+        self.contact_colors_chk = QtWidgets.QCheckBox("Color by collision")
+        self.contact_colors_chk.setProperty("role", "cap")
         self.contact_colors_chk.setToolTip(
             "Tint robot links by their closest distance to the head: "
             "green at the near edge, orange halfway, red near contact, "
@@ -532,10 +543,6 @@ class CollisionTestTab(QtWidgets.QWidget):
         collision_row.addWidget(self.collision_label, 1)
         collision_row.addWidget(self.contact_colors_chk, 0)
         scan_layout.addLayout(collision_row)
-        self.scan_status = QtWidgets.QLabel("Idle.")
-        self.scan_status.setProperty("role", "cap")
-        self.scan_status.setWordWrap(True)
-        scan_layout.addWidget(self.scan_status)
         left.addWidget(scan)
         left.addStretch(1)
         scroll.setWidget(controls)
@@ -867,8 +874,7 @@ class CollisionTestTab(QtWidgets.QWidget):
             if joints:
                 controller.start_pose_joints = [float(v) for v in joints]
                 controller.start_pose_branch = list(
-                    self._pending_config.get("branch") or
-                    branch_of_active(joints))
+                    self._pending_config.get("branch") or DEFAULT_BRANCH)
             if self._pending_config.get("safe_height_mm") is not None:
                 controller.set_motion_limits(self._pending_config)
 
@@ -905,7 +911,7 @@ class CollisionTestTab(QtWidgets.QWidget):
             base_ori = [float(v) for v in data["robot_base_orientation_deg"]]
             start = [float(v) for v in data["start_joints_rad"]]
             branch = [str(v).strip().lower()
-                      for v in data.get("branch", ("left", "up", "normal"))]
+                      for v in data.get("branch", DEFAULT_BRANCH)]
             if any(len(v) != 3 for v in (head_pos, head_ori,
                                          base_pos, base_ori)):
                 raise ValueError("poses need three components")
@@ -1039,7 +1045,7 @@ class CollisionTestTab(QtWidgets.QWidget):
             "robot_base_position_m": list(sim_config.ROBOT_BASE_POSITION),
             "robot_base_orientation_deg": list(sim_config.ROBOT_BASE_ORIENTATION),
             "start_joints_rad": start,
-            "branch": list(branch_of_active(start)),
+            "branch": list(DEFAULT_BRANCH),
             "safe_height_mm": float(sim_config.SAFE_HEIGHT_MM),
             "translation_threshold_mm": float(
                 sim_config.TRANSLATION_THRESHOLD_MM),
@@ -1064,8 +1070,7 @@ class CollisionTestTab(QtWidgets.QWidget):
             self.controller.start_pose_joints = list(
                 config.get("start_joints_rad", []))
             self.controller.start_pose_branch = list(
-                config.get("branch") or branch_of_active(
-                    config.get("start_joints_rad", [])))
+                config.get("branch") or DEFAULT_BRANCH)
             self.controller.set_motion_limits(config)
         self.window._mark_project_dirty()
         self._refresh_config_page()

@@ -239,8 +239,12 @@ def test_controls_fit_before_the_3d_view_at_the_design_size(window, qapp):
     # The progress track must stay thick enough to read, with the speed
     # control on its own row underneath.
     assert tab.progress.height() >= 20
-    assert (tab.speed_slider.geometry().top()
+    assert (tab.progress.geometry().top()
+            - tab.prev_btn.geometry().bottom() >= 12)
+    assert (tab.scan_status.geometry().top()
             >= tab.progress.geometry().bottom())
+    assert (tab.speed_slider.geometry().top()
+            >= tab.scan_status.geometry().bottom())
     assert all(spin.width() >= 120 for spin in (
         tab.safe_height_spin, tab.translation_spin, tab.rotation_spin))
 
@@ -337,6 +341,16 @@ def test_collision_action_labels_and_short_tooltips(window):
     assert tab.wrist_choice.count() == 2
     for button in (tab.save_project_btn, tab.save_lab_btn, tab.use_btn):
         assert button.toolTip().strip()
+
+
+def test_branch_defaults_to_arm_up(window):
+    tab = window.collision_tab
+    data = dict(CUSTOM)
+    data.pop("branch")
+    config = tab._validated_config(data)
+    assert config is not None
+    assert config["branch"] == ["right", "up", "normal"]
+    assert tab._default_config()["branch"][1] == "up"
 
 
 def test_start_pose_uses_visible_radio_buttons(window):
@@ -780,10 +794,17 @@ def test_contact_colours_tint_and_restore_the_robot(monkeypatch):
     session = CollisionTestSession(scene_name=SCENE_NAME)
     session.ensure_ready()
     try:
-        body_id = next(iter(session.world._robot_body_geom_ids))
-        geom_ids = session.world._robot_body_geom_ids[body_id]
+        body_id = next(iter(session.world._robot_body_visual_geom_ids))
+        geom_ids = session.world._robot_body_visual_geom_ids[body_id]
+        collision_geoms = [
+            gid for gid in range(session.world.model.ngeom)
+            if int(session.world.model.geom_bodyid[gid]) == body_id
+            and gid not in geom_ids]
+        assert collision_geoms
         original = [session.world.model.geom_rgba[gid].copy()
                     for gid in geom_ids]
+        original_collision = [session.world.model.geom_rgba[gid].copy()
+                              for gid in collision_geoms]
         monkeypatch.setattr(
             session.world, "get_robot_head_body_distances",
             lambda *args, **kwargs: {body_id: 0.006})
@@ -793,6 +814,9 @@ def test_contact_colours_tint_and_restore_the_robot(monkeypatch):
         assert all(rgba[3] == pytest.approx(1.0) for rgba in tinted)
         assert any(not np.allclose(rgba, before)
                    for rgba, before in zip(tinted, original))
+        assert all(np.allclose(session.world.model.geom_rgba[gid], before)
+                   for gid, before in zip(collision_geoms,
+                                          original_collision))
 
         monkeypatch.setattr(
             session.world, "get_robot_head_body_distances",
@@ -805,6 +829,15 @@ def test_contact_colours_tint_and_restore_the_robot(monkeypatch):
         session.clear_contact_colors()
         assert all(np.allclose(session.world.model.geom_rgba[gid], before)
                    for gid, before in zip(geom_ids, original))
+    finally:
+        session.dispose()
+
+
+def test_far_bodies_are_not_tinted_by_the_distance_cap():
+    session = CollisionTestSession(scene_name=SCENE_NAME)
+    session.ensure_ready()
+    try:
+        assert session.world.get_robot_head_body_distances(0.01) == {}
     finally:
         session.dispose()
 
@@ -824,7 +857,8 @@ def test_movement_speed_links_to_control_default_speed(window):
 
 def test_contact_colour_checkbox_is_available(window):
     tab = window.collision_tab
-    assert tab.contact_colors_chk.text() == "Colour"
+    assert tab.contact_colors_chk.text() == "Color by collision"
+    assert tab.contact_colors_chk.property("role") == "cap"
     assert "green" in tab.contact_colors_chk.toolTip()
     assert "dark red" in tab.contact_colors_chk.toolTip()
 

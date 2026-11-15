@@ -43,7 +43,8 @@ A head penetration of 4 mm or more and a self-penetration of 2 mm or more
 count as collisions. The 4 mm head allowance matches the production
 simulation, where the coil is pressed into the scalp. Head clearance of 10 mm
 or less is not reported as a near miss, because the coil is often close to the
-scalp; the optional **Colour** overlay shows that clearance on the links.
+scalp; the optional **Color by collision** overlay shows that clearance on
+the links.
 
 Self-collision ignores overlaps shallower than 2 mm. The robot's collision
 meshes overlap by about 1 mm at some wrist configurations even though the
@@ -111,6 +112,8 @@ branch never depends on a dropdown popup:
 The elbow boundary is inclusive: a straight arm has zero on the third joint
 and is the Omron arm-up pose. The simulator's power-on configuration is the
 same zero joint pose, and the collision test starts from that pose as well.
+A new setup defaults to shoulder right, arm up, wrist normal; a branch saved
+in the project or lab profile still wins for that setup.
 The wrist sign is evaluated on the canonical joint angle in
 [-180°, 180°], not on an arbitrary 360° representation. This keeps normal and
 flipped physically distinct instead of showing the same pose twice.
@@ -160,9 +163,9 @@ handle the topic before it can apply project values without an `.env` restart.
 5. Set **Movement speed** in the row below the progress bar. It is linked to
    **Default speed** on the Control page and changes both the scan playback
    pace and the simulated experiment speed.
-6. Tick **Colour** to tint robot links by head clearance. Green marks the
-   outer near band, orange is halfway, red is close to contact and dark red is
-   actual contact.
+6. Tick **Color by collision** to tint robot links by head clearance. Green
+   marks the outer near band, orange is halfway, red is close to contact and
+   dark red is actual contact.
 
 The scan follows the project's target-order file and repetition count, so its
 pulse numbers and target IDs match the Control page. Without an order file it
@@ -181,10 +184,11 @@ present pose. It does not restart at pulse zero. The progress bar keeps the
 pulses already completed.
 
 Head proximity within the 10 mm band is not reported as a near miss: the coil
-is often close to the scalp. The optional **Colour** overlay shows clearance
-on the links instead. The collision line keeps a previous collision visible
-after the current pose becomes clear, and the completed summary reports any
-collision pauses that were resolved.
+is often close to the scalp. The optional **Color by collision** overlay
+shows clearance on the visible link meshes instead. Transparent collision
+hulls stay hidden, and links outside the band keep their original colour. The collision line keeps a previous
+collision visible after the current pose becomes clear, and the completed
+summary reports any collision pauses that were resolved.
 
 An **IK failure is not a collision**. It means the selected shoulder, arm and
 wrist branch cannot reach that target from the previous pose. The scan keeps

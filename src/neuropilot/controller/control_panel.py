@@ -2170,7 +2170,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if normalised:
                 return normalised
         from ..sim_robot import config as sim_config
-        from .collision_test import branch_of_active
+        from .collision_test import DEFAULT_BRANCH
         start = list(sim_config.START_JOINTS)
         return {
             "head_position_m": list(sim_config.HEAD_POSITION),
@@ -2178,7 +2178,7 @@ class MainWindow(QtWidgets.QMainWindow):
             "robot_base_position_m": list(sim_config.ROBOT_BASE_POSITION),
             "robot_base_orientation_deg": list(sim_config.ROBOT_BASE_ORIENTATION),
             "start_joints_rad": start,
-            "branch": list(branch_of_active(start)),
+            "branch": list(DEFAULT_BRANCH),
             "safe_height_mm": float(sim_config.SAFE_HEIGHT_MM),
             "translation_threshold_mm": float(
                 sim_config.TRANSLATION_THRESHOLD_MM),

@@ -37,6 +37,11 @@ PENETRATION_M = sim_config.PENTRATION_TOLERANCE
 SELF_PENETRATION_M = sim_config.SELF_PENETRATION_TOLERANCE
 SCAN_STEPS = sim_config.PATH_INTERPOLATION_STEPS
 
+# New setups start with the arm raised.  The branch is stored separately from
+# the joints, so make the preferred default explicit instead of relying on a
+# previous project's selection.
+DEFAULT_BRANCH = ("right", "up", "normal")
+
 
 def _canonical_angle(value: float) -> float:
     """Represent a periodic joint angle in [-pi, pi]."""

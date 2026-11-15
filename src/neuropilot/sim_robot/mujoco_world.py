@@ -54,10 +54,10 @@ class MuJoCoWorld:
         self._head_body_ids: List[int] = []
         self._robot_geom_ids: List[int] = []
         self._head_geom_ids: List[int] = []
-        # Body -> all its geoms, including invisible visual geoms.  The
-        # contact-colour overlay tints the rendered link, not just the
-        # collision hull.
-        self._robot_body_geom_ids: Dict[int, List[int]] = {}
+        # Body -> visible geoms.  The contact-colour overlay must not tint
+        # the transparent collision hulls, or they become visible and
+        # speckle the rendered link.
+        self._robot_body_visual_geom_ids: Dict[int, List[int]] = {}
         self._robot_geom_original_rgba: Dict[int, np.ndarray] = {}
 
         self._ee_site_id: Optional[int] = None
@@ -410,7 +410,7 @@ class MuJoCoWorld:
         self._head_body_ids = []
         self._robot_geom_ids = []
         self._head_geom_ids = []
-        self._robot_body_geom_ids = {}
+        self._robot_body_visual_geom_ids = {}
         self._robot_geom_original_rgba = {}
 
         head_id = mujoco.mj_name2id(
@@ -429,11 +429,13 @@ class MuJoCoWorld:
             body_id = int(self.model.geom(i).bodyid[0])
             contype = int(self.model.geom(i).contype[0])
             if body_id in robot_set:
-                self._robot_body_geom_ids.setdefault(body_id, []).append(i)
                 self._robot_geom_original_rgba[i] = (
                     self.model.geom_rgba[i].copy())
                 if contype > 0:
                     self._robot_geom_ids.append(i)
+                elif self.model.geom_rgba[i][3] > 0:
+                    self._robot_body_visual_geom_ids.setdefault(
+                        body_id, []).append(i)
             elif body_id in head_set and contype > 0:
                 self._head_geom_ids.append(i)
 
@@ -538,7 +540,7 @@ class MuJoCoWorld:
                         robot_gid, head_gid,
                         distance_threshold, fromto,
                     ))
-                    if dist > distance_threshold:
+                    if dist >= distance_threshold:
                         continue
                     previous = body_dist.get(body_id)
                     if previous is None or dist < previous:
@@ -557,15 +559,18 @@ class MuJoCoWorld:
         return body_dist
 
     def set_robot_body_colors(self, body_rgba: Dict[int, List[float]]) -> None:
-        """Tint all geoms of the selected robot bodies.
+        """Tint the visible geoms of the selected robot bodies.
 
-        Call :meth:`restore_robot_colors` first when a body may have left the
+        The transparent collision hulls keep their original colours so they
+        cannot become visible or z-fight with the rendered mesh.  Call
+        :meth:`restore_robot_colors` first when a body may have left the
         proximity band; that method restores the MJCF colours.
         """
         if self.model is None:
             return
         for body_id, rgba in body_rgba.items():
-            for geom_id in self._robot_body_geom_ids.get(int(body_id), ()):
+            for geom_id in self._robot_body_visual_geom_ids.get(
+                    int(body_id), ()):
                 self.model.geom_rgba[geom_id] = rgba
 
     def restore_robot_colors(self) -> None:
