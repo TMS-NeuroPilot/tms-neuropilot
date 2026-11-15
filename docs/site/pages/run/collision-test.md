@@ -28,14 +28,15 @@ after the base is moved.
 
 The scene is compiled from the selected robot's MJCF model and the subject
 skin surface. MuJoCo evaluates contacts and nearest distances; ikpy solves the
-same URDF chain that the simulated robot uses. The scan follows the simulated
-planner's motion strategy. The first target from the saved start pose uses the
-350 mm safe height. Later moves above 20 mm retract the coil 20 mm along the
-negative tool normal, away from the head, traverse, then approach the target
-along its normal. If that short path is blocked, the safe-height path is used
-as a fallback. Shorter moves use a direct joint-space line. The 350 mm safe
-height is also reserved for the manual move-away, end and emergency actions.
-Each segment is sampled at 30 waypoints and every waypoint is checked.
+same URDF chain that the simulated robot uses. The scan follows the production
+direct-or-upward rule. It compares the largest per-axis translation with
+`TRANSLATION_THRESHOLD` (millimetres) and the largest per-axis rotation with
+`ROTATION_THRESHOLD` (degrees). If either limit is exceeded, the arm climbs to
+`SAFE_HEIGHT` (millimetres), traverses above the head and descends. Otherwise
+it uses a direct joint-space line. There is no separate 20 mm retract
+waypoint. Each segment is sampled at 30 waypoints and every waypoint is
+checked. The same three values are also used by the manual move-away and
+emergency paths, where the arm always climbs to `SAFE_HEIGHT`.
 
 A head penetration of 4 mm or more and a self-penetration of 2 mm or more
 count as collisions. The 4 mm head allowance matches the production
@@ -126,10 +127,30 @@ reached by jogging. **Reset to start** in the placement-scan row returns the
 arm to that saved configuration. The status line reports whether the arm moved
 or was already at the saved pose.
 
+## Movement limits
+
+The compact row under **Start pose** exposes the three values that decide
+between a direct move and the safe-height path:
+
+| Field | `.env` key | Unit | Meaning |
+|---|---|---|---|
+| Safe Z | `SAFE_HEIGHT` | mm | Z above the robot base that the arm climbs to before traversing |
+| Trans. | `TRANSLATION_THRESHOLD` | mm | Largest per-axis translation that still allows a direct move |
+| Rot. | `ROTATION_THRESHOLD` | deg | Largest per-axis rotation that still allows a direct move |
+
+The fields start from the `.env` values in `neuropilot/.env` and can be
+changed before a scan. A change stops the current scan, so the next scan
+starts with the new limits. The values are stored in the project and lab
+collision blocks and are sent to the simulated robot on
+`Pipeline to Robot: Set motion limits` at the next experiment start. The
+names and units match `tms-robot-control/.env`; the production controller
+must handle the topic before it can apply project values without an `.env`
+restart.
+
 ## Run the scan
 
 1. Load the project's placement file on the **Project** page.
-2. Choose a start pose.
+2. Choose a start pose and, if needed, adjust the movement limits.
 3. Press **Start collision scan**.
 
 The scan follows the project's target-order file and repetition count, so its

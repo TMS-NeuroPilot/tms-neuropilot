@@ -1,6 +1,31 @@
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from . import config
+
+
+@dataclass
+class MotionLimits:
+    """Path-selection limits shared with the production controller.
+
+    ``safe_height_mm`` is the Z the safe-height path climbs to.
+    ``translation_threshold_mm`` and ``rotation_threshold_deg`` are the
+    largest per-axis differences that still allow a direct move.  The names
+    and units match tms-robot-control's .env.
+    """
+
+    safe_height_mm: float = config.SAFE_HEIGHT_MM
+    translation_threshold_mm: float = config.TRANSLATION_THRESHOLD_MM
+    rotation_threshold_deg: float = config.ROTATION_THRESHOLD_DEG
+
+    def as_dict(self) -> dict:
+        return {
+            "safe_height_mm": float(self.safe_height_mm),
+            "translation_threshold_mm": float(
+                self.translation_threshold_mm),
+            "rotation_threshold_deg": float(self.rotation_threshold_deg),
+        }
+
 
 @dataclass
 class RobotTarget:
@@ -36,6 +61,9 @@ class RobotState:
     # Shoulder/elbow/wrist branch of the saved start pose. None keeps the
     # free elbow-up IK behaviour for experiments without a collision setup.
     start_branch: Optional[List[str]] = None
+    # Direct-versus-safe-height decision.  Defaults come from .env and can
+    # be replaced by the collision-tested project values at run start.
+    motion_limits: MotionLimits = field(default_factory=MotionLimits)
 
     # End-effector / coil pose
     current_position: List[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
@@ -96,6 +124,23 @@ class RobotState:
 
     def set_start_branch(self, branch):
         self.start_branch = None if branch is None else list(branch)
+
+    def set_motion_limits(self, safe_height_mm=None,
+                          translation_threshold_mm=None,
+                          rotation_threshold_deg=None):
+        self.motion_limits = MotionLimits(
+            safe_height_mm=(self.motion_limits.safe_height_mm
+                            if safe_height_mm is None
+                            else float(safe_height_mm)),
+            translation_threshold_mm=(
+                self.motion_limits.translation_threshold_mm
+                if translation_threshold_mm is None
+                else float(translation_threshold_mm)),
+            rotation_threshold_deg=(
+                self.motion_limits.rotation_threshold_deg
+                if rotation_threshold_deg is None
+                else float(rotation_threshold_deg)),
+        )
 
     def set_tracking_enabled(self, enabled: bool):
         self.tracking_enabled = bool(enabled)

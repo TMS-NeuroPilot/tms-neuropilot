@@ -92,29 +92,31 @@ def test_self_collision_uses_the_shared_mesh_overlap_tolerance():
     assert checker.check_self_collision() is True
 
 
-def test_large_target_moves_retract_along_the_tool_normal(planner, monkeypatch):
-    mp, _state, _world, ik = planner
-    solution = [0.0] * len(ik.chain.links)
-    calls = []
+def test_thresholds_choose_direct_or_safe_height(planner):
+    mp, state, _world, _ik = planner
+    assert not mp._needs_safe_height(
+        [0.0, 0.0, 0.0], [0.0, 0.0, 0.0],
+        [20.0, 0.0, 0.0], [0.0, 0.0, 0.0])
+    assert not mp._needs_safe_height(
+        [0.0, 0.0, 0.0], [0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0], [15.0, 0.0, 0.0])
+    assert mp._needs_safe_height(
+        [0.0, 0.0, 0.0], [0.0, 0.0, 0.0],
+        [20.1, 0.0, 0.0], [0.0, 0.0, 0.0])
+    assert mp._needs_safe_height(
+        [0.0, 0.0, 0.0], [0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0], [15.1, 0.0, 0.0])
+    state.motion_limits.translation_threshold_mm = 50.0
+    assert not mp._needs_safe_height(
+        [0.0, 0.0, 0.0], [0.0, 0.0, 0.0],
+        [40.0, 0.0, 0.0], [0.0, 0.0, 0.0])
+    assert not mp._needs_safe_height(
+        [0.0, 0.0, 400.0], [0.0, 0.0, 0.0],
+        [200.0, 0.0, 400.0], [30.0, 0.0, 0.0])
 
-    def fake_solve(position_mm, orientation_deg, **kwargs):
-        calls.append((list(position_mm), list(orientation_deg)))
-        return True, solution
 
-    monkeypatch.setattr(ik, "solve_with_config", fake_solve)
-    retract, traverse, approach = mp._build_retract_path(
-        [0.0] * 6, [0.0, 0.0, 0.0], [90.0, 0.0, 0.0],
-        [0.1] * 6, [100.0, 0.0, 0.0], [0.0, 0.0, 0.0], None)
-
-    assert len(retract) == sim_config.PATH_INTERPOLATION_STEPS
-    assert len(traverse) == sim_config.PATH_INTERPOLATION_STEPS
-    assert len(approach) == sim_config.PATH_INTERPOLATION_STEPS
-    assert calls[0][0] == pytest.approx([0.0, 20.0, 0.0])
-    assert calls[1][0] == pytest.approx([100.0, 0.0, -20.0])
-
-
-def test_first_target_uses_safe_height(planner, monkeypatch):
-    mp, _state, _world, ik = planner
+def test_safe_height_uses_the_state_limit(planner, monkeypatch):
+    mp, state, _world, ik = planner
     solution = [0.0] * len(ik.chain.links)
     calls = []
 
@@ -123,11 +125,12 @@ def test_first_target_uses_safe_height(planner, monkeypatch):
         return True, solution
 
     monkeypatch.setattr(ik, "solve_with_config", fake_solve)
+    state.motion_limits.safe_height_mm = 420.0
     mp._build_safe_height_path(
         [0.0] * 6, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0],
         [0.1] * 6, [100.0, 0.0, 0.0], [0.0, 0.0, 0.0], None)
-    assert calls[0][2] == pytest.approx(350.0)
-    assert calls[1][2] == pytest.approx(350.0)
+    assert calls[0][2] == pytest.approx(420.0)
+    assert calls[1][2] == pytest.approx(420.0)
 
 
 def test_selected_start_branch_is_used_for_ik(planner, monkeypatch):

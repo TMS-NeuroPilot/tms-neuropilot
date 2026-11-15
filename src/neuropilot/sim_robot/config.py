@@ -125,11 +125,13 @@ SELF_PENETRATION_TOLERANCE = -0.002
 CONTACT_FORCE_SCALE            = 10.0   # multiplier: normal_force → force_feedback value
 
 # ─────────────────────────────────────────────
-# Target-path planning
+# Target-path planning.  These are the same names and units as the
+# tms-robot-control .env, so a change made in one place has a defined
+# meaning in the other.
 # ─────────────────────────────────────────────
-SAFE_HEIGHT_M                   = 0.35        # absolute world z for manual move-away/end/emergency
-TARGET_RETRACT_M                = 0.020       # m along the negative tool normal, away from the head
-CRANE_DISPLACEMENT_THRESHOLD_MM = 20.0        # mm — below this = direct interpolation (no retract)
+SAFE_HEIGHT_MM                  = float(os.getenv("SAFE_HEIGHT", "350"))
+TRANSLATION_THRESHOLD_MM        = float(os.getenv("TRANSLATION_THRESHOLD", "20"))
+ROTATION_THRESHOLD_DEG          = float(os.getenv("ROTATION_THRESHOLD", "15"))
 PATH_INTERPOLATION_STEPS        = 30          # steps per path segment (tweak for visual speed)
 
 # ─────────────────────────────────────────────
@@ -151,6 +153,7 @@ TOPIC_SET_OBJECTIVE  = "Neuronavigation to Robot: Set objective"
 TOPIC_STOP           = "STOP"
 TOPIC_SET_HEAD_MESH  = "Pipeline to Robot: Set head mesh"
 TOPIC_SET_START_POSE = "Pipeline to Robot: Set start pose"
+TOPIC_SET_MOTION_LIMITS = "Pipeline to Robot: Set motion limits"
 
 # Speed ratios broadcast by the GUI (must match pipeline_controller.py verbatim)
 TOPIC_SET_FREE_DRIVE = "Neuronavigation to Robot: Set free drive"

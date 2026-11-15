@@ -203,6 +203,7 @@ class CollisionTestTab(QtWidgets.QWidget):
         self._last_ui_scale = None
         self._last_split_total = None
         self._last_scan_render_key = None
+        self._syncing_limits = False
 
         self._scan_timer = QtCore.QTimer(self)
         self._scan_timer.setInterval(30)
@@ -270,7 +271,7 @@ class CollisionTestTab(QtWidgets.QWidget):
         controls = QtWidgets.QWidget()
         left = QtWidgets.QVBoxLayout(controls)
         left.setContentsMargins(0, 0, 6, 0)
-        left.setSpacing(4)
+        left.setSpacing(2)
 
         self.base_editor = PoseEditor(
             "Robot base", sim_config.ROBOT_BASE_POSITION,
@@ -349,8 +350,8 @@ class CollisionTestTab(QtWidgets.QWidget):
         start.setProperty("card", True)
         start.setProperty("compact", True)
         start_layout = QtWidgets.QVBoxLayout(start)
-        start_layout.setContentsMargins(6, 4, 6, 4)
-        start_layout.setSpacing(2)
+        start_layout.setContentsMargins(6, 3, 6, 3)
+        start_layout.setSpacing(1)
         branch_row = QtWidgets.QVBoxLayout()
         branch_row.setSpacing(3)
         self.shoulder_choice = BranchChoice(
@@ -390,6 +391,54 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.start_label.setWordWrap(True)
         start_layout.addWidget(self.start_label)
         left.addWidget(start)
+
+        self.safe_height_spin = QtWidgets.QDoubleSpinBox()
+        self.safe_height_spin.setRange(0.0, 2000.0)
+        self.safe_height_spin.setDecimals(1)
+        self.safe_height_spin.setSingleStep(10.0)
+        self.safe_height_spin.setSuffix(" mm")
+        self.safe_height_spin.setValue(sim_config.SAFE_HEIGHT_MM)
+        self.safe_height_spin.setToolTip(
+            "Z above the robot base that the arm climbs to before traversing "
+            "over the head. Same name and unit as SAFE_HEIGHT in "
+            "tms-robot-control/.env.")
+        self.translation_spin = QtWidgets.QDoubleSpinBox()
+        self.translation_spin.setRange(0.0, 500.0)
+        self.translation_spin.setDecimals(1)
+        self.translation_spin.setSingleStep(1.0)
+        self.translation_spin.setSuffix(" mm")
+        self.translation_spin.setValue(
+            sim_config.TRANSLATION_THRESHOLD_MM)
+        self.translation_spin.setToolTip(
+            "Largest per-axis translation that still allows a direct move. "
+            "Same name and unit as TRANSLATION_THRESHOLD in "
+            "tms-robot-control/.env.")
+        self.rotation_spin = QtWidgets.QDoubleSpinBox()
+        self.rotation_spin.setRange(0.0, 180.0)
+        self.rotation_spin.setDecimals(1)
+        self.rotation_spin.setSingleStep(1.0)
+        self.rotation_spin.setSuffix(" deg")
+        self.rotation_spin.setValue(sim_config.ROTATION_THRESHOLD_DEG)
+        self.rotation_spin.setToolTip(
+            "Largest per-axis rotation that still allows a direct move. "
+            "Same name and unit as ROTATION_THRESHOLD in "
+            "tms-robot-control/.env.")
+        for spin in (self.safe_height_spin, self.translation_spin,
+                     self.rotation_spin):
+            spin.setKeyboardTracking(False)
+            spin.valueChanged.connect(self._limits_changed)
+
+        limit_row = QtWidgets.QHBoxLayout()
+        limit_row.setSpacing(4)
+        for label, spin in (
+                ("Safe Z", self.safe_height_spin),
+                ("Trans.", self.translation_spin),
+                ("Rot.", self.rotation_spin)):
+            cap = QtWidgets.QLabel(label)
+            cap.setProperty("role", "cap")
+            limit_row.addWidget(cap)
+            limit_row.addWidget(spin, 1)
+        start_layout.addLayout(limit_row)
 
         scan = QtWidgets.QGroupBox("Placement scan")
         scan.setProperty("card", True)
@@ -695,7 +744,8 @@ class CollisionTestTab(QtWidgets.QWidget):
                        self.apply_branch_btn, self.shoulder_choice,
                        self.arm_choice, self.wrist_choice,
                        self.scan_btn, self.stop_btn, self.reset_btn,
-                       self.step_combo):
+                       self.step_combo, self.safe_height_spin,
+                       self.translation_spin, self.rotation_spin):
             widget.setEnabled(enabled)
         self.save_project_btn.setEnabled(enabled)
         self.save_lab_btn.setEnabled(enabled)
@@ -725,6 +775,8 @@ class CollisionTestTab(QtWidgets.QWidget):
                 controller.start_pose_branch = list(
                     self._pending_config.get("branch") or
                     branch_of_active(joints))
+            if self._pending_config.get("safe_height_mm") is not None:
+                controller.set_motion_limits(self._pending_config)
 
     def project_config(self) -> Optional[dict]:
         # An untouched page must not save (or later command) the zero pose.
@@ -739,6 +791,12 @@ class CollisionTestTab(QtWidgets.QWidget):
             "robot_base_orientation_deg": list(self.session.base_pose[1]),
             "start_joints_rad": list(self.session.start_joints),
             "branch": list(self.session.branch),
+            "safe_height_mm": float(
+                self.session.motion_limits.safe_height_mm),
+            "translation_threshold_mm": float(
+                self.session.motion_limits.translation_threshold_mm),
+            "rotation_threshold_deg": float(
+                self.session.motion_limits.rotation_threshold_deg),
         }
 
     @staticmethod
@@ -769,6 +827,19 @@ class CollisionTestTab(QtWidgets.QWidget):
                 branch.append("normal")
             if branch[2] not in ("normal", "flipped"):
                 raise ValueError("unknown wrist branch")
+            safe_height = float(data.get(
+                "safe_height_mm", sim_config.SAFE_HEIGHT_MM))
+            translation = float(data.get(
+                "translation_threshold_mm",
+                sim_config.TRANSLATION_THRESHOLD_MM))
+            rotation = float(data.get(
+                "rotation_threshold_deg",
+                sim_config.ROTATION_THRESHOLD_DEG))
+            if not np.isfinite(
+                    [safe_height, translation, rotation]).all():
+                raise ValueError("movement limits must be finite")
+            if min(safe_height, translation, rotation) < 0:
+                raise ValueError("movement limits cannot be negative")
         except (KeyError, TypeError, ValueError):
             return None
         return {
@@ -781,6 +852,9 @@ class CollisionTestTab(QtWidgets.QWidget):
             # the branch from them so an old or hand-edited project cannot
             # show "arm up" while the saved joints are in another branch.
             "branch": list(branch_of_active(start)),
+            "safe_height_mm": safe_height,
+            "translation_threshold_mm": translation,
+            "rotation_threshold_deg": rotation,
         }
 
     def apply_config(self, data: Optional[dict]) -> None:
@@ -792,12 +866,18 @@ class CollisionTestTab(QtWidgets.QWidget):
             if self.controller is not None:
                 self.controller.start_pose_joints = None
                 self.controller.start_pose_branch = None
+                self.controller.motion_limits = None
             if self.session is not None:
                 self._apply_config_now(self._default_config(),
                                        update_controller=False)
             return
         self._pending_config = config
         self._has_setup = True
+        if self.controller is not None:
+            self.controller.start_pose_joints = list(
+                config["start_joints_rad"])
+            self.controller.start_pose_branch = list(config["branch"])
+            self.controller.set_motion_limits(config)
         if self.session is not None:
             self._apply_config_now(config)
 
@@ -813,6 +893,10 @@ class CollisionTestTab(QtWidgets.QWidget):
                 list(lab["start_joints_rad"]) if lab else None)
             self.controller.start_pose_branch = (
                 list(lab["branch"]) if lab else None)
+            self.controller.motion_limits = (
+                {key: lab[key] for key in (
+                    "safe_height_mm", "translation_threshold_mm",
+                    "rotation_threshold_deg")} if lab else None)
         if self.session is not None:
             if lab:
                 self._apply_config_now(lab)
@@ -830,13 +914,21 @@ class CollisionTestTab(QtWidgets.QWidget):
         base_ori = config["robot_base_orientation_deg"]
         start = config["start_joints_rad"]
         branch = config["branch"]
+        limits = {
+            "safe_height_mm": config["safe_height_mm"],
+            "translation_threshold_mm": config[
+                "translation_threshold_mm"],
+            "rotation_threshold_deg": config["rotation_threshold_deg"],
+        }
         self.session.set_head_pose(head_pos, head_ori)
         self.session.set_base_pose(base_pos, base_ori)
         self.session.start_joints = start
         self.session.branch = (branch[0], branch[1], branch[2])
+        self.session.set_motion_limits(**limits)
         if update_controller and self.controller is not None:
             self.controller.start_pose_joints = list(start)
             self.controller.start_pose_branch = list(branch)
+            self.controller.set_motion_limits(limits)
         self.session.reset_to_start()
         self._sync_fields()
         self._sync_view()
@@ -851,6 +943,11 @@ class CollisionTestTab(QtWidgets.QWidget):
             "robot_base_orientation_deg": list(sim_config.ROBOT_BASE_ORIENTATION),
             "start_joints_rad": start,
             "branch": list(branch_of_active(start)),
+            "safe_height_mm": float(sim_config.SAFE_HEIGHT_MM),
+            "translation_threshold_mm": float(
+                sim_config.TRANSLATION_THRESHOLD_MM),
+            "rotation_threshold_deg": float(
+                sim_config.ROTATION_THRESHOLD_DEG),
         }
 
     def _lab_config(self):
@@ -872,6 +969,7 @@ class CollisionTestTab(QtWidgets.QWidget):
             self.controller.start_pose_branch = list(
                 config.get("branch") or branch_of_active(
                     config.get("start_joints_rad", [])))
+            self.controller.set_motion_limits(config)
         self.window._mark_project_dirty()
         self._set_status("Setup saved into the project. Save the project file to keep it.")
 
@@ -883,8 +981,12 @@ class CollisionTestTab(QtWidgets.QWidget):
             return
         self._has_setup = True
         joints = list(self.session.start_joints)
+        limits = self._limits_dict()
+        self.controller.set_motion_limits(limits, announce=True)
         self.controller.set_start_pose(joints, list(self.session.branch))
-        self._set_status("Start pose queued for the next experiment start.")
+        self._set_status(
+            "Start pose and movement limits queued for the next experiment "
+            "start.")
 
     def save_to_lab(self):
         self._has_setup = True
@@ -1042,6 +1144,30 @@ class CollisionTestTab(QtWidgets.QWidget):
         self._set_status("Collision test is off.")
 
     # ── pose / start / jog ──────────────────────────────────────────
+    def _limits_dict(self) -> dict:
+        return {
+            "safe_height_mm": float(self.safe_height_spin.value()),
+            "translation_threshold_mm": float(
+                self.translation_spin.value()),
+            "rotation_threshold_deg": float(self.rotation_spin.value()),
+        }
+
+    def _limits_changed(self, _value=None):
+        """Apply edited movement limits to the local scan and the controller."""
+        if self._syncing_limits:
+            return
+        self._has_setup = True
+        if self._scan_timer.isActive():
+            self._stop_scan()
+            self._set_status(
+                "Movement limits changed; the previous scan was stopped.")
+        limits = self._limits_dict()
+        if self.session is not None:
+            self.session.set_motion_limits(**limits)
+            self._sync_view()
+        if self.controller is not None:
+            self.controller.set_motion_limits(limits)
+
     def _base_changed(self, position_m, orientation_deg):
         if self.session is None:
             return
@@ -1324,6 +1450,16 @@ class CollisionTestTab(QtWidgets.QWidget):
             return
         self.base_editor.set_values(*self.session.base_pose)
         self.head_editor.set_values(*self.session.head_pose)
+        self._syncing_limits = True
+        try:
+            self.safe_height_spin.setValue(
+                self.session.motion_limits.safe_height_mm)
+            self.translation_spin.setValue(
+                self.session.motion_limits.translation_threshold_mm)
+            self.rotation_spin.setValue(
+                self.session.motion_limits.rotation_threshold_deg)
+        finally:
+            self._syncing_limits = False
         self._sync_start_label()
 
     def _sync_start_label(self, sync_branch=True):

@@ -61,6 +61,20 @@ class MessageHandlers:
                     self.world.reset_joint_positions(list(joints))
                 log.info("Start pose set from the collision test.")
 
+        elif topic == config.TOPIC_SET_MOTION_LIMITS:
+            payload = self._unwrap(data)
+            try:
+                safe = float(payload["safe_height_mm"])
+                translation = float(payload["translation_threshold_mm"])
+                rotation = float(payload["rotation_threshold_deg"])
+            except (KeyError, TypeError, ValueError):
+                log.warning("Motion limits payload is incomplete")
+                return
+            self.state.set_motion_limits(safe, translation, rotation)
+            log.info(
+                "Motion limits set: safe height %.1f mm, translation %.1f mm, "
+                "rotation %.1f deg", safe, translation, rotation)
+
         elif topic == config.TOPIC_SET_FREE_DRIVE:
             payload = self._unwrap(data)
             enabled = payload.get("set")

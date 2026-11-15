@@ -18,6 +18,7 @@ from .transformations import compose_matrix
 # neuropilot.sim_robot.config.TOPIC_SET_HEAD_MESH).
 TOPIC_SET_HEAD_MESH = "Pipeline to Robot: Set head mesh"
 TOPIC_SET_START_POSE = "Pipeline to Robot: Set start pose"
+TOPIC_SET_MOTION_LIMITS = "Pipeline to Robot: Set motion limits"
 
 def precomputed_e_field_row(e_matrix, target_index, amplitude):
     """E-field row of the precomputed matrix, scaled to the stimulator output.
@@ -433,6 +434,9 @@ class PipelineController:
         # Shoulder/elbow/wrist branch captured with the collision-tested
         # start pose. None keeps the simulator's free elbow-up solver.
         self.start_pose_branch = None
+        # Collision-tested direct-or-safe-height limits. None leaves the
+        # simulator on the values it read from .env.
+        self.motion_limits = None
         self.stimulator_waveform = 'Biphasic'
         self.minium_isi = 4  # in seconds
         self.n_repetitions = 1 #
@@ -617,6 +621,11 @@ class PipelineController:
         self.is_paused = not self.is_paused
         if not self.is_paused:
             self.move_coil_up_flag = False
+            # A project can be loaded after the controller started.  Re-send
+            # the setup at the first Start so the robot uses the values now
+            # shown in the project, not the values from app startup.
+            if self.current_step == Step.INIT:
+                self._announce_start_setup()
 
     def set_stopped_true(self):
         self.move_coil_up_flag = True
@@ -820,6 +829,50 @@ class PipelineController:
             except Exception as e:
                 print(f"[WARN] could not announce the head mesh: {e}")
 
+    def _announce_start_setup(self):
+        """Send the project start pose, branch and movement limits."""
+        if self.motion_limits:
+            self._send_async(TOPIC_SET_MOTION_LIMITS,
+                             dict(self.motion_limits))
+        if self.start_pose_joints:
+            payload = {"joints": list(self.start_pose_joints)}
+            if self.start_pose_branch is not None:
+                payload["branch"] = list(self.start_pose_branch)
+            self._send_async(TOPIC_SET_START_POSE, payload)
+
+    def set_motion_limits(self, limits, announce=False):
+        """Store the collision-tested movement limits.
+
+        The experiment start announces them on
+        ``Pipeline to Robot: Set motion limits``.  ``announce=True`` sends
+        them immediately, which is useful when the operator presses "Use at
+        start pose" before starting the run.
+        """
+        if not limits:
+            return
+        try:
+            payload = {
+                "safe_height_mm": float(limits["safe_height_mm"]),
+                "translation_threshold_mm": float(
+                    limits["translation_threshold_mm"]),
+                "rotation_threshold_deg": float(
+                    limits["rotation_threshold_deg"]),
+            }
+        except (KeyError, TypeError, ValueError):
+            print("[WARN] motion limits ignored: incomplete values")
+            return
+        self.motion_limits = payload
+        if not announce or self.remote is None:
+            return
+        coro = self.remote.send_message(TOPIC_SET_MOTION_LIMITS, payload)
+        try:
+            asyncio.get_running_loop().create_task(coro)
+        except RuntimeError:
+            try:
+                asyncio.run(coro)
+            except Exception as e:
+                print(f"[WARN] could not announce motion limits: {e}")
+
     def set_start_pose(self, joints, branch=None):
         """Store and announce the collision-tested arm start configuration.
 
@@ -895,12 +948,7 @@ class PipelineController:
         """
         # Announce the head mesh configured in the project window (session
         # cache) so a freshly started robot sim applies it immediately.
-        if self.start_pose_joints:
-            payload = {"joints": list(self.start_pose_joints)}
-            if self.start_pose_branch is not None:
-                payload["branch"] = list(self.start_pose_branch)
-            asyncio.create_task(self.remote.send_message(
-                TOPIC_SET_START_POSE, payload))
+        self._announce_start_setup()
         if self.control_panel:
             fn_mesh = self.control_panel.loadmeshlabel.text().strip() or None
             self.set_head_mesh(fn_mesh)

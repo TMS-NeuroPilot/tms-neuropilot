@@ -74,17 +74,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the second. X/Y/Z labels use the same axis colours as the 3D view. The
   start-pose radios share one axis caption and the two actions sit beside
   them, and the left pane is capped at 680 logical px.
-- **Target transitions retract 20 mm along the tool normal.** The first
-  target from the saved start pose uses the absolute `SAFE_HEIGHT_M = 0.35`
-  path. Later target-to-target moves retract 20 mm along the negative tool
-  normal, away from the head, then approach the next target. If the short path
-  is blocked, the safe-height path is used as a fallback. The collision
-  preflight mirrors the same rule.
-- **Collision preflight follows the Control path.** The scan now uses the
-  simulated planner's crane strategy for moves above 20 mm, the same free IK
-  solver and elbow preference, and the same 4 mm coil-head contact allowance.
-  A direct joint-space line made valid targets look like head collisions even
-  though Control reached them with a lift, traverse and descend path.
+- **Direct-or-safe-height movement uses the production limits.** The 20 mm
+  tool-normal retract is removed. The simulated and collision planners now
+  compare the largest per-axis translation with `TRANSLATION_THRESHOLD` and
+  the largest per-axis rotation with `ROTATION_THRESHOLD`, using the same
+  names and units as `tms-robot-control/.env`. Exceeding either limit climbs
+  to `SAFE_HEIGHT`, traverses above the head and descends; otherwise the move
+  is direct. The collision test exposes all three values, applies them to the
+  next scan, and stores them with the project. The selected arm branch and the
+  movement limits are also sent to the simulated planner at experiment start.
 - **Verified, repeatable IK.** `solve` and `solve_with_config` reject local
   minima that miss the requested pose, and `solve_with_config` uses a local
   seeded retry generator. An infeasible target now fails visibly instead of

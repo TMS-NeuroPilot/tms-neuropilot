@@ -80,6 +80,55 @@ def test_simulator_applies_the_branch():
     assert state.start_branch == branch
 
 
+def test_controller_announces_motion_limits(controller):
+    from neuropilot.controller import pipeline_controller as pc
+
+    limits = {
+        "safe_height_mm": 420.0,
+        "translation_threshold_mm": 12.0,
+        "rotation_threshold_deg": 7.0,
+    }
+
+    async def run():
+        controller.set_motion_limits(limits, announce=True)
+        await asyncio.sleep(0)
+
+    asyncio.run(run())
+    topic, data = controller.remote.sent[-1]
+    assert topic == pc.TOPIC_SET_MOTION_LIMITS
+    assert data == limits
+    assert controller.motion_limits == limits
+
+
+def test_simulator_applies_motion_limits():
+    state = RobotState()
+    handlers = MessageHandlers(state, _World())
+    limits = {
+        "safe_height_mm": 420.0,
+        "translation_threshold_mm": 12.0,
+        "rotation_threshold_deg": 7.0,
+    }
+
+    handlers.handle(robot_config.TOPIC_SET_MOTION_LIMITS, limits)
+
+    assert state.motion_limits.safe_height_mm == 420.0
+    assert state.motion_limits.translation_threshold_mm == 12.0
+    assert state.motion_limits.rotation_threshold_deg == 7.0
+
+
+def test_simulator_ignores_incomplete_motion_limits():
+    state = RobotState()
+    handlers = MessageHandlers(state, _World())
+
+    handlers.handle(robot_config.TOPIC_SET_MOTION_LIMITS,
+                    {"safe_height_mm": 420.0})
+
+    assert state.motion_limits.safe_height_mm == (
+        robot_config.SAFE_HEIGHT_MM)
+    assert state.motion_limits.translation_threshold_mm == (
+        robot_config.TRANSLATION_THRESHOLD_MM)
+
+
 def test_simulator_ignores_a_pose_of_the_wrong_length():
     state = RobotState()
     world = _World()

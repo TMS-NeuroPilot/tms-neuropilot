@@ -27,6 +27,7 @@ def test_head_mesh_topic_matches_the_simulator():
     "Press robot button",
     "STOP",
     "Pipeline to Robot: Set start pose",
+    "Pipeline to Robot: Set motion limits",
 ])
 def test_controller_topics_exist_in_the_robot_simulator(topic):
     known = {value for name, value in vars(robot_config).items()

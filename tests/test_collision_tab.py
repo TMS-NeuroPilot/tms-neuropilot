@@ -37,6 +37,9 @@ CUSTOM = {
     "robot_base_orientation_deg": [0.0, 0.0, 0.0],
     "start_joints_rad": [-0.1, 0.2, 0.3, -0.4, 0.5, -0.6],
     "branch": ["right", "up", "normal"],
+    "safe_height_mm": 400.0,
+    "translation_threshold_mm": 10.0,
+    "rotation_threshold_deg": 5.0,
 }
 
 
@@ -736,63 +739,91 @@ def test_shallow_head_contact_is_tolerated_and_deep_contact_is_not(monkeypatch):
         session.dispose()
 
 
-def test_large_moves_retract_along_the_tool_normal(monkeypatch):
+def test_thresholds_choose_direct_or_safe_height(monkeypatch):
     session = CollisionTestSession(scene_name=SCENE_NAME)
     session.ensure_ready()
     try:
-        solution = [0.0] * len(session.ik.chain.links)
-        for index in session.ik.active_indices:
-            solution[index] = 0.2
-        calls = []
+        session.set_motion_limits(350.0, 20.0, 15.0)
+        target = [0.0] * len(session.ik.active_indices)
+        safe_calls = []
 
-        def fake_solve(position, orientation, **kwargs):
-            calls.append((list(position), list(orientation)))
-            return True, solution
+        def fake_safe_path(current, target, current_pos, current_ori,
+                           target_pos, target_ori):
+            safe_calls.append((current_pos, current_ori,
+                               target_pos, target_ori))
+            return [[0.0] * 6 for _ in range(3 * SCAN_STEPS)]
 
         monkeypatch.setattr(
             session, "current_end_effector",
-            lambda: ([0.0, 0.0, 0.0], [90.0, 0.0, 0.0]))
-        monkeypatch.setattr(session.ik, "solve_branch", fake_solve)
-        monkeypatch.setattr(session, "_path_is_clear", lambda path: True)
-        target = [0.0] * len(session.ik.active_indices)
+            lambda: ([0.0, 0.0, 0.0], [0.0, 0.0, 0.0]))
+        monkeypatch.setattr(session, "_build_safe_height_path",
+                            fake_safe_path)
 
-        large = session._build_motion_path(
-            target, target, ([100.0, 0.0, 0.0], [0.0, 0.0, 0.0]))
-        small = session._build_motion_path(
+        direct = session._build_motion_path(
             target, target, ([10.0, 0.0, 0.0], [0.0, 0.0, 0.0]))
+        assert len(direct) == SCAN_STEPS
+        assert safe_calls == []
 
-        assert len(large) == 3 * SCAN_STEPS
-        assert len(small) == SCAN_STEPS
-        assert calls[0][0] == pytest.approx([0.0, 20.0, 0.0])
-        assert calls[1][0] == pytest.approx([100.0, 0.0, -20.0])
+        direct_rotation = session._build_motion_path(
+            target, target, ([0.0, 0.0, 0.0], [10.0, 0.0, 0.0]))
+        assert len(direct_rotation) == SCAN_STEPS
+        assert safe_calls == []
+
+        large_translation = session._build_motion_path(
+            target, target, ([20.1, 0.0, 0.0], [0.0, 0.0, 0.0]))
+        assert len(large_translation) == 3 * SCAN_STEPS
+        assert len(safe_calls) == 1
+
+        large_rotation = session._build_motion_path(
+            target, target, ([0.0, 0.0, 0.0], [15.1, 0.0, 0.0]))
+        assert len(large_rotation) == 3 * SCAN_STEPS
+        assert len(safe_calls) == 2
     finally:
         session.dispose()
 
 
-def test_first_target_uses_safe_height(monkeypatch):
+def test_safe_height_uses_the_configured_limit(monkeypatch):
     session = CollisionTestSession(scene_name=SCENE_NAME)
     session.ensure_ready()
     try:
+        session.set_motion_limits(420.0, 20.0, 15.0)
         solution = [0.0] * len(session.ik.chain.links)
         calls = []
 
-        def fake_solve(position, orientation, **kwargs):
+        def fake_solve(position, orientation, initial):
             calls.append(list(position))
             return True, solution
 
         monkeypatch.setattr(
             session, "current_end_effector",
             lambda: ([0.0, 0.0, 0.0], [0.0, 0.0, 0.0]))
-        monkeypatch.setattr(session.ik, "solve_branch", fake_solve)
+        monkeypatch.setattr(session, "_solve_selected_branch", fake_solve)
         target = [0.0] * len(session.ik.active_indices)
         path = session._build_motion_path(
-            target, target, ([100.0, 0.0, 0.0], [0.0, 0.0, 0.0]),
-            first_target=True)
+            target, target, ([100.0, 0.0, 0.0], [0.0, 0.0, 0.0]))
         assert len(path) == 3 * SCAN_STEPS
-        assert calls[0][2] == pytest.approx(350.0)
-        assert calls[1][2] == pytest.approx(350.0)
+        assert calls[0][2] == pytest.approx(420.0)
+        assert calls[1][2] == pytest.approx(420.0)
     finally:
         session.dispose()
+
+
+def test_movement_limits_are_saved_and_edited(window, qapp):
+    tab = window.collision_tab
+    tab._enable()
+    qapp.processEvents()
+    try:
+        tab.safe_height_spin.setValue(410.0)
+        tab.translation_spin.setValue(12.0)
+        tab.rotation_spin.setValue(7.0)
+        qapp.processEvents()
+        limits = tab.session.motion_limits
+        assert limits.safe_height_mm == pytest.approx(410.0)
+        assert limits.translation_threshold_mm == pytest.approx(12.0)
+        assert limits.rotation_threshold_deg == pytest.approx(7.0)
+        assert tab.project_config()["safe_height_mm"] == pytest.approx(410.0)
+    finally:
+        tab._disable()
 
 
 def test_shallow_self_mesh_overlap_is_not_a_collision(monkeypatch):
