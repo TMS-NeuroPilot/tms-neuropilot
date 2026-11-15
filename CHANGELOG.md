@@ -17,6 +17,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Finish drains, then Reset.** Pressing Finish deactivates back, pause and
+  next and keeps Finish pressed with a spinner while the session drains (the
+  target loop or an in-flight analysis may still be writing). When the drain
+  completes, the button becomes **Reset**: a click starts a new session from
+  the first target. The results file is kept — the overwrite switch asks
+  before the next run overwrites it.
+
 - **About tab.** The controller's last tab condenses the project description,
   research-use notice, scientific references, resources, license and citation
   information.
@@ -31,10 +38,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- **Readable dropdowns.** Every combo box is taller, and its popup uses
-  item rows of at least 44 px. The popup height is set on the item delegate
-  because the Fusion style ignores the stylesheet's item height, and every
-  popup reserves room for its visible items.
+- **Readable dropdowns.** The popup of every combo box uses item rows of at
+  least 44 px. The popup height is set on the item delegate because the
+  Fusion style ignores the stylesheet's item height, and every popup
+  reserves room for its visible items. The closed field matches the other
+  inputs (30 px) — the earlier 52 px field was padding stacked on top of
+  the minimum height.
 - **Visible start-pose choices.** The collision start pose uses three
   stacked radio groups instead of dropdowns, so all six branch choices stay
   visible and the selected branch is applied in place. Applying a branch

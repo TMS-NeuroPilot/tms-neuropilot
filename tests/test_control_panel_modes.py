@@ -14,6 +14,8 @@ from neuropilot.controller.control_panel import MainWindow
 on_mode_changed = MainWindow.on_efield_mode_changed
 check_paths_ready = MainWindow._check_paths_ready
 update_button_states = MainWindow.update_button_states
+update_finish_button = MainWindow._update_finish_button
+disable_finished_transport = MainWindow._disable_finished_transport
 
 
 class FakeButton:
@@ -34,6 +36,12 @@ class FakeButton:
 
     def isEnabled(self):
         return self._enabled
+
+    def setText(self, text):
+        self._text = text
+
+    def setDown(self, down):
+        self._down = bool(down)
 
 
 class FakeManager:
@@ -113,6 +121,8 @@ def make_panel(controller=None, online=False, offline=False, surrogate=False):
     # Bound helpers the real window has; the stand-in keeps them inert.
     panel._update_efield_hint = lambda: None
     panel._mark_project_dirty = lambda *a, **k: None
+    panel._update_finish_button = lambda: update_finish_button(panel)
+    panel._disable_finished_transport = lambda: disable_finished_transport(panel)
     return panel
 
 
