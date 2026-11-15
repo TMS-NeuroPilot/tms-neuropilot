@@ -206,10 +206,10 @@ def test_controls_fit_before_the_3d_view_at_the_design_size(window, qapp):
     scroll = next(s for s in tab.findChildren(QtWidgets.QScrollArea)
                   if s.widget() is not None
                   and tab.isAncestorOf(s.widget()))
-    assert 560 <= scroll.width() <= 680
+    assert 500 <= scroll.width() <= 620
     assert tab.view_label.width() >= 300
     assert tab.view_label.minimumWidth() == 300
-    assert scroll.maximumWidth() == 680
+    assert scroll.maximumWidth() == 620
     assert scroll.verticalScrollBar().maximum() == 0
     assert not scroll.verticalScrollBar().isVisible()
 
@@ -346,7 +346,7 @@ def test_collision_controls_scale_with_the_window(window, qapp):
     tab = window.collision_tab
     tab._last_ui_scale = None
     tab.apply_ui_scale(2.0)
-    assert tab.scroll.minimumWidth() >= 1100
+    assert tab.scroll.minimumWidth() >= 1000
     assert tab.view_label.minimumWidth() >= 600
     assert all(button.width() < spin.width() for button, spin in zip(
         tab.base_editor._nudge_buttons[::2], tab.base_editor._spins))

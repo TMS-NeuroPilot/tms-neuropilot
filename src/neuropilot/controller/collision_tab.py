@@ -260,8 +260,8 @@ class CollisionTestTab(QtWidgets.QWidget):
         scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         # The control stack gets the larger share; the 3D view yields width.
         # The handle stays draggable for an operator who wants more room.
-        scroll.setMinimumWidth(560)
-        scroll.setMaximumWidth(680)
+        scroll.setMinimumWidth(500)
+        scroll.setMaximumWidth(620)
         self.scroll = scroll
         controls = QtWidgets.QWidget()
         left = QtWidgets.QVBoxLayout(controls)
@@ -513,10 +513,11 @@ class CollisionTestTab(QtWidgets.QWidget):
                         for button in self._jog_nudges)
             for button in self._jog_nudges:
                 button.setFixedWidth(width)
-        for button in (self.apply_branch_btn, self.set_start_btn,
-                       self.scan_btn):
-            button.setMinimumWidth(round(340 * s))
-            button.setMaximumWidth(round(420 * s))
+        for button in (self.apply_branch_btn, self.set_start_btn):
+            button.setMinimumWidth(round(260 * s))
+            button.setMaximumWidth(round(340 * s))
+        self.scan_btn.setMinimumWidth(round(340 * s))
+        self.scan_btn.setMaximumWidth(round(420 * s))
         for button in (self.stop_btn, self.reset_btn):
             button.setMinimumWidth(round(150 * s))
             button.setMaximumWidth(round(200 * s))
@@ -525,13 +526,13 @@ class CollisionTestTab(QtWidgets.QWidget):
             self._apply_split(s)
             return
         self._last_ui_scale = s
-        self.scroll.setMinimumWidth(round(560 * s))
-        self.scroll.setMaximumWidth(round(680 * s))
+        self.scroll.setMinimumWidth(round(500 * s))
+        self.scroll.setMaximumWidth(round(620 * s))
         self.view_label.setMinimumSize(round(300 * s), round(300 * s))
         self._apply_split(s)
 
     def _apply_split(self, s):
-        """Give the controls a compact 44% share, once per real width."""
+        """Give the controls a compact 40% share, once per real width."""
         total = self.splitter.width()
         if total < round(1100 * s):
             return
@@ -539,8 +540,8 @@ class CollisionTestTab(QtWidgets.QWidget):
                 and abs(total - self._last_split_total) < max(4, total * 0.02)):
             return
         view_min = round(300 * s)
-        desired = max(round(560 * s),
-                      min(round(total * 0.44), round(680 * s)))
+        desired = max(round(500 * s),
+                      min(round(total * 0.40), round(620 * s)))
         target = min(desired, max(1, total - view_min))
         self.splitter.setSizes([target, max(1, total - target)])
         self._last_split_total = total
