@@ -29,9 +29,9 @@ after the base is moved.
 The scene is compiled from the selected robot's MJCF model and the subject
 skin surface. MuJoCo evaluates contacts and nearest distances; ikpy solves the
 same URDF chain that the simulated robot uses. The scan follows the simulated
-planner's motion strategy: moves above 20 mm lift the coil 20 mm in world Z,
-traverse, then approach the target. Shorter moves use a direct joint-space
-line. The 350 mm safe height is reserved for the manual move-away, end and
+planner's motion strategy: moves above 20 mm retract the coil 20 mm along
+the current tool normal, traverse, then approach the target along its normal.
+Shorter moves use a direct joint-space line. The 350 mm safe height is reserved for the manual move-away, end and
 emergency actions. Each segment is sampled at 30 waypoints and every waypoint
 is checked.
 

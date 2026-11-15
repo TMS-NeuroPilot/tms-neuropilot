@@ -30,10 +30,10 @@ class MotionState(Enum):
 
 class MotionPlanner:
     """
-    State-machine motion planner with target lift-and-approach support.
+    State-machine motion planner with target retract-and-approach support.
 
     For large displacements (> CRANE_DISPLACEMENT_THRESHOLD_MM):
-      LIFT 20 mm in world Z → TRAVERSE → APPROACH
+      RETRACT 20 mm along the tool normal → TRAVERSE → APPROACH
     For small displacements / orientation-only changes:
       DIRECT_MOVING
 
@@ -270,23 +270,27 @@ class MotionPlanner:
     ) -> Tuple[Optional[List[List[float]]], Optional[List[List[float]]], Optional[List[List[float]]]]:
         """
         Build three joint-space segments for a target transition:
-          1.  LIFT:     current → current + 20 mm in world Z
-          2.  TRAVERSE: lifted_current → lifted_target
-          3.  APPROACH: lifted_target → target
-        Returns (lift, traverse, approach) or (None, None, None) if
+          1.  RETRACT:  current → current + 20 mm along current tool +Z
+          2.  TRAVERSE: retracted_current → retracted_target
+          3.  APPROACH: retracted_target → target along target -Z
+        Returns (retract, traverse, approach) or (None, None, None) if
         IK fails for an intermediate waypoint.
 
-        The lift is ``TARGET_RETRACT_M``, not the absolute
+        The retract is ``TARGET_RETRACT_M``, not the absolute
         ``SAFE_HEIGHT_M`` used by the manual move-away action.
         """
+        from .utils.transforms import euler_deg_to_matrix
+
         retract_mm = config.TARGET_RETRACT_M * 1000.0
+        current_z = euler_deg_to_matrix(current_ori_deg)[:, 2]
+        target_z = euler_deg_to_matrix(target_ori_deg)[:, 2]
         retracted_curr_p = [
-            current_pos_mm[0], current_pos_mm[1],
-            current_pos_mm[2] + retract_mm,
+            current_pos_mm[i] + float(current_z[i]) * retract_mm
+            for i in range(3)
         ]
         retracted_tgt_p = [
-            target_pos_mm[0], target_pos_mm[1],
-            target_pos_mm[2] + retract_mm,
+            target_pos_mm[i] + float(target_z[i]) * retract_mm
+            for i in range(3)
         ]
 
         _, sol_curr = self.ik_solver.solve_with_config(

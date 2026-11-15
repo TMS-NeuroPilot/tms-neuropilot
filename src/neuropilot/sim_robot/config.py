@@ -123,7 +123,7 @@ CONTACT_FORCE_SCALE            = 10.0   # multiplier: normal_force → force_fee
 # Target-path planning
 # ─────────────────────────────────────────────
 SAFE_HEIGHT_M                   = 0.35        # absolute world z for manual move-away/end/emergency
-TARGET_RETRACT_M                = 0.020       # m of world +Z clearance when moving to another target
+TARGET_RETRACT_M                = 0.020       # m along the tool +Z when moving to another target
 CRANE_DISPLACEMENT_THRESHOLD_MM = 20.0        # mm — below this = direct interpolation (no retract)
 PATH_INTERPOLATION_STEPS        = 30          # steps per path segment (tweak for visual speed)
 

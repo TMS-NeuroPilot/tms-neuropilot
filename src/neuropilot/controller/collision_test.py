@@ -435,12 +435,12 @@ class CollisionTestSession:
         target: Sequence[float],
         world_target: Optional[Tuple[Sequence[float], Sequence[float]]],
     ) -> List[List[float]]:
-        """Mirror the Control simulation's target lift-and-approach path.
+        """Mirror the Control simulation's target retract-and-approach path.
 
-        Large target transitions lift 20 mm in world Z, traverse, then
-        approach the target.  The lift is ``TARGET_RETRACT_M``;
-        ``SAFE_HEIGHT_M`` is reserved for the manual move-away, end and
-        emergency actions.
+        Large target transitions retract 20 mm along the current tool +Z,
+        traverse, then approach along the target -Z.  The retract is
+        ``TARGET_RETRACT_M``; ``SAFE_HEIGHT_M`` is reserved for the manual
+        move-away, end and emergency actions.
         """
         if world_target is None:
             return self._interpolate(current, target)
@@ -453,10 +453,18 @@ class CollisionTestSession:
             return self._interpolate(current, target)
 
         retract_mm = sim_config.TARGET_RETRACT_M * 1000.0
+        current_z = Rotation.from_euler(
+            "xyz", current_ori, degrees=True).as_matrix()[:, 2]
+        target_z = Rotation.from_euler(
+            "xyz", target_ori, degrees=True).as_matrix()[:, 2]
         retracted_current = [
-            current_pos[0], current_pos[1], current_pos[2] + retract_mm]
+            current_pos[i] + float(current_z[i]) * retract_mm
+            for i in range(3)
+        ]
         retracted_target = [
-            target_pos[0], target_pos[1], target_pos[2] + retract_mm]
+            target_pos[i] + float(target_z[i]) * retract_mm
+            for i in range(3)
+        ]
         initial = self._full_solution(current)
         ok_current, solution_current = self.ik.solve_with_config(
             retracted_current, current_ori,

@@ -92,7 +92,7 @@ def test_self_collision_uses_the_shared_mesh_overlap_tolerance():
     assert checker.check_self_collision() is True
 
 
-def test_large_target_moves_lift_20mm_in_world_z(planner, monkeypatch):
+def test_large_target_moves_retract_along_the_tool_normal(planner, monkeypatch):
     mp, _state, _world, ik = planner
     solution = [0.0] * len(ik.chain.links)
     calls = []
@@ -103,13 +103,13 @@ def test_large_target_moves_lift_20mm_in_world_z(planner, monkeypatch):
 
     monkeypatch.setattr(ik, "solve_with_config", fake_solve)
     retract, traverse, approach = mp._build_retract_path(
-        [0.0] * 6, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0],
+        [0.0] * 6, [0.0, 0.0, 0.0], [90.0, 0.0, 0.0],
         [0.1] * 6, [100.0, 0.0, 0.0], [0.0, 0.0, 0.0], None)
 
     assert len(retract) == sim_config.PATH_INTERPOLATION_STEPS
     assert len(traverse) == sim_config.PATH_INTERPOLATION_STEPS
     assert len(approach) == sim_config.PATH_INTERPOLATION_STEPS
-    assert calls[0][0] == pytest.approx([0.0, 0.0, 20.0])
+    assert calls[0][0] == pytest.approx([0.0, -20.0, 0.0])
     assert calls[1][0] == pytest.approx([100.0, 0.0, 20.0])
 
 

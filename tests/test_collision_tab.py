@@ -717,7 +717,7 @@ def test_shallow_head_contact_is_tolerated_and_deep_contact_is_not(monkeypatch):
         session.dispose()
 
 
-def test_large_moves_lift_20mm_in_world_z(monkeypatch):
+def test_large_moves_retract_along_the_tool_normal(monkeypatch):
     session = CollisionTestSession(scene_name=SCENE_NAME)
     session.ensure_ready()
     try:
@@ -732,7 +732,7 @@ def test_large_moves_lift_20mm_in_world_z(monkeypatch):
 
         monkeypatch.setattr(
             session, "current_end_effector",
-            lambda: ([0.0, 0.0, 0.0], [0.0, 0.0, 0.0]))
+            lambda: ([0.0, 0.0, 0.0], [90.0, 0.0, 0.0]))
         monkeypatch.setattr(session.ik, "solve_with_config", fake_solve)
         target = [0.0] * len(session.ik.active_indices)
 
@@ -743,7 +743,7 @@ def test_large_moves_lift_20mm_in_world_z(monkeypatch):
 
         assert len(large) == 3 * SCAN_STEPS
         assert len(small) == SCAN_STEPS
-        assert calls[0][0] == pytest.approx([0.0, 0.0, 20.0])
+        assert calls[0][0] == pytest.approx([0.0, -20.0, 0.0])
         assert calls[1][0] == pytest.approx([100.0, 0.0, 20.0])
     finally:
         session.dispose()
