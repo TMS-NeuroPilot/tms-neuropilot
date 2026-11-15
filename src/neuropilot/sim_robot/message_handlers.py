@@ -45,6 +45,18 @@ class MessageHandlers:
             joints = payload.get("joints")
             if isinstance(joints, (list, tuple)) and len(joints) == 6:
                 self.state.set_start_joints(joints)
+                branch = payload.get("branch")
+                if (isinstance(branch, (list, tuple))
+                        and len(branch) == 3
+                        and branch[0] in ("left", "right")
+                        and branch[1] in ("up", "down")
+                        and branch[2] in ("normal", "flipped")):
+                    self.state.set_start_branch(
+                        [str(value) for value in branch])
+                else:
+                    # A pose without a branch must not inherit the previous
+                    # project's arm shape.
+                    self.state.set_start_branch(None)
                 if self.world is not None:
                     self.world.reset_joint_positions(list(joints))
                 log.info("Start pose set from the collision test.")

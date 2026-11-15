@@ -430,6 +430,9 @@ class PipelineController:
         # Stimulator settings
         self.stimulator_amplitude = None
         self.start_pose_joints = None
+        # Shoulder/elbow/wrist branch captured with the collision-tested
+        # start pose. None keeps the simulator's free elbow-up solver.
+        self.start_pose_branch = None
         self.stimulator_waveform = 'Biphasic'
         self.minium_isi = 4  # in seconds
         self.n_repetitions = 1 #
@@ -817,15 +820,25 @@ class PipelineController:
             except Exception as e:
                 print(f"[WARN] could not announce the head mesh: {e}")
 
-    def set_start_pose(self, joints):
-        """Store and announce the collision-tested arm start configuration."""
+    def set_start_pose(self, joints, branch=None):
+        """Store and announce the collision-tested arm start configuration.
+
+        ``branch`` is the shoulder/elbow/wrist choice that produced the
+        start pose.  Sending it with the joints makes the simulated planner
+        keep the collision-tested arm shape for every target instead of
+        silently choosing a different IK branch.
+        """
         if not joints:
             return
         self.start_pose_joints = [float(v) for v in joints]
+        self.start_pose_branch = (
+            [str(v) for v in branch] if branch is not None else None)
+        payload = {"joints": list(self.start_pose_joints)}
+        if self.start_pose_branch is not None:
+            payload["branch"] = list(self.start_pose_branch)
         if self.remote is None:
             return
-        coro = self.remote.send_message(
-            TOPIC_SET_START_POSE, {"joints": list(self.start_pose_joints)})
+        coro = self.remote.send_message(TOPIC_SET_START_POSE, payload)
         try:
             asyncio.get_running_loop().create_task(coro)
         except RuntimeError:
@@ -883,9 +896,11 @@ class PipelineController:
         # Announce the head mesh configured in the project window (session
         # cache) so a freshly started robot sim applies it immediately.
         if self.start_pose_joints:
+            payload = {"joints": list(self.start_pose_joints)}
+            if self.start_pose_branch is not None:
+                payload["branch"] = list(self.start_pose_branch)
             asyncio.create_task(self.remote.send_message(
-                TOPIC_SET_START_POSE,
-                {"joints": list(self.start_pose_joints)}))
+                TOPIC_SET_START_POSE, payload))
         if self.control_panel:
             fn_mesh = self.control_panel.loadmeshlabel.text().strip() or None
             self.set_head_mesh(fn_mesh)

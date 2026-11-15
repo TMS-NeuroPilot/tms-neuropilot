@@ -105,6 +105,9 @@ branch never depends on a dropdown popup:
 - **Arm up** or **Arm down**, the sign of the third active joint;
 - **Wrist normal** or **Wrist flipped**, the sign of the fifth active joint.
 
+The elbow boundary is inclusive: a straight arm has zero on the third joint
+and is the Omron arm-up pose. The simulator's power-on configuration is the
+same zero joint pose, and the collision test starts from that pose as well.
 The wrist sign is evaluated on the canonical joint angle in
 [-180°, 180°], not on an arbitrary 360° representation. This keeps normal and
 flipped physically distinct instead of showing the same pose twice.
@@ -136,14 +139,14 @@ a collision the scan stops, the message names the pulse and target, and the
 arm stays at the colliding waypoint. Move the base, head or start pose, press
 **Reset to start**, and run it again.
 
-An **IK failure is not a collision**. It means the solver could not find a
-joint configuration for that target from the previous pose. The scan uses the
-same free IK solver and elbow preference as the simulated experiment. The
-shoulder/arm/wrist selection shapes the start pose and the initial joint
-configuration; it is not a per-target lock, because the simulated planner can
-choose another branch. If the solver lands in a different branch, the scan
-reports an IK branch change and continues. If the solver fails, the arm remains
-at the last reached target and the status says so.
+An **IK failure is not a collision**. It means the selected shoulder, arm and
+wrist branch cannot reach that target from the previous pose. The scan keeps
+the chosen branch for every target and every safe-height or retract waypoint;
+it never substitutes another arm shape. If a waypoint or target has no
+solution in that branch, the scan stops, leaves the arm at the last reached
+target, and says that the selected branch has no IK solution. This is the
+behaviour the simulated experiment uses when the start pose carries the same
+branch.
 
 ## Save and use the result
 
@@ -151,12 +154,14 @@ at the last reached target and the status says so.
 |---|---|
 | **Make project default** | Stores head pose, robot base, start joints and branch in the project YAML |
 | **Make lab default** | Stores the same block in `~/.neuropilot/lab.yaml` for projects that do not override it |
-| **Use at start pose** | Queues the six-joint start pose for the next experiment start |
+| **Use at start pose** | Queues the six-joint start pose and its branch for the next experiment start |
 
-The project value wins over the lab default. The start pose is sent on
-`Pipeline to Robot: Set start pose`; the production `tms-robot-control` driver
-must handle that topic before a real run can use it. The head and base values
-are the validated cell description and remain part of the project record.
+The project value wins over the lab default. The start pose and branch are sent
+on `Pipeline to Robot: Set start pose`; the simulated planner then solves every
+target and path waypoint in the same branch. The production
+`tms-robot-control` driver must handle that topic before a real run can use it.
+The head and base values are the validated cell description and remain part of
+the project record.
 
 ## What is not modelled yet
 

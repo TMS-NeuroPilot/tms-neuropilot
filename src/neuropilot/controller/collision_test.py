@@ -42,6 +42,20 @@ def _canonical_angle(value: float) -> float:
     return (float(value) + np.pi) % (2.0 * np.pi) - np.pi
 
 
+def branch_of_active(active: Sequence[float]) -> Tuple[str, str, str]:
+    """Name an Omron arm configuration from its active joint signs.
+
+    The elbow boundary is inclusive: the straight, fully extended arm has
+    ``J3 == 0`` and is the Omron arm-up pose.  Treating zero as down made the
+    simulator's power-on pose report ``right/down/normal`` while the arm was
+    visibly vertical, which then disagreed with every arm-up selection.
+    """
+    active = [_canonical_angle(value) for value in active]
+    return ("left" if active[0] > 0 else "right",
+            "up" if active[2] >= 0 else "down",
+            "normal" if active[4] >= 0 else "flipped")
+
+
 class CollisionTestSession:
     """Local robot/head world used by the Collision test tab."""
 
@@ -57,8 +71,8 @@ class CollisionTestSession:
                           list(sim_config.HEAD_ORIENTATION))
         self.base_pose = (list(sim_config.ROBOT_BASE_POSITION),
                           list(sim_config.ROBOT_BASE_ORIENTATION))
-        self.start_joints: List[float] = [0.0] * 6
-        self.branch = ("left", "up", "normal")
+        self.start_joints: List[float] = list(sim_config.START_JOINTS)
+        self.branch = branch_of_active(self.start_joints)
 
         self._scan_poses: List[Tuple[List[float], List[float]]] = []
         self._scan_results: List[dict] = []
@@ -147,10 +161,7 @@ class CollisionTestSession:
         return solution
 
     def branch_of_active(self, active: Sequence[float]) -> Tuple[str, str, str]:
-        active = [_canonical_angle(value) for value in active]
-        return ("left" if active[0] > 0 else "right",
-                "up" if active[2] > 0 else "down",
-                "normal" if active[4] >= 0 else "flipped")
+        return branch_of_active(active)
 
     def set_start_from_current(self) -> Tuple[List[float], Tuple[str, str]]:
         self.start_joints = [_canonical_angle(value)
@@ -385,49 +396,67 @@ class CollisionTestSession:
         active = self.current_joints()
         initial = self._full_solution(active)
         selected = (self.branch[0], self.branch[1], self.branch[2])
-        # Use the same free solver as the Control simulation.  The selected
-        # branch shapes the start pose and the initial configuration; it is
-        # not a per-target lock, because the simulated planner can choose a
-        # different branch to reach a target.
-        ok, solution = self.ik.solve_with_config(
-            target_pos, target_ori,
-            initial_position=initial,
-            elbow_up=sim_config.IK_ELBOW_UP,
-            max_retries=sim_config.IK_MAX_RETRIES,
-        )
-        used = selected
-        if ok and solution is not None:
-            used_active = [solution[i] for i in self.ik.active_indices]
-            used = self.branch_of_active(used_active)
-            if used != selected:
-                self._scan_branch_changes.append({
-                    "index": idx,
-                    "target_id": entry["target_id"],
-                    "order_index": entry["order_index"],
-                    "rep": entry["rep"],
-                    "selected": list(selected),
-                    "used": list(used),
-                })
+        # The selected branch is authoritative for the whole scan.  The
+        # collision test must not silently substitute another arm shape;
+        # that is exactly what would invalidate a collision-free result.
+        ok, solution = self._solve_selected_branch(
+            target_pos, target_ori, initial)
         if not ok or solution is None:
             self._record_result(
-                False, "IK failed", collision=False,
+                False, "IK failed in selected branch", collision=False,
                 detail={"selected_branch": list(selected),
                         "target_id": entry["target_id"],
                         "completed": self._scan_completed})
-            self.stop_scan("no IK solution")
+            self.stop_scan("no IK solution in selected branch")
             return
         target = [_canonical_angle(solution[i])
                   for i in self.ik.active_indices]
+        used = self.branch_of_active(target)
+        if used != selected:
+            # solve_branch should never do this; treat a violation as a
+            # hard failure rather than reporting a misleading scan.
+            self._record_result(
+                False, "selected branch not preserved", collision=False,
+                detail={"selected_branch": list(selected),
+                        "used_branch": list(used),
+                        "target_id": entry["target_id"],
+                        "completed": self._scan_completed})
+            self.stop_scan("selected branch not preserved")
+            return
         current = self.current_joints()
         world_target = (self._scan_world_targets[idx]
                         if idx < len(self._scan_world_targets) else None)
-        self._scan_path = self._build_motion_path(
+        path = self._build_motion_path(
             current, target, world_target, first_target=(idx == 0))
+        if path is None:
+            self._record_result(
+                False, "IK failed for selected-branch path", collision=False,
+                detail={"selected_branch": list(selected),
+                        "target_id": entry["target_id"],
+                        "completed": self._scan_completed})
+            self.stop_scan("no IK solution for selected-branch path")
+            return
+        self._scan_path = path
         self._scan_path_i = 0
-        note = " (IK branch changed)" if used != selected else ""
         self._scan_message = (
             f"pulse {entry['order_index']} · {entry['rep']}/"
-            f"{self._scan_repetitions} · target {entry['target_id']}{note}")
+            f"{self._scan_repetitions} · target {entry['target_id']} · "
+            f"branch {'/'.join(selected)}")
+
+    def _solve_selected_branch(
+        self,
+        position_mm: Sequence[float],
+        orientation_deg: Sequence[float],
+        initial: Sequence[float],
+    ) -> Tuple[bool, Optional[List[float]]]:
+        """Solve one pose in the branch selected for this scan."""
+        return self.ik.solve_branch(
+            position_mm, orientation_deg,
+            shoulder=self.branch[0],
+            elbow=self.branch[1],
+            wrist=self.branch[2],
+            initial_position=list(initial),
+        )
 
     def _build_motion_path(
         self,
@@ -435,14 +464,15 @@ class CollisionTestSession:
         target: Sequence[float],
         world_target: Optional[Tuple[Sequence[float], Sequence[float]]],
         first_target: bool = False,
-    ) -> List[List[float]]:
-        """Mirror the Control simulation's target path.
+    ) -> Optional[List[List[float]]]:
+        """Mirror the Control simulation's target path in the chosen branch.
 
         The first target from the saved start pose uses the absolute safe
         height.  Later target-to-target moves retract 20 mm along the
         negative tool normal, traverse, then approach along the target
         normal.  If that short path is blocked, the safe-height path is
-        used as the fallback.
+        used as the fallback.  A branch waypoint that has no IK solution
+        returns ``None``; the scan then stops instead of switching arms.
         """
         if world_target is None:
             return self._interpolate(current, target)
@@ -455,24 +485,18 @@ class CollisionTestSession:
             return self._interpolate(current, target)
 
         if first_target:
-            safe = self._build_safe_height_path(
+            return self._build_safe_height_path(
                 current, target, current_pos, current_ori,
                 target_pos, target_ori)
-            return safe if safe is not None else self._interpolate(
-                current, target)
 
         retract = self._build_retract_path(
             current, target, current_pos, current_ori,
             target_pos, target_ori)
         if retract is not None and self._path_is_clear(retract):
             return retract
-        safe = self._build_safe_height_path(
+        return self._build_safe_height_path(
             current, target, current_pos, current_ori,
             target_pos, target_ori)
-        if safe is not None:
-            return safe
-        return retract if retract is not None else self._interpolate(
-            current, target)
 
     def _build_safe_height_path(
         self,
@@ -487,18 +511,10 @@ class CollisionTestSession:
         above_current = [current_pos[0], current_pos[1], safe_z_mm]
         above_target = [target_pos[0], target_pos[1], safe_z_mm]
         initial = self._full_solution(current)
-        ok_current, solution_current = self.ik.solve_with_config(
-            above_current, current_ori,
-            initial_position=initial,
-            elbow_up=sim_config.IK_ELBOW_UP,
-            max_retries=sim_config.IK_MAX_RETRIES,
-        )
-        ok_target, solution_target = self.ik.solve_with_config(
-            above_target, target_ori,
-            initial_position=initial,
-            elbow_up=sim_config.IK_ELBOW_UP,
-            max_retries=sim_config.IK_MAX_RETRIES,
-        )
+        ok_current, solution_current = self._solve_selected_branch(
+            above_current, current_ori, initial)
+        ok_target, solution_target = self._solve_selected_branch(
+            above_target, target_ori, initial)
         if not (ok_current and solution_current is not None
                 and ok_target and solution_target is not None):
             return None
@@ -536,18 +552,10 @@ class CollisionTestSession:
             for i in range(3)
         ]
         initial = self._full_solution(current)
-        ok_current, solution_current = self.ik.solve_with_config(
-            retracted_current, current_ori,
-            initial_position=initial,
-            elbow_up=sim_config.IK_ELBOW_UP,
-            max_retries=sim_config.IK_MAX_RETRIES,
-        )
-        ok_target, solution_target = self.ik.solve_with_config(
-            retracted_target, target_ori,
-            initial_position=initial,
-            elbow_up=sim_config.IK_ELBOW_UP,
-            max_retries=sim_config.IK_MAX_RETRIES,
-        )
+        ok_current, solution_current = self._solve_selected_branch(
+            retracted_current, current_ori, initial)
+        ok_target, solution_target = self._solve_selected_branch(
+            retracted_target, target_ori, initial)
         if not (ok_current and solution_current is not None
                 and ok_target and solution_target is not None):
             return None

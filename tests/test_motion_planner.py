@@ -97,8 +97,8 @@ def test_large_target_moves_retract_along_the_tool_normal(planner, monkeypatch):
     solution = [0.0] * len(ik.chain.links)
     calls = []
 
-    def fake_solve(position, orientation, **kwargs):
-        calls.append((list(position), list(orientation)))
+    def fake_solve(position_mm, orientation_deg, **kwargs):
+        calls.append((list(position_mm), list(orientation_deg)))
         return True, solution
 
     monkeypatch.setattr(ik, "solve_with_config", fake_solve)
@@ -118,8 +118,8 @@ def test_first_target_uses_safe_height(planner, monkeypatch):
     solution = [0.0] * len(ik.chain.links)
     calls = []
 
-    def fake_solve(position, orientation, **kwargs):
-        calls.append(list(position))
+    def fake_solve(position_mm, orientation_deg, **kwargs):
+        calls.append(list(position_mm))
         return True, solution
 
     monkeypatch.setattr(ik, "solve_with_config", fake_solve)
@@ -128,6 +128,29 @@ def test_first_target_uses_safe_height(planner, monkeypatch):
         [0.1] * 6, [100.0, 0.0, 0.0], [0.0, 0.0, 0.0], None)
     assert calls[0][2] == pytest.approx(350.0)
     assert calls[1][2] == pytest.approx(350.0)
+
+
+def test_selected_start_branch_is_used_for_ik(planner, monkeypatch):
+    mp, state, _world, ik = planner
+    solution = [0.0] * len(ik.chain.links)
+    calls = []
+
+    def fake_branch(position, orientation, **kwargs):
+        calls.append(kwargs)
+        return True, solution
+
+    monkeypatch.setattr(ik, "solve_branch", fake_branch)
+    monkeypatch.setattr(
+        ik, "solve_with_config",
+        lambda *args, **kwargs: pytest.fail("free solver used"))
+    state.start_branch = ["right", "up", "normal"]
+
+    ok, result = mp._solve_pose([100.0, -300.0, 800.0],
+                                [0.0, 0.0, 0.0], None)
+    assert ok and result is not None
+    assert calls[0]["shoulder"] == "right"
+    assert calls[0]["elbow"] == "up"
+    assert calls[0]["wrist"] == "normal"
 
 
 def test_interpolation_is_linear_and_excludes_the_start():

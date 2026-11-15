@@ -12,9 +12,14 @@ pytest.importorskip("PyQt5.QtWidgets")
 pytest.importorskip("mujoco")
 pytest.importorskip("ikpy")
 
-from neuropilot.controller.collision_test import SCAN_STEPS, CollisionTestSession
+from neuropilot.controller.collision_test import (
+    SCAN_STEPS,
+    CollisionTestSession,
+    branch_of_active,
+)
 from neuropilot.controller.pipeline_controller import read_simnibs_targets_data
 from neuropilot.lab_profile import LabProfile
+from neuropilot.sim_robot import config as sim_config
 from neuropilot.sim_robot.utils.transforms import orientation_distance_deg
 
 # A scene file per process: the parallel workers compose their own world,
@@ -30,9 +35,16 @@ CUSTOM = {
     "head_orientation_deg": [0.0, 0.0, -90.0],
     "robot_base_position_m": [-0.2, 0.2, 0.0],
     "robot_base_orientation_deg": [0.0, 0.0, 0.0],
-    "start_joints_rad": [0.1, 0.2, 0.3, -0.4, 0.5, -0.6],
+    "start_joints_rad": [-0.1, 0.2, 0.3, -0.4, 0.5, -0.6],
     "branch": ["right", "up", "normal"],
 }
+
+
+def test_default_start_matches_the_simulator_start_pose():
+    session = CollisionTestSession(scene_name=SCENE_NAME)
+    assert session.start_joints == sim_config.START_JOINTS
+    assert session.branch == branch_of_active(sim_config.START_JOINTS)
+    assert session.branch == ("right", "up", "normal")
 
 
 def test_enable_builds_the_local_world(window, qapp):
@@ -379,40 +391,43 @@ def test_collision_controls_are_compact_and_axes_are_coloured(window):
                for label in tab._jog_value_labels)
 
 
-def test_scan_reports_a_branch_change_from_the_production_solver(monkeypatch):
+def test_scan_enforces_the_selected_branch(monkeypatch):
     session = CollisionTestSession(scene_name=SCENE_NAME)
     session.ensure_ready()
     try:
         solution = [0.0] * len(session.ik.chain.links)
-        for index in session.ik.active_indices:
-            solution[index] = 0.1
+        for index, value in zip(
+                session.ik.active_indices,
+                [-0.1, 0.1, 0.1, 0.1, 0.1, 0.1]):
+            solution[index] = value
         branch_calls = []
+        free_calls = []
+
+        def fake_solve_branch(*args, **kwargs):
+            branch_calls.append(kwargs)
+            return True, solution
+
+        monkeypatch.setattr(session.ik, "solve_branch", fake_solve_branch)
         monkeypatch.setattr(
-            session.ik, "solve_branch",
-            lambda *args, **kwargs: branch_calls.append(True) or (False, None))
-        monkeypatch.setattr(session.ik, "solve_with_config",
-                            lambda *args, **kwargs: (True, solution))
+            session.ik, "solve_with_config",
+            lambda *args, **kwargs: free_calls.append(True) or (True, solution))
         session._scan_active = True
         session._scan_base_targets = [([0.0, 0.0, 0.0], [0.0, 0.0, 0.0])]
         session._scan_index = 0
         session._scan_completed = 0
-        session.branch = ("right", "down", "flipped")
+        session.branch = ("right", "up", "normal")
 
         session._prepare_next()
         state = session.scan_status()
         assert state["active"]
         assert state["message"].startswith("pulse 0 · 1/1 · target 0")
-        assert "IK branch changed" in state["message"]
-        assert state["branch_changes"] == [{
-            "index": 0,
-            "target_id": 0,
-            "order_index": 0,
-            "rep": 1,
-            "selected": ["right", "down", "flipped"],
-            "used": ["left", "up", "normal"],
-        }]
-        assert session.branch == ("right", "down", "flipped")
-        assert branch_calls == []
+        assert "branch right/up/normal" in state["message"]
+        assert state["branch_changes"] == []
+        assert session.branch == ("right", "up", "normal")
+        assert branch_calls[0]["shoulder"] == "right"
+        assert branch_calls[0]["elbow"] == "up"
+        assert branch_calls[0]["wrist"] == "normal"
+        assert free_calls == []
     finally:
         session.dispose()
 
@@ -421,20 +436,24 @@ def test_ik_failure_is_reported_as_ik_not_collision(monkeypatch):
     session = CollisionTestSession(scene_name=SCENE_NAME)
     session.ensure_ready()
     try:
-        monkeypatch.setattr(session.ik, "solve_with_config",
+        monkeypatch.setattr(session.ik, "solve_branch",
                             lambda *args, **kwargs: (False, None))
         session._scan_active = True
         session._scan_base_targets = [([0.0, 0.0, 0.0], [0.0, 0.0, 0.0])]
         session._scan_index = 0
         session._scan_completed = 0
+        session.branch = ("right", "up", "normal")
 
         session._prepare_next()
         state = session.scan_status()
         assert not state["active"]
-        assert state["message"] == "no IK solution"
+        assert state["message"] == "no IK solution in selected branch"
         assert state["completed"] == 0
-        assert state["results"][-1]["message"] == "IK failed"
+        assert state["results"][-1]["message"] == (
+            "IK failed in selected branch")
         assert state["results"][-1]["collision"] is False
+        assert state["results"][-1]["detail"]["selected_branch"] == [
+            "right", "up", "normal"]
     finally:
         session.dispose()
 
@@ -733,7 +752,7 @@ def test_large_moves_retract_along_the_tool_normal(monkeypatch):
         monkeypatch.setattr(
             session, "current_end_effector",
             lambda: ([0.0, 0.0, 0.0], [90.0, 0.0, 0.0]))
-        monkeypatch.setattr(session.ik, "solve_with_config", fake_solve)
+        monkeypatch.setattr(session.ik, "solve_branch", fake_solve)
         monkeypatch.setattr(session, "_path_is_clear", lambda path: True)
         target = [0.0] * len(session.ik.active_indices)
 
@@ -764,7 +783,7 @@ def test_first_target_uses_safe_height(monkeypatch):
         monkeypatch.setattr(
             session, "current_end_effector",
             lambda: ([0.0, 0.0, 0.0], [0.0, 0.0, 0.0]))
-        monkeypatch.setattr(session.ik, "solve_with_config", fake_solve)
+        monkeypatch.setattr(session.ik, "solve_branch", fake_solve)
         target = [0.0] * len(session.ik.active_indices)
         path = session._build_motion_path(
             target, target, ([100.0, 0.0, 0.0], [0.0, 0.0, 0.0]),

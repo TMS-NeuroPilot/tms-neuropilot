@@ -33,6 +33,9 @@ class RobotState:
     joint_positions: List[float] = field(default_factory=list)
     target_joint_positions: List[float] = field(default_factory=list)
     start_joints: List[float] = field(default_factory=list)
+    # Shoulder/elbow/wrist branch of the saved start pose. None keeps the
+    # free elbow-up IK behaviour for experiments without a collision setup.
+    start_branch: Optional[List[str]] = None
 
     # End-effector / coil pose
     current_position: List[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
@@ -90,6 +93,9 @@ class RobotState:
 
     def set_start_joints(self, joints):
         self.start_joints = list(joints)
+
+    def set_start_branch(self, branch):
+        self.start_branch = None if branch is None else list(branch)
 
     def set_tracking_enabled(self, enabled: bool):
         self.tracking_enabled = bool(enabled)

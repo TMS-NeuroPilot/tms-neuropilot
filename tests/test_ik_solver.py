@@ -25,6 +25,11 @@ def _fake_solution(solver):
     return [0.0] * len(solver.chain.links)
 
 
+def test_straight_arm_is_the_arm_up_branch(solver):
+    zero = [0.0] * len(solver.chain.links)
+    assert solver.branch_of(zero) == ("right", "up", "normal")
+
+
 def test_solve_rejects_a_local_minimum_that_does_not_reach_the_pose(
         solver, monkeypatch):
     monkeypatch.setattr(

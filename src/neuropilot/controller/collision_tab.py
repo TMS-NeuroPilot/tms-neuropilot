@@ -17,7 +17,11 @@ from PyQt5 import QtCore, QtWidgets
 
 from ..lab_profile import LabProfile
 from ..sim_robot import config as sim_config
-from .collision_test import SELF_PENETRATION_M, CollisionTestSession
+from .collision_test import (
+    SELF_PENETRATION_M,
+    CollisionTestSession,
+    branch_of_active,
+)
 from .robot_scene_view import RobotSceneView
 
 
@@ -206,7 +210,7 @@ class CollisionTestTab(QtWidgets.QWidget):
 
         self._build_ui()
         # A new project starts from the lab layout, not from a stale setup.
-        self._pending_config = self._lab_config()
+        self._pending_config = self._validated_config(self._lab_config())
         self._has_setup = self._pending_config is not None
         self._set_controls_enabled(False)
         placement_label = getattr(self.window, "loadplacementlabel", None)
@@ -625,16 +629,6 @@ class CollisionTestTab(QtWidgets.QWidget):
                 text = (f"{current_pulse}: checking path "
                         f"{state.get('path_step', 0)}/"
                         f"{state.get('path_total', 0)}.")
-            for change in reversed(state.get("branch_changes") or []):
-                if change.get("index") == state.get("index"):
-                    if detailed:
-                        text += (f" Selected "
-                                 f"{self._branch_text(change['selected'])} "
-                                 f"was unreachable; using "
-                                 f"{self._branch_text(change['used'])}.")
-                    else:
-                        text += " (IK branch changed)"
-                    break
             return text
         if message.startswith("complete"):
             text = (f"Complete: {total_targets} targets checked in "
@@ -649,8 +643,13 @@ class CollisionTestTab(QtWidgets.QWidget):
                             .get("selected_branch") if results else None)
                 if selected:
                     text += (f" Selected branch "
-                             f"{self._branch_text(selected)} and the "
-                             f"simulation IK both failed.")
+                             f"{self._branch_text(selected)} has no IK "
+                             f"solution at this target.")
+        elif message.startswith("selected branch not preserved"):
+            last = self._pulse_text(state, last=True) if completed else "start"
+            text = (f"STOP: selected branch was not preserved at "
+                    f"{self._pulse_text(state)}. This is not a collision. "
+                    f"The arm remains at {last}.")
         elif message.startswith("collision"):
             text = (f"STOP: collision at {self._pulse_text(state)}. "
                     f"The arm is at the first blocking waypoint.")
@@ -658,16 +657,6 @@ class CollisionTestTab(QtWidgets.QWidget):
             text = f"Stopped at {self._pulse_text(state)}."
         else:
             text = message or "Idle."
-        changes = state.get("branch_changes") or []
-        if changes:
-            change = changes[-1]
-            if detailed:
-                text += (f" IK branch changed at pulse "
-                         f"{change['order_index']}: "
-                         f"{self._branch_text(change['selected'])} -> "
-                         f"{self._branch_text(change['used'])}.")
-            else:
-                text += " IK branch changed."
         return text
 
     def _update_scan_ui(self, state):
@@ -733,6 +722,9 @@ class CollisionTestTab(QtWidgets.QWidget):
             joints = self._pending_config.get("start_joints_rad")
             if joints:
                 controller.start_pose_joints = [float(v) for v in joints]
+                controller.start_pose_branch = list(
+                    self._pending_config.get("branch") or
+                    branch_of_active(joints))
 
     def project_config(self) -> Optional[dict]:
         # An untouched page must not save (or later command) the zero pose.
@@ -785,7 +777,10 @@ class CollisionTestTab(QtWidgets.QWidget):
             "robot_base_position_m": base_pos,
             "robot_base_orientation_deg": base_ori,
             "start_joints_rad": start,
-            "branch": branch,
+            # The stored joints are the authoritative start posture.  Derive
+            # the branch from them so an old or hand-edited project cannot
+            # show "arm up" while the saved joints are in another branch.
+            "branch": list(branch_of_active(start)),
         }
 
     def apply_config(self, data: Optional[dict]) -> None:
@@ -796,6 +791,7 @@ class CollisionTestTab(QtWidgets.QWidget):
             self.window._collision_test_config = None
             if self.controller is not None:
                 self.controller.start_pose_joints = None
+                self.controller.start_pose_branch = None
             if self.session is not None:
                 self._apply_config_now(self._default_config(),
                                        update_controller=False)
@@ -815,6 +811,8 @@ class CollisionTestTab(QtWidgets.QWidget):
             # Do not let a previous project's queued pose leak into this one.
             self.controller.start_pose_joints = (
                 list(lab["start_joints_rad"]) if lab else None)
+            self.controller.start_pose_branch = (
+                list(lab["branch"]) if lab else None)
         if self.session is not None:
             if lab:
                 self._apply_config_now(lab)
@@ -838,19 +836,21 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.session.branch = (branch[0], branch[1], branch[2])
         if update_controller and self.controller is not None:
             self.controller.start_pose_joints = list(start)
+            self.controller.start_pose_branch = list(branch)
         self.session.reset_to_start()
         self._sync_fields()
         self._sync_view()
         self._update_collision()
 
     def _default_config(self) -> dict:
+        start = list(sim_config.START_JOINTS)
         return {
             "head_position_m": list(sim_config.HEAD_POSITION),
             "head_orientation_deg": list(sim_config.HEAD_ORIENTATION),
             "robot_base_position_m": list(sim_config.ROBOT_BASE_POSITION),
             "robot_base_orientation_deg": list(sim_config.ROBOT_BASE_ORIENTATION),
-            "start_joints_rad": [0.0] * 6,
-            "branch": ["left", "up", "normal"],
+            "start_joints_rad": start,
+            "branch": list(branch_of_active(start)),
         }
 
     def _lab_config(self):
@@ -869,6 +869,9 @@ class CollisionTestTab(QtWidgets.QWidget):
         if self.controller is not None:
             self.controller.start_pose_joints = list(
                 config.get("start_joints_rad", []))
+            self.controller.start_pose_branch = list(
+                config.get("branch") or branch_of_active(
+                    config.get("start_joints_rad", [])))
         self.window._mark_project_dirty()
         self._set_status("Setup saved into the project. Save the project file to keep it.")
 
@@ -880,7 +883,7 @@ class CollisionTestTab(QtWidgets.QWidget):
             return
         self._has_setup = True
         joints = list(self.session.start_joints)
-        self.controller.set_start_pose(joints)
+        self.controller.set_start_pose(joints, list(self.session.branch))
         self._set_status("Start pose queued for the next experiment start.")
 
     def save_to_lab(self):

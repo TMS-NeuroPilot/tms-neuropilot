@@ -93,6 +93,11 @@ HEAD_POSITION = [0.4, -0.4, 0.0]           # [x, y, z] in meters — SimNIBS ori
 HEAD_ORIENTATION = [0.0, 0.0, -90.0]          # [rx, ry, rz] in degrees — head rotation
 
 FLOOR_POSITION = [0.0, 0.0, -1.5]           # ground plane 1.5m below robot
+
+# Power-on joint configuration (radians).  The live simulator resets to this
+# pose before it accepts targets, and the collision preflight starts from the
+# same pose.  One constant keeps the two paths from drifting apart.
+START_JOINTS = [0.0] * 6
 # ─────────────────────────────────────────────
 # IK solver (ikpy — reads URDF, independent of physics engine)
 # ─────────────────────────────────────────────
@@ -123,7 +128,7 @@ CONTACT_FORCE_SCALE            = 10.0   # multiplier: normal_force → force_fee
 # Target-path planning
 # ─────────────────────────────────────────────
 SAFE_HEIGHT_M                   = 0.35        # absolute world z for manual move-away/end/emergency
-TARGET_RETRACT_M                = 0.020       # m along the tool +Z when moving to another target
+TARGET_RETRACT_M                = 0.020       # m along the negative tool normal, away from the head
 CRANE_DISPLACEMENT_THRESHOLD_MM = 20.0        # mm — below this = direct interpolation (no retract)
 PATH_INTERPOLATION_STEPS        = 30          # steps per path segment (tweak for visual speed)
 

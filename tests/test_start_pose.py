@@ -37,6 +37,23 @@ def test_controller_announces_the_pose(controller):
     assert controller.start_pose_joints == joints
 
 
+def test_controller_announces_the_branch(controller):
+    from neuropilot.controller import pipeline_controller as pc
+
+    joints = [0.1, 0.2, 0.3, -0.4, 0.5, -0.6]
+    branch = ["right", "up", "normal"]
+
+    async def run():
+        controller.set_start_pose(joints, branch)
+        await asyncio.sleep(0)
+
+    asyncio.run(run())
+    topic, data = controller.remote.sent[-1]
+    assert topic == pc.TOPIC_SET_START_POSE
+    assert data == {"joints": joints, "branch": branch}
+    assert controller.start_pose_branch == branch
+
+
 def test_simulator_applies_the_pose():
     state = RobotState()
     world = _World()
@@ -46,7 +63,21 @@ def test_simulator_applies_the_pose():
     handlers.handle(robot_config.TOPIC_SET_START_POSE, {"joints": joints})
 
     assert state.start_joints == joints
+    assert state.start_branch is None
     assert world.calls == [joints]
+
+
+def test_simulator_applies_the_branch():
+    state = RobotState()
+    world = _World()
+    handlers = MessageHandlers(state, world)
+    joints = [0.1, 0.2, 0.3, -0.4, 0.5, -0.6]
+    branch = ["right", "up", "normal"]
+
+    handlers.handle(robot_config.TOPIC_SET_START_POSE,
+                    {"joints": joints, "branch": branch})
+
+    assert state.start_branch == branch
 
 
 def test_simulator_ignores_a_pose_of_the_wrong_length():

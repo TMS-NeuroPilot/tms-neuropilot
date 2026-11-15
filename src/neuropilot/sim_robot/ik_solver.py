@@ -191,7 +191,7 @@ class IKPySolver:
         el = solution[self.active_indices[2]]
         wr = solution[self.active_indices[4]] if len(self.active_indices) > 4 else 0.0
         return ("left" if sh > 0 else "right",
-                "up" if el > 0 else "down",
+                "up" if el >= 0 else "down",
                 "normal" if wr >= 0 else "flipped")
 
     def solve_branch(
@@ -222,8 +222,10 @@ class IKPySolver:
 
         def _matches(solution):
             candidate = self.canonical_solution(solution)
+            elbow_ok = (candidate[el_idx] >= 0 if el_sign > 0
+                        else candidate[el_idx] < 0)
             if not ((candidate[sh_idx] > 0) == (sh_sign > 0)
-                    and (candidate[el_idx] > 0) == (el_sign > 0)):
+                    and elbow_ok):
                 return False
             if (wr_idx is not None
                     and (candidate[wr_idx] >= 0) != (wr_sign > 0)):
@@ -277,7 +279,9 @@ class IKPySolver:
             position_mm: Target position in mm
             orientation_deg: Target orientation in degrees
             initial_position: Initial joint positions (padded with inactive links)
-            elbow_up: True for elbow up (joint_3 positive), False for elbow down
+            elbow_up: True for elbow up (joint_3 non-negative), False for
+                elbow down.  The straight arm has joint_3 == 0 and counts as
+                the Omron power-on arm-up pose.
             max_retries: Maximum number of retries with different initial positions
             seed: Retry seed.  Defaults to 0 so repeated scans are deterministic.
 
@@ -303,7 +307,7 @@ class IKPySolver:
             candidate = self.canonical_solution(solution)
             if self._solution_matches(candidate, position_mm, orientation_deg):
                 fallback = candidate
-                if (candidate[elbow_idx] > 0) == elbow_up:
+                if (candidate[elbow_idx] >= 0) == elbow_up:
                     return True, candidate
 
         # Solution doesn't match desired configuration, retry with different initial positions
@@ -345,7 +349,7 @@ class IKPySolver:
                     continue
                 if fallback is None:
                     fallback = candidate
-                if (candidate[elbow_idx] > 0) == elbow_up:
+                if (candidate[elbow_idx] >= 0) == elbow_up:
                     print(f"[IK] Found elbow {'up' if elbow_up else 'down'} solution on retry {retry + 1}")
                     return True, candidate
 

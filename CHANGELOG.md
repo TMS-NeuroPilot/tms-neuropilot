@@ -7,6 +7,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **One start pose and one arm branch.** The simulated robot resets to
+  `START_JOINTS` and the collision test starts from the same pose. The
+  straight-arm, zero-elbow configuration counts as Omron arm up. The selected
+  shoulder/arm/wrist branch is carried with the start pose to the simulated
+  planner and enforced for every target and path waypoint; an unreachable
+  branch stops the scan instead of silently switching arms.
+
 - **Parallel tests by default.** Plain `pytest` runs the suite with
   `pytest-xdist`, as many workers as useful and 8 processes at most
   (`addopts` in `pyproject.toml`): a full run takes well under a minute

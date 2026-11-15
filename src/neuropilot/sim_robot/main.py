@@ -148,6 +148,10 @@ async def main():
         head_mesh_stl=head_override,
     )
     world.connect()
+    # Start every session from the same power-on pose as the collision
+    # preflight.  MuJoCo's qpos0 is zero today, but this makes the shared
+    # start pose explicit and keeps it in one place if it changes.
+    world.reset_joint_positions(config.START_JOINTS)
     log.info("MuJoCo world loaded")
 
     # ── 3. IK solver ──────────────────────────────────────────────────

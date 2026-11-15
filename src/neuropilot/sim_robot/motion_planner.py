@@ -183,6 +183,37 @@ class MotionPlanner:
         """Extract the movable joints from a full ikpy solution."""
         return [float(solution[i]) for i in self.ik_solver.active_indices]
 
+    def _solve_pose(
+        self,
+        position_mm: List[float],
+        orientation_deg: List[float],
+        initial_position: Optional[List[float]],
+    ) -> Tuple[bool, Optional[List[float]]]:
+        """Solve a pose with the selected start branch, when one exists.
+
+        Experiments launched from a collision-tested setup carry the
+        shoulder/elbow/wrist choice.  Using it for targets and path
+        waypoints keeps the real motion in the shape the operator checked,
+        instead of letting the free solver switch to a different arm
+        configuration halfway through.
+        """
+        branch = self.state.start_branch
+        if branch is not None:
+            return self.ik_solver.solve_branch(
+                position_mm, orientation_deg,
+                shoulder=branch[0],
+                elbow=branch[1],
+                wrist=branch[2],
+                initial_position=initial_position,
+            )
+        return self.ik_solver.solve_with_config(
+            position_mm=position_mm,
+            orientation_deg=orientation_deg,
+            initial_position=initial_position,
+            elbow_up=config.IK_ELBOW_UP,
+            max_retries=config.IK_MAX_RETRIES,
+        )
+
     # ────────────────────────────────────────────────────────────────
     # Path construction  (runs once per new target)
     # ────────────────────────────────────────────────────────────────
@@ -190,12 +221,10 @@ class MotionPlanner:
     def _start_new_motion(self):
         padded_initial = self._build_padded_initial()
 
-        success, joint_solution = self.ik_solver.solve_with_config(
-            position_mm=self.state.target.position,
-            orientation_deg=self.state.target.orientation,
-            initial_position=padded_initial,
-            elbow_up=config.IK_ELBOW_UP,
-            max_retries=config.IK_MAX_RETRIES,
+        success, joint_solution = self._solve_pose(
+            self.state.target.position,
+            self.state.target.orientation,
+            padded_initial,
         )
         if not success or joint_solution is None:
             self.state.set_ik_result(False)
@@ -315,21 +344,13 @@ class MotionPlanner:
         above_curr_p = [current_pos_mm[0], current_pos_mm[1], safe_z_mm]
         above_tgt_p = [target_pos_mm[0], target_pos_mm[1], safe_z_mm]
 
-        _, sol_curr = self.ik_solver.solve_with_config(
-            above_curr_p, current_ori_deg,
-            initial_position=padded_initial,
-            elbow_up=config.IK_ELBOW_UP,
-            max_retries=config.IK_MAX_RETRIES,
-        )
+        _, sol_curr = self._solve_pose(
+            above_curr_p, current_ori_deg, padded_initial)
         if sol_curr is None:
             return None, None, None
 
-        _, sol_tgt = self.ik_solver.solve_with_config(
-            above_tgt_p, target_ori_deg,
-            initial_position=padded_initial,
-            elbow_up=config.IK_ELBOW_UP,
-            max_retries=config.IK_MAX_RETRIES,
-        )
+        _, sol_tgt = self._solve_pose(
+            above_tgt_p, target_ori_deg, padded_initial)
         if sol_tgt is None:
             return None, None, None
 
@@ -352,9 +373,9 @@ class MotionPlanner:
     ) -> Tuple[Optional[List[List[float]]], Optional[List[List[float]]], Optional[List[List[float]]]]:
         """
         Build three joint-space segments for a target transition:
-          1.  RETRACT:  current → current - 20 mm along current tool +Z
+          1.  RETRACT:  current → 20 mm along the negative tool normal
           2.  TRAVERSE: retracted_current → retracted_target
-          3.  APPROACH: retracted_target → target along target +Z
+          3.  APPROACH: retracted_target → target along the positive tool normal
         Returns (retract, traverse, approach) or (None, None, None) if
         IK fails for an intermediate waypoint.
 
@@ -377,21 +398,13 @@ class MotionPlanner:
             for i in range(3)
         ]
 
-        _, sol_curr = self.ik_solver.solve_with_config(
-            retracted_curr_p, current_ori_deg,
-            initial_position=padded_initial,
-            elbow_up=config.IK_ELBOW_UP,
-            max_retries=config.IK_MAX_RETRIES,
-        )
+        _, sol_curr = self._solve_pose(
+            retracted_curr_p, current_ori_deg, padded_initial)
         if sol_curr is None:
             return None, None, None
 
-        _, sol_tgt = self.ik_solver.solve_with_config(
-            retracted_tgt_p, target_ori_deg,
-            initial_position=padded_initial,
-            elbow_up=config.IK_ELBOW_UP,
-            max_retries=config.IK_MAX_RETRIES,
-        )
+        _, sol_tgt = self._solve_pose(
+            retracted_tgt_p, target_ori_deg, padded_initial)
         if sol_tgt is None:
             return None, None, None
 
@@ -599,12 +612,10 @@ class MotionPlanner:
                     for i in range(3)]
 
         padded_initial = self._build_padded_initial()
-        success, joint_solution = self.ik_solver.solve_with_config(
-            position_mm=position,
-            orientation_deg=self.state.target.orientation,
-            initial_position=padded_initial,
-            elbow_up=config.IK_ELBOW_UP,
-            max_retries=config.IK_MAX_RETRIES,
+        success, joint_solution = self._solve_pose(
+            position,
+            self.state.target.orientation,
+            padded_initial,
         )
         if not success:
             log.debug(f"Press: IK failed at depth {self._press_depth:.1f} mm")
@@ -686,12 +697,8 @@ class MotionPlanner:
         ascend_target_mm = [current_pos_mm[0], current_pos_mm[1], safe_z_mm]
 
         padded = self._build_padded_initial()
-        success, sol = self.ik_solver.solve_with_config(
-            ascend_target_mm, current_ori_deg,
-            initial_position=padded,
-            elbow_up=config.IK_ELBOW_UP,
-            max_retries=config.IK_MAX_RETRIES,
-        )
+        success, sol = self._solve_pose(
+            ascend_target_mm, current_ori_deg, padded)
         if not success or sol is None:
             log.warning("Move-away IK failed")
             self.state.set_objective(0)
