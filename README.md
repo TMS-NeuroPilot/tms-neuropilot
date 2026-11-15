@@ -137,11 +137,18 @@ component-internal constants live in each component's `config.py`.
 ## Tests
 
 ```bash
-pytest                      # runs tests/ (pytest is in the `pipeline` env)
+pytest                      # runs tests/ in parallel (8 workers at most)
+pytest -n0                  # serial, when a run must be watched
 pytest tests/test_gui_window.py -v
 pytest -m "not gui"         # nothing that needs a display
 scripts/run_tests.sh        # the same headless set the CI job runs
 ```
+
+The suite runs in parallel by default (`pytest-xdist`, as many workers as
+useful, 8 processes at most — see `addopts` in `pyproject.toml`); a full run
+takes well under a minute instead of three.  Tests that build a MuJoCo world
+write a scene file per process, so the workers cannot read each other's
+head or base pose.
 
 CI (`.gitlab-ci.yml`) runs a syntax gate and `pytest -m "not gui"` on every
 push and merge request.  `scripts/ci-python.sh` finds the `pipeline`

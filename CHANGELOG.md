@@ -5,6 +5,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Parallel tests by default.** Plain `pytest` runs the suite with
+  `pytest-xdist`, as many workers as useful and 8 processes at most
+  (`addopts` in `pyproject.toml`): a full run takes well under a minute
+  instead of three.  `-n0` runs serial when a run must be watched.  Tests
+  that build a MuJoCo world write a scene file per process so parallel
+  workers cannot read each other's head or base pose; `pytest-xdist` joined
+  the `dev` extra.
+
 ### Added
 
 - **About tab.** The controller's last tab condenses the project description,

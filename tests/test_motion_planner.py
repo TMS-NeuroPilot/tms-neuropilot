@@ -6,6 +6,9 @@ the collision halt and its release on a new target, a target change
 mid-motion, and the tracking state the pipeline collects data on.
 """
 
+import os
+import random
+
 import pytest
 
 from neuropilot.sim_robot import config as sim_config
@@ -26,9 +29,10 @@ def planner(monkeypatch):
     world = MuJoCoWorld(
         use_gui=False,
         end_effector_site_name=spec.ee_site,
-        # The collision-test scene file: gitignored, recomposed at every
-        # connect(), so the tests never clobber a live robot's scene.
-        scene_name="_collision_scene.xml",
+        # A scene file per process: the parallel workers compose their own
+        # world, and a shared file name would let one worker read another's
+        # head or base pose (the file is rewritten at every connect()).
+        scene_name=f"_collision_scene_{os.getpid()}.xml",
         head_pose=(list(sim_config.HEAD_POSITION),
                    list(sim_config.HEAD_ORIENTATION)),
         base_pose=(list(sim_config.ROBOT_BASE_POSITION),

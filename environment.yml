@@ -38,6 +38,8 @@ dependencies:
       # everything pip needs that conda-forge does not carry
       - python-socketio
       - smbprotocol
+      - pytest
+      - pytest-xdist
       - ikpy
       - gdist
       - magicpy

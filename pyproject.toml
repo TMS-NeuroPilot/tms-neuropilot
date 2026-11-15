@@ -23,7 +23,7 @@ dependencies = [
 # Install with:  pip install -e . --no-deps
 gui = ["PyQt5", "qasync"]
 sim = ["mujoco", "pybullet", "ikpy"]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "pytest-xdist>=3.6"]
 
 [project.scripts]
 neuropilot = "neuropilot.cli:main"
@@ -33,6 +33,10 @@ Homepage = "https://gitlab.gwdg.de/tms-localization/papers/neuropilot"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Parallel by default: as many workers as useful, 8 processes at most.
+# A single run still finishes faster, and the suite needs no special
+# invocation.  Serial with -p no:xdist or -n0 when a run must be watched.
+addopts = ["-n", "auto", "--maxprocesses=8"]
 markers = [
     "gui: builds a real Qt window (needs a display, skipped without one)",
 ]
