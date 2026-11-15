@@ -717,19 +717,23 @@ def test_shallow_head_contact_is_tolerated_and_deep_contact_is_not(monkeypatch):
         session.dispose()
 
 
-def test_crane_path_is_used_for_large_moves(monkeypatch):
+def test_large_moves_lift_20mm_in_world_z(monkeypatch):
     session = CollisionTestSession(scene_name=SCENE_NAME)
     session.ensure_ready()
     try:
         solution = [0.0] * len(session.ik.chain.links)
         for index in session.ik.active_indices:
             solution[index] = 0.2
+        calls = []
+
+        def fake_solve(position, orientation, **kwargs):
+            calls.append((list(position), list(orientation)))
+            return True, solution
+
         monkeypatch.setattr(
             session, "current_end_effector",
             lambda: ([0.0, 0.0, 0.0], [0.0, 0.0, 0.0]))
-        monkeypatch.setattr(
-            session.ik, "solve_with_config",
-            lambda *args, **kwargs: (True, solution))
+        monkeypatch.setattr(session.ik, "solve_with_config", fake_solve)
         target = [0.0] * len(session.ik.active_indices)
 
         large = session._build_motion_path(
@@ -739,6 +743,8 @@ def test_crane_path_is_used_for_large_moves(monkeypatch):
 
         assert len(large) == 3 * SCAN_STEPS
         assert len(small) == SCAN_STEPS
+        assert calls[0][0] == pytest.approx([0.0, 0.0, 20.0])
+        assert calls[1][0] == pytest.approx([100.0, 0.0, 20.0])
     finally:
         session.dispose()
 

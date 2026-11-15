@@ -67,6 +67,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the second. X/Y/Z labels use the same axis colours as the 3D view. The
   start-pose radios share one axis caption and the two actions sit beside
   them, and the left pane is capped at 680 logical px.
+- **Target transitions lift 20 mm in Z.** A new
+  `TARGET_RETRACT_M = 0.020` lifts the coil 20 mm in world Z, traverses, then
+  approaches the next target. The absolute `SAFE_HEIGHT_M = 0.35` remains
+  reserved for manual move-away, end and emergency actions. The collision
+  preflight mirrors the same path.
 - **Collision preflight follows the Control path.** The scan now uses the
   simulated planner's crane strategy for moves above 20 mm, the same free IK
   solver and elbow preference, and the same 4 mm coil-head contact allowance.

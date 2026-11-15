@@ -435,11 +435,12 @@ class CollisionTestSession:
         target: Sequence[float],
         world_target: Optional[Tuple[Sequence[float], Sequence[float]]],
     ) -> List[List[float]]:
-        """Mirror the simulated robot's crane path when possible.
+        """Mirror the Control simulation's target lift-and-approach path.
 
-        The Control simulation lifts large moves to a 350 mm safe height,
-        traverses, then descends.  Checking only a direct joint-space line
-        reports collisions that the simulated robot never performs.
+        Large target transitions lift 20 mm in world Z, traverse, then
+        approach the target.  The lift is ``TARGET_RETRACT_M``;
+        ``SAFE_HEIGHT_M`` is reserved for the manual move-away, end and
+        emergency actions.
         """
         if world_target is None:
             return self._interpolate(current, target)
@@ -451,18 +452,20 @@ class CollisionTestSession:
         if displacement <= sim_config.CRANE_DISPLACEMENT_THRESHOLD_MM:
             return self._interpolate(current, target)
 
-        safe_z_mm = sim_config.SAFE_HEIGHT_M * 1000.0
-        above_current = [current_pos[0], current_pos[1], safe_z_mm]
-        above_target = [target_pos[0], target_pos[1], safe_z_mm]
+        retract_mm = sim_config.TARGET_RETRACT_M * 1000.0
+        retracted_current = [
+            current_pos[0], current_pos[1], current_pos[2] + retract_mm]
+        retracted_target = [
+            target_pos[0], target_pos[1], target_pos[2] + retract_mm]
         initial = self._full_solution(current)
         ok_current, solution_current = self.ik.solve_with_config(
-            above_current, current_ori,
+            retracted_current, current_ori,
             initial_position=initial,
             elbow_up=sim_config.IK_ELBOW_UP,
             max_retries=sim_config.IK_MAX_RETRIES,
         )
         ok_target, solution_target = self.ik.solve_with_config(
-            above_target, target_ori,
+            retracted_target, target_ori,
             initial_position=initial,
             elbow_up=sim_config.IK_ELBOW_UP,
             max_retries=sim_config.IK_MAX_RETRIES,
@@ -471,16 +474,16 @@ class CollisionTestSession:
                 and ok_target and solution_target is not None):
             return self._interpolate(current, target)
 
-        above_current_active = [
+        retracted_current_active = [
             _canonical_angle(solution_current[index])
             for index in self.ik.active_indices]
-        above_target_active = [
+        retracted_target_active = [
             _canonical_angle(solution_target[index])
             for index in self.ik.active_indices]
-        return (self._interpolate(current, above_current_active)
-                + self._interpolate(above_current_active,
-                                    above_target_active)
-                + self._interpolate(above_target_active, target))
+        return (self._interpolate(current, retracted_current_active)
+                + self._interpolate(retracted_current_active,
+                                    retracted_target_active)
+                + self._interpolate(retracted_target_active, target))
 
     @staticmethod
     def _interpolate(start: Sequence[float], end: Sequence[float],

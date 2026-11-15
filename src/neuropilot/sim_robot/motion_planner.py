@@ -30,12 +30,15 @@ class MotionState(Enum):
 
 class MotionPlanner:
     """
-    State-machine motion planner with crane-path support.
+    State-machine motion planner with target lift-and-approach support.
 
     For large displacements (> CRANE_DISPLACEMENT_THRESHOLD_MM):
-      ASCEND   → TRAVERSE → DESCEND
+      LIFT 20 mm in world Z → TRAVERSE → APPROACH
     For small displacements / orientation-only changes:
       DIRECT_MOVING
+
+    The manual move-away path is separate: it uses the absolute
+    ``SAFE_HEIGHT_M`` so the coil leaves the head for end/emergency actions.
 
     Every path is pre-verified for head and self-collision before
     the first visual move.  If the target changes mid-motion the
@@ -60,9 +63,9 @@ class MotionPlanner:
         self._motion_state = MotionState.IDLE
         self._path: List[List[float]] = []
         self._path_idx: int = 0
-        self._crane_ascend: List[List[float]] = []
-        self._crane_traverse: List[List[float]] = []
-        self._crane_descend: List[List[float]] = []
+        self._retract_ascend: List[List[float]] = []
+        self._retract_traverse: List[List[float]] = []
+        self._retract_descend: List[List[float]] = []
         self._target_key: Optional[Tuple] = None
         self._target_active: List[float] = []
         self._press_depth: float = 0.0
@@ -106,7 +109,7 @@ class MotionPlanner:
 
         elif self._motion_state == MotionState.PRE_VERIFY:
             self._motion_state = MotionState.ASCENDING
-            self._path = self._crane_ascend
+            self._path = self._retract_ascend
             self._path_idx = 0
             self._first_path_pose()
 
@@ -147,9 +150,9 @@ class MotionPlanner:
         self._motion_state = MotionState.IDLE
         self._path = []
         self._path_idx = 0
-        self._crane_ascend = []
-        self._crane_traverse = []
-        self._crane_descend = []
+        self._retract_ascend = []
+        self._retract_traverse = []
+        self._retract_descend = []
         self._target_key = None
         self._target_active = []
         self._press_depth = 0.0
@@ -221,19 +224,19 @@ class MotionPlanner:
         )
 
         if displacement > config.CRANE_DISPLACEMENT_THRESHOLD_MM:
-            ascend, traverse, descend = self._build_crane_path(
+            ascend, traverse, descend = self._build_retract_path(
                 current_active, current_pos_mm, current_ori_deg,
                 target_active, target_pos_mm, target_ori_deg,
                 padded_initial,
             )
             if ascend is not None and self._verify_path(ascend + traverse + descend):
-                self._crane_ascend   = ascend
-                self._crane_traverse = traverse
-                self._crane_descend  = descend
+                self._retract_ascend   = ascend
+                self._retract_traverse = traverse
+                self._retract_descend  = descend
                 self._motion_state = MotionState.PRE_VERIFY
                 path_ok = True
                 n = len(ascend)
-                log.info(f"Crane path built ({3*n} poses) — pre-verified OK")
+                log.info(f"Lift path built ({3*n} poses) — pre-verified OK")
         else:
             path = self._interpolate_joints(current_active, target_active)
             if self._verify_path(path):
@@ -255,7 +258,7 @@ class MotionPlanner:
         self.state.set_tracking_valid(False)
         self._motion_state = MotionState.COLLISION_HALT
 
-    def _build_crane_path(
+    def _build_retract_path(
         self,
         current_active: List[float],
         current_pos_mm: List[float],
@@ -266,19 +269,28 @@ class MotionPlanner:
         padded_initial: Optional[List[float]],
     ) -> Tuple[Optional[List[List[float]]], Optional[List[List[float]]], Optional[List[List[float]]]]:
         """
-        Build three joint-space segments for the crane motion:
-          1.  ASCEND:   current →  (current_xy, safe_z)   [keep current orientation]
-          2.  TRAVERSE: above_current → above_target       [keep target orientation]
-          3.  DESCEND:  above_target → target              [keep target orientation]
-        Returns (ascend, traverse, descend) or (None, None, None) if
+        Build three joint-space segments for a target transition:
+          1.  LIFT:     current → current + 20 mm in world Z
+          2.  TRAVERSE: lifted_current → lifted_target
+          3.  APPROACH: lifted_target → target
+        Returns (lift, traverse, approach) or (None, None, None) if
         IK fails for an intermediate waypoint.
+
+        The lift is ``TARGET_RETRACT_M``, not the absolute
+        ``SAFE_HEIGHT_M`` used by the manual move-away action.
         """
-        safe_z_mm = config.SAFE_HEIGHT_M * 1000
-        above_curr_p = [current_pos_mm[0], current_pos_mm[1], safe_z_mm]
-        above_tgt_p  = [target_pos_mm[0],  target_pos_mm[1],  safe_z_mm]
+        retract_mm = config.TARGET_RETRACT_M * 1000.0
+        retracted_curr_p = [
+            current_pos_mm[0], current_pos_mm[1],
+            current_pos_mm[2] + retract_mm,
+        ]
+        retracted_tgt_p = [
+            target_pos_mm[0], target_pos_mm[1],
+            target_pos_mm[2] + retract_mm,
+        ]
 
         _, sol_curr = self.ik_solver.solve_with_config(
-            above_curr_p, current_ori_deg,
+            retracted_curr_p, current_ori_deg,
             initial_position=padded_initial,
             elbow_up=config.IK_ELBOW_UP,
             max_retries=config.IK_MAX_RETRIES,
@@ -287,7 +299,7 @@ class MotionPlanner:
             return None, None, None
 
         _, sol_tgt = self.ik_solver.solve_with_config(
-            above_tgt_p, target_ori_deg,
+            retracted_tgt_p, target_ori_deg,
             initial_position=padded_initial,
             elbow_up=config.IK_ELBOW_UP,
             max_retries=config.IK_MAX_RETRIES,
@@ -295,12 +307,12 @@ class MotionPlanner:
         if sol_tgt is None:
             return None, None, None
 
-        above_curr_active = self._active_joints(sol_curr)
-        above_tgt_active  = self._active_joints(sol_tgt)
+        retracted_curr_active = self._active_joints(sol_curr)
+        retracted_tgt_active  = self._active_joints(sol_tgt)
 
-        ascend   = self._interpolate_joints(current_active, above_curr_active)
-        traverse = self._interpolate_joints(above_curr_active, above_tgt_active)
-        descend  = self._interpolate_joints(above_tgt_active, target_active)
+        ascend   = self._interpolate_joints(current_active, retracted_curr_active)
+        traverse = self._interpolate_joints(retracted_curr_active, retracted_tgt_active)
+        descend  = self._interpolate_joints(retracted_tgt_active, target_active)
         return ascend, traverse, descend
 
     # ────────────────────────────────────────────────────────────────
@@ -413,14 +425,14 @@ class MotionPlanner:
         """
         if self._motion_state == MotionState.ASCENDING:
             self._motion_state = MotionState.TRAVERSING
-            self._path = self._crane_traverse
+            self._path = self._retract_traverse
             self._path_idx = 0
             log.debug("ASCENDING done → TRAVERSING")
             self._first_path_pose()
 
         elif self._motion_state == MotionState.TRAVERSING:
             self._motion_state = MotionState.DESCENDING
-            self._path = self._crane_descend
+            self._path = self._retract_descend
             self._path_idx = 0
             log.debug("TRAVERSING done → DESCENDING")
             self._first_path_pose()
