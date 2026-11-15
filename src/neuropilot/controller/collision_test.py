@@ -89,6 +89,10 @@ class CollisionTestSession:
         self._scan_target_ids: List[int] = []
         self._scan_order_indices: List[int] = []
         self._scan_reps: List[int] = []
+        # Raw placements and the requested target order are kept so a base or
+        # subject move can regenerate the world targets without restarting.
+        self._scan_placements: List[Tuple[List[float], List[float]]] = []
+        self._scan_target_order: List[int] = []
         self._scan_total_targets = 0
         self._scan_repetitions = 1
         self._scan_branch_changes: List[dict] = []
@@ -310,6 +314,44 @@ class CollisionTestSession:
     def scan_message(self) -> str:
         return self._scan_message
 
+    def _rebuild_scan_targets(self) -> None:
+        """Recompute world and base targets from the stored layout."""
+        self._scan_base_targets = []
+        self._scan_world_targets = []
+        self._scan_target_ids = []
+        self._scan_order_indices = []
+        self._scan_reps = []
+        for order_index, target_id in enumerate(self._scan_target_order):
+            pos_mm, ori_deg = self._scan_placements[target_id]
+            world_pos, world_ori = pipeline_target_to_mujoco_world(
+                list(pos_mm), list(ori_deg),
+                self.head_pose[0], self.head_pose[1])
+            world_target = (m_to_mm(world_pos), list(world_ori))
+            base_pose = self.world_to_base_pose(
+                world_target[0], world_target[1])
+            for rep in range(1, self._scan_repetitions + 1):
+                self._scan_base_targets.append(base_pose)
+                self._scan_world_targets.append(world_target)
+                self._scan_target_ids.append(target_id)
+                self._scan_order_indices.append(order_index)
+                self._scan_reps.append(rep)
+
+    def reframe_scan(self) -> bool:
+        """Continue the running scan after the base or subject moved.
+
+        Completed pulses and the current index stay in place.  The targets
+        are regenerated from the new head/base poses and the current target
+        is planned again from the arm's present pose, so the scan does not
+        restart from the beginning.
+        """
+        if not self._scan_active or not self._scan_placements:
+            return False
+        self._rebuild_scan_targets()
+        self._scan_path = []
+        self._scan_path_i = 0
+        self._prepare_next()
+        return True
+
     def start_scan(self, placements: Sequence[Tuple[Sequence[float],
                                                     Sequence[float]]],
                    shoulder: Optional[str] = None,
@@ -336,29 +378,16 @@ class CollisionTestSession:
             order = list(range(len(placements)))
         else:
             order = [int(value) for value in target_ids]
-        self._scan_base_targets = []
-        self._scan_world_targets = []
-        self._scan_target_ids = []
-        self._scan_order_indices = []
-        self._scan_reps = []
-        for order_index, target_id in enumerate(order):
+        for target_id in order:
             if not 0 <= target_id < len(placements):
                 raise ValueError(
                     f"target order references placement {target_id}, "
                     f"but only {len(placements)} placements exist")
-            pos_mm, ori_deg = placements[target_id]
-            world_pos, world_ori = pipeline_target_to_mujoco_world(
-                list(pos_mm), list(ori_deg),
-                self.head_pose[0], self.head_pose[1])
-            world_target = (m_to_mm(world_pos), list(world_ori))
-            base_pose = self.world_to_base_pose(
-                world_target[0], world_target[1])
-            for rep in range(1, self._scan_repetitions + 1):
-                self._scan_base_targets.append(base_pose)
-                self._scan_world_targets.append(world_target)
-                self._scan_target_ids.append(target_id)
-                self._scan_order_indices.append(order_index)
-                self._scan_reps.append(rep)
+        self._scan_placements = [
+            (list(pos_mm), list(ori_deg))
+            for pos_mm, ori_deg in placements]
+        self._scan_target_order = [int(value) for value in order]
+        self._rebuild_scan_targets()
 
         self._scan_results = []
         self._scan_index = 0

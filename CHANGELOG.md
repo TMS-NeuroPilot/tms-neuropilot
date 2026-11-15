@@ -7,6 +7,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Collision scan follows layout edits.** Moving the robot base or subject
+  placement during a scan now keeps the scan running from the current pulse,
+  regenerates the target poses from the new layout, and replans the current
+  target from the arm's present pose.  The collision line also keeps the last
+  near miss or collision visible after the current pose becomes clear, and
+  the completed summary counts near-miss waypoints.
+
 - **One start pose and one arm branch.** The simulated robot resets to
   `START_JOINTS` and the collision test starts from the same pose. The
   straight-arm, zero-elbow configuration counts as Omron arm up. The selected

@@ -157,8 +157,18 @@ The scan follows the project's target-order file and repetition count, so its
 pulse numbers and target IDs match the Control page. Without an order file it
 uses every placement in file order. The progress bar counts reached pulses. On
 a collision the scan stops, the message names the pulse and target, and the
-arm stays at the colliding waypoint. Move the base, head or start pose, press
-**Reset to start**, and run it again.
+arm stays at the colliding waypoint.
+
+The robot base and subject placement can be changed while a scan is running.
+The scan continues from the current pulse, regenerates the remaining target
+poses from the new layout and replans the current target from the arm's
+present pose. It does not restart at pulse zero. The progress bar keeps the
+pulses already completed.
+
+The collision line keeps the last near miss or collision visible after the
+current pose becomes clear, and the completed-scan summary reports the number
+of near-miss waypoints and the closest distance. A green "current pose clear"
+line therefore does not hide an earlier problem.
 
 An **IK failure is not a collision**. It means the selected shoulder, arm and
 wrist branch cannot reach that target from the previous pose. The scan keeps

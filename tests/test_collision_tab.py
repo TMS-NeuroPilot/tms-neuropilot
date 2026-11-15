@@ -486,6 +486,26 @@ def test_target_reached_is_rendered_before_preparing_the_next(monkeypatch):
         session.dispose()
 
 
+def test_scan_complete_reports_previous_near_misses(window):
+    tab = window.collision_tab
+    state = {
+        "active": False,
+        "message": "complete",
+        "total": 2,
+        "total_targets": 2,
+        "completed": 2,
+        "results": [
+            {"detail": {"warning": True, "distance_mm": 6.2}},
+            {"detail": {"warning": False, "distance_mm": 12.0}},
+        ],
+        "branch_changes": [],
+    }
+    text = tab._scan_status_text(state, detailed=True)
+    assert "no collision" in text
+    assert "1 near-miss waypoints" in text
+    assert "6.2 mm" in text
+
+
 def test_scan_overlay_shows_visible_target_and_ik_failure_state(window):
     tab = window.collision_tab
     tab._update_scan_ui({
@@ -739,6 +759,105 @@ def test_shallow_head_contact_is_tolerated_and_deep_contact_is_not(monkeypatch):
         session.dispose()
 
 
+def test_layout_change_during_scan_continues_from_current_pulse(
+        window, monkeypatch):
+    class FakeSession:
+        scan_active = True
+
+        def __init__(self):
+            self.reframes = 0
+            self.resets = 0
+
+        def set_base_pose(self, position, orientation):
+            pass
+
+        def set_head_pose(self, position, orientation):
+            pass
+
+        def reframe_scan(self):
+            self.reframes += 1
+            return True
+
+        def reset_to_start(self):
+            self.resets += 1
+
+        def scan_status(self):
+            return {
+                "active": True, "index": 2, "completed": 2, "total": 4,
+                "total_targets": 4, "repetitions": 1, "target_id": 3,
+                "order_index": 2, "rep": 1, "last_target_id": 2,
+                "last_order_index": 1, "last_rep": 1, "path_step": 0,
+                "path_total": 0, "preparing": False, "message": "pulse 2",
+                "branch_changes": [], "results": [],
+            }
+
+        def collision_state(self):
+            return {
+                "collision": False, "warning": False, "distance_mm": 12.0,
+                "self_collision": False, "self_contact_mm": None,
+                "head_contact": False,
+            }
+
+    tab = window.collision_tab
+    original = tab.session
+    fake = FakeSession()
+    tab.session = fake
+    monkeypatch.setattr(tab._scan_timer, "isActive", lambda: True)
+    try:
+        tab._base_changed([0.1, 0.0, 0.0], [0.0, 0.0, 0.0])
+        tab._head_changed([0.4, -0.4, 0.0], [0.0, 0.0, -90.0])
+        assert fake.reframes == 2
+        assert fake.resets == 0
+    finally:
+        tab.session = original
+
+
+def test_clear_pose_keeps_the_last_near_miss_visible(window):
+    class FakeSession:
+        scan_active = False
+
+        def __init__(self):
+            self.state = {
+                "collision": False,
+                "warning": True,
+                "distance_mm": 6.2,
+                "self_collision": False,
+                "self_contact_mm": None,
+                "head_contact": False,
+            }
+
+        def collision_state(self):
+            return self.state
+
+        def scan_status(self):
+            return {"active": False}
+
+    tab = window.collision_tab
+    original = tab.session
+    fake = FakeSession()
+    tab.session = fake
+    tab._last_problem = None
+    try:
+        tab._update_collision()
+        assert "NEAR MISS" in tab.collision_label.text()
+
+        fake.state = {
+            "collision": False,
+            "warning": False,
+            "distance_mm": 12.0,
+            "self_collision": False,
+            "self_contact_mm": None,
+            "head_contact": False,
+        }
+        tab._update_collision()
+        text = tab.collision_label.text()
+        assert "Last:" in text
+        assert "NEAR MISS" in text
+        assert "no collision" not in text.lower()
+    finally:
+        tab.session = original
+
+
 def test_thresholds_choose_direct_or_safe_height(monkeypatch):
     session = CollisionTestSession(scene_name=SCENE_NAME)
     session.ensure_ready()
@@ -824,6 +943,39 @@ def test_movement_limits_are_saved_and_edited(window, qapp):
         assert tab.project_config()["safe_height_mm"] == pytest.approx(410.0)
     finally:
         tab._disable()
+
+
+def test_reframe_scan_keeps_progress_and_recomputes_targets(monkeypatch):
+    session = CollisionTestSession(scene_name=SCENE_NAME)
+    session.ensure_ready()
+    try:
+        session._scan_active = True
+        session._scan_placements = [
+            ([0.0, 0.0, 50.0], [0.0, 0.0, 0.0]),
+            ([10.0, 0.0, 50.0], [0.0, 0.0, 0.0]),
+        ]
+        session._scan_target_order = [0, 1]
+        session._scan_repetitions = 1
+        session._scan_total_targets = 2
+        session._scan_index = 1
+        session._scan_completed = 1
+        session._scan_results = [{"index": 0, "ok": True}]
+        old_world = session._scan_world_targets
+        prepared = []
+        monkeypatch.setattr(
+            session, "_prepare_next", lambda: prepared.append(True))
+
+        session.set_head_pose([0.5, -0.4, 0.0], [0.0, 0.0, -90.0])
+        assert session.reframe_scan() is True
+        assert len(session._scan_base_targets) == 2
+        assert len(session._scan_world_targets) == 2
+        assert session._scan_index == 1
+        assert session._scan_completed == 1
+        assert session._scan_results == [{"index": 0, "ok": True}]
+        assert prepared == [True]
+        assert session._scan_world_targets != old_world
+    finally:
+        session.dispose()
 
 
 def test_shallow_self_mesh_overlap_is_not_a_collision(monkeypatch):

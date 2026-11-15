@@ -204,6 +204,10 @@ class CollisionTestTab(QtWidgets.QWidget):
         self._last_split_total = None
         self._last_scan_render_key = None
         self._syncing_limits = False
+        # Keep the last near miss or collision visible after the pose becomes
+        # clear; otherwise a green "no collision" line hides the problem the
+        # operator is looking for.
+        self._last_problem = None
 
         self._scan_timer = QtCore.QTimer(self)
         self._scan_timer.setInterval(30)
@@ -466,7 +470,7 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.progress.setRange(0, 1)
         self.progress.setValue(0)
         scan_layout.addWidget(self.progress)
-        self.collision_label = QtWidgets.QLabel("Current pose: no collision.")
+        self.collision_label = QtWidgets.QLabel("Current pose: clear.")
         self.collision_label.setProperty("role", "cap")
         self.collision_label.setWordWrap(True)
         scan_layout.addWidget(self.collision_label)
@@ -682,6 +686,19 @@ class CollisionTestTab(QtWidgets.QWidget):
         if message.startswith("complete"):
             text = (f"Complete: {total_targets} targets checked in "
                     f"{completed} pulses, no collision.")
+            results = state.get("results") or []
+            near = [result for result in results
+                    if (result.get("detail") or {}).get("warning")]
+            if near:
+                distances = [
+                    abs(float((result.get("detail") or {})["distance_mm"]))
+                    for result in near
+                    if (result.get("detail") or {}).get(
+                        "distance_mm") is not None]
+                text += f" {len(near)} near-miss waypoints"
+                if distances:
+                    text += f", closest {min(distances):.1f} mm"
+                text += "."
         elif message.startswith("no IK solution"):
             last = self._pulse_text(state, last=True) if completed else "start"
             text = (f"STOP: no IK solution for {self._pulse_text(state)}. "
@@ -1134,6 +1151,7 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.view_label.setText("Enable the collision test to load the 3D view.")
         self.progress.setRange(0, 1)
         self.progress.setValue(0)
+        self._last_problem = None
         self.collision_label.clear()
         self.scan_status.clear()
         self.scan_total_value.setText("—")
@@ -1171,22 +1189,30 @@ class CollisionTestTab(QtWidgets.QWidget):
     def _base_changed(self, position_m, orientation_deg):
         if self.session is None:
             return
-        if self._scan_timer.isActive():
-            self._stop_scan()
+        scanning = self._scan_timer.isActive() and self.session.scan_active
         self._has_setup = True
         self.session.set_base_pose(position_m, orientation_deg)
-        self.session.reset_to_start()
+        if scanning:
+            self.session.reframe_scan()
+            self._update_scan_ui(self.session.scan_status())
+            self._set_status("Robot base moved; continuing the scan.")
+        else:
+            self.session.reset_to_start()
         self._sync_view()
         self._update_collision()
 
     def _head_changed(self, position_m, orientation_deg):
         if self.session is None:
             return
-        if self._scan_timer.isActive():
-            self._stop_scan()
+        scanning = self._scan_timer.isActive() and self.session.scan_active
         self._has_setup = True
         self.session.set_head_pose(position_m, orientation_deg)
-        self.session.reset_to_start()
+        if scanning:
+            self.session.reframe_scan()
+            self._update_scan_ui(self.session.scan_status())
+            self._set_status("Subject moved; continuing the scan.")
+        else:
+            self.session.reset_to_start()
         self._sync_view()
         self._update_collision()
 
@@ -1300,6 +1326,8 @@ class CollisionTestTab(QtWidgets.QWidget):
     def _start_scan(self):
         if self.session is None:
             return
+        # A new scan starts a new problem history.
+        self._last_problem = None
         # Clear the previous run's terminal text before the new run can move.
         self.scan_status.setText("Preparing collision scan...")
         self.scan_status.setToolTip("")
@@ -1501,6 +1529,7 @@ class CollisionTestTab(QtWidgets.QWidget):
                 f"overlaps shallower than {tolerance_mm:.1f} mm are tolerated.")
         else:
             self.collision_label.setToolTip("")
+        context = self._scan_context()
         if state["collision"]:
             text = "COLLISION"
             if state["self_collision"]:
@@ -1509,15 +1538,43 @@ class CollisionTestTab(QtWidgets.QWidget):
                 text += " (head)"
             if distance is not None:
                 text += f"  {distance:.1f} mm"
+            text += context
+            style = "color: #B42318;"
+            self._last_problem = (text, style)
             self.collision_label.setText(text)
-            self.collision_label.setStyleSheet("color: #B42318;")
+            self.collision_label.setStyleSheet(style)
         elif state["warning"]:
             if distance is not None and distance < 0:
-                self.collision_label.setText(
-                    f"HEAD CONTACT  {abs(distance):.1f} mm (tolerated)")
+                text = (f"HEAD CONTACT  {abs(distance):.1f} mm "
+                        f"(tolerated)")
             else:
-                self.collision_label.setText(f"NEAR MISS  {distance:.1f} mm")
-            self.collision_label.setStyleSheet("color: #B45309;")
+                text = f"NEAR MISS  {distance:.1f} mm"
+            text += context
+            style = "color: #B45309;"
+            self._last_problem = (text, style)
+            self.collision_label.setText(text)
+            self.collision_label.setStyleSheet(style)
+        elif self._last_problem is not None:
+            text, style = self._last_problem
+            self.collision_label.setText(
+                f"Current pose clear. Last: {text}")
+            self.collision_label.setStyleSheet(style)
         else:
-            self.collision_label.setText("Current pose: no collision.")
+            self.collision_label.setText("Current pose: clear.")
             self.collision_label.setStyleSheet("")
+
+    def _scan_context(self):
+        """Pulse context for a problem found while scanning."""
+        if self.session is None:
+            return ""
+        try:
+            state = self.session.scan_status()
+        except Exception:
+            return ""
+        if not (self._scan_timer.isActive() or state.get("active")):
+            return ""
+        order = state.get("order_index")
+        target = state.get("target_id")
+        if order is None:
+            return ""
+        return f" at pulse {order} · target {target}"
