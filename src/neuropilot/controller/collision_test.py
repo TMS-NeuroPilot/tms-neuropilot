@@ -422,7 +422,7 @@ class CollisionTestSession:
         world_target = (self._scan_world_targets[idx]
                         if idx < len(self._scan_world_targets) else None)
         self._scan_path = self._build_motion_path(
-            current, target, world_target)
+            current, target, world_target, first_target=(idx == 0))
         self._scan_path_i = 0
         note = " (IK branch changed)" if used != selected else ""
         self._scan_message = (
@@ -434,13 +434,15 @@ class CollisionTestSession:
         current: Sequence[float],
         target: Sequence[float],
         world_target: Optional[Tuple[Sequence[float], Sequence[float]]],
+        first_target: bool = False,
     ) -> List[List[float]]:
-        """Mirror the Control simulation's target retract-and-approach path.
+        """Mirror the Control simulation's target path.
 
-        Large target transitions retract 20 mm along the current tool +Z,
-        traverse, then approach along the target -Z.  The retract is
-        ``TARGET_RETRACT_M``; ``SAFE_HEIGHT_M`` is reserved for the manual
-        move-away, end and emergency actions.
+        The first target from the saved start pose uses the absolute safe
+        height.  Later target-to-target moves retract 20 mm along the
+        negative tool normal, traverse, then approach along the target
+        normal.  If that short path is blocked, the safe-height path is
+        used as the fallback.
         """
         if world_target is None:
             return self._interpolate(current, target)
@@ -452,17 +454,85 @@ class CollisionTestSession:
         if displacement <= sim_config.CRANE_DISPLACEMENT_THRESHOLD_MM:
             return self._interpolate(current, target)
 
+        if first_target:
+            safe = self._build_safe_height_path(
+                current, target, current_pos, current_ori,
+                target_pos, target_ori)
+            return safe if safe is not None else self._interpolate(
+                current, target)
+
+        retract = self._build_retract_path(
+            current, target, current_pos, current_ori,
+            target_pos, target_ori)
+        if retract is not None and self._path_is_clear(retract):
+            return retract
+        safe = self._build_safe_height_path(
+            current, target, current_pos, current_ori,
+            target_pos, target_ori)
+        if safe is not None:
+            return safe
+        return retract if retract is not None else self._interpolate(
+            current, target)
+
+    def _build_safe_height_path(
+        self,
+        current: Sequence[float],
+        target: Sequence[float],
+        current_pos: Sequence[float],
+        current_ori: Sequence[float],
+        target_pos: Sequence[float],
+        target_ori: Sequence[float],
+    ) -> Optional[List[List[float]]]:
+        safe_z_mm = sim_config.SAFE_HEIGHT_M * 1000.0
+        above_current = [current_pos[0], current_pos[1], safe_z_mm]
+        above_target = [target_pos[0], target_pos[1], safe_z_mm]
+        initial = self._full_solution(current)
+        ok_current, solution_current = self.ik.solve_with_config(
+            above_current, current_ori,
+            initial_position=initial,
+            elbow_up=sim_config.IK_ELBOW_UP,
+            max_retries=sim_config.IK_MAX_RETRIES,
+        )
+        ok_target, solution_target = self.ik.solve_with_config(
+            above_target, target_ori,
+            initial_position=initial,
+            elbow_up=sim_config.IK_ELBOW_UP,
+            max_retries=sim_config.IK_MAX_RETRIES,
+        )
+        if not (ok_current and solution_current is not None
+                and ok_target and solution_target is not None):
+            return None
+        above_current_active = [
+            _canonical_angle(solution_current[index])
+            for index in self.ik.active_indices]
+        above_target_active = [
+            _canonical_angle(solution_target[index])
+            for index in self.ik.active_indices]
+        return (self._interpolate(current, above_current_active)
+                + self._interpolate(above_current_active,
+                                    above_target_active)
+                + self._interpolate(above_target_active, target))
+
+    def _build_retract_path(
+        self,
+        current: Sequence[float],
+        target: Sequence[float],
+        current_pos: Sequence[float],
+        current_ori: Sequence[float],
+        target_pos: Sequence[float],
+        target_ori: Sequence[float],
+    ) -> Optional[List[List[float]]]:
         retract_mm = sim_config.TARGET_RETRACT_M * 1000.0
         current_z = Rotation.from_euler(
             "xyz", current_ori, degrees=True).as_matrix()[:, 2]
         target_z = Rotation.from_euler(
             "xyz", target_ori, degrees=True).as_matrix()[:, 2]
         retracted_current = [
-            current_pos[i] + float(current_z[i]) * retract_mm
+            current_pos[i] - float(current_z[i]) * retract_mm
             for i in range(3)
         ]
         retracted_target = [
-            target_pos[i] + float(target_z[i]) * retract_mm
+            target_pos[i] - float(target_z[i]) * retract_mm
             for i in range(3)
         ]
         initial = self._full_solution(current)
@@ -480,8 +550,7 @@ class CollisionTestSession:
         )
         if not (ok_current and solution_current is not None
                 and ok_target and solution_target is not None):
-            return self._interpolate(current, target)
-
+            return None
         retracted_current_active = [
             _canonical_angle(solution_current[index])
             for index in self.ik.active_indices]
@@ -492,6 +561,17 @@ class CollisionTestSession:
                 + self._interpolate(retracted_current_active,
                                     retracted_target_active)
                 + self._interpolate(retracted_target_active, target))
+
+    def _path_is_clear(self, path: Sequence[Sequence[float]]) -> bool:
+        saved = self.current_joints()
+        try:
+            for joints in path:
+                self.world.reset_joint_positions(list(joints))
+                if self.collision_state()["collision"]:
+                    return False
+            return True
+        finally:
+            self.world.reset_joint_positions(saved)
 
     @staticmethod
     def _interpolate(start: Sequence[float], end: Sequence[float],

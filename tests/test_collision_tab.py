@@ -734,6 +734,7 @@ def test_large_moves_retract_along_the_tool_normal(monkeypatch):
             session, "current_end_effector",
             lambda: ([0.0, 0.0, 0.0], [90.0, 0.0, 0.0]))
         monkeypatch.setattr(session.ik, "solve_with_config", fake_solve)
+        monkeypatch.setattr(session, "_path_is_clear", lambda path: True)
         target = [0.0] * len(session.ik.active_indices)
 
         large = session._build_motion_path(
@@ -743,8 +744,34 @@ def test_large_moves_retract_along_the_tool_normal(monkeypatch):
 
         assert len(large) == 3 * SCAN_STEPS
         assert len(small) == SCAN_STEPS
-        assert calls[0][0] == pytest.approx([0.0, -20.0, 0.0])
-        assert calls[1][0] == pytest.approx([100.0, 0.0, 20.0])
+        assert calls[0][0] == pytest.approx([0.0, 20.0, 0.0])
+        assert calls[1][0] == pytest.approx([100.0, 0.0, -20.0])
+    finally:
+        session.dispose()
+
+
+def test_first_target_uses_safe_height(monkeypatch):
+    session = CollisionTestSession(scene_name=SCENE_NAME)
+    session.ensure_ready()
+    try:
+        solution = [0.0] * len(session.ik.chain.links)
+        calls = []
+
+        def fake_solve(position, orientation, **kwargs):
+            calls.append(list(position))
+            return True, solution
+
+        monkeypatch.setattr(
+            session, "current_end_effector",
+            lambda: ([0.0, 0.0, 0.0], [0.0, 0.0, 0.0]))
+        monkeypatch.setattr(session.ik, "solve_with_config", fake_solve)
+        target = [0.0] * len(session.ik.active_indices)
+        path = session._build_motion_path(
+            target, target, ([100.0, 0.0, 0.0], [0.0, 0.0, 0.0]),
+            first_target=True)
+        assert len(path) == 3 * SCAN_STEPS
+        assert calls[0][2] == pytest.approx(350.0)
+        assert calls[1][2] == pytest.approx(350.0)
     finally:
         session.dispose()
 

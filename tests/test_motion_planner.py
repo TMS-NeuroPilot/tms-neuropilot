@@ -109,8 +109,25 @@ def test_large_target_moves_retract_along_the_tool_normal(planner, monkeypatch):
     assert len(retract) == sim_config.PATH_INTERPOLATION_STEPS
     assert len(traverse) == sim_config.PATH_INTERPOLATION_STEPS
     assert len(approach) == sim_config.PATH_INTERPOLATION_STEPS
-    assert calls[0][0] == pytest.approx([0.0, -20.0, 0.0])
-    assert calls[1][0] == pytest.approx([100.0, 0.0, 20.0])
+    assert calls[0][0] == pytest.approx([0.0, 20.0, 0.0])
+    assert calls[1][0] == pytest.approx([100.0, 0.0, -20.0])
+
+
+def test_first_target_uses_safe_height(planner, monkeypatch):
+    mp, _state, _world, ik = planner
+    solution = [0.0] * len(ik.chain.links)
+    calls = []
+
+    def fake_solve(position, orientation, **kwargs):
+        calls.append(list(position))
+        return True, solution
+
+    monkeypatch.setattr(ik, "solve_with_config", fake_solve)
+    mp._build_safe_height_path(
+        [0.0] * 6, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0],
+        [0.1] * 6, [100.0, 0.0, 0.0], [0.0, 0.0, 0.0], None)
+    assert calls[0][2] == pytest.approx(350.0)
+    assert calls[1][2] == pytest.approx(350.0)
 
 
 def test_interpolation_is_linear_and_excludes_the_start():

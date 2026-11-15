@@ -32,8 +32,11 @@ class MotionPlanner:
     """
     State-machine motion planner with target retract-and-approach support.
 
-    For large displacements (> CRANE_DISPLACEMENT_THRESHOLD_MM):
-      RETRACT 20 mm along the tool normal → TRAVERSE → APPROACH
+    The first target from the start pose uses the absolute safe height.
+    Later large target-to-target moves retract 20 mm along the negative tool
+    normal, traverse, then approach. If the retract path is blocked, the
+    safe-height path is the fallback.
+
     For small displacements / orientation-only changes:
       DIRECT_MOVING
 
@@ -76,6 +79,9 @@ class MotionPlanner:
         self._move_away_active: bool = False
         self._move_away_path: List[List[float]] = []
         self._move_away_idx: int = 0
+        # The first target from the start pose uses the absolute safe height.
+        # Target-to-target moves use the shorter tool-normal retract.
+        self._has_reached_target: bool = False
 
     # ────────────────────────────────────────────────────────────────
     # Public entry point  (called at 20 Hz from the controller)
@@ -88,6 +94,7 @@ class MotionPlanner:
         """
         if not self.state.target.is_set():
             self._reset_motion()
+            self._has_reached_target = False
             return
 
         new_key = self._build_target_key()
@@ -224,11 +231,42 @@ class MotionPlanner:
         )
 
         if displacement > config.CRANE_DISPLACEMENT_THRESHOLD_MM:
-            ascend, traverse, descend = self._build_retract_path(
-                current_active, current_pos_mm, current_ori_deg,
-                target_active, target_pos_mm, target_ori_deg,
-                padded_initial,
-            )
+            chosen = None
+            label = ""
+            if not self._has_reached_target:
+                # First approach from the saved start pose keeps the old
+                # absolute safe-height path; the tool normal is meaningless
+                # while the coil is still high above the head.
+                chosen = self._build_safe_height_path(
+                    current_active, current_pos_mm, current_ori_deg,
+                    target_active, target_pos_mm, target_ori_deg,
+                    padded_initial,
+                )
+                label = "First-target safe-height path"
+            else:
+                # Retract away from the head using the negative tool normal,
+                # then try the same safe-height path if that route is blocked.
+                chosen = self._build_retract_path(
+                    current_active, current_pos_mm, current_ori_deg,
+                    target_active, target_pos_mm, target_ori_deg,
+                    padded_initial,
+                )
+                label = "Retract path"
+                if (chosen[0] is None
+                        or not self._verify_path(chosen[0] + chosen[1] + chosen[2])):
+                    fallback = self._build_safe_height_path(
+                        current_active, current_pos_mm, current_ori_deg,
+                        target_active, target_pos_mm, target_ori_deg,
+                        padded_initial,
+                    )
+                    if (fallback[0] is not None
+                            and self._verify_path(
+                                fallback[0] + fallback[1] + fallback[2])):
+                        chosen = fallback
+                        label = "Safe-height fallback"
+                    else:
+                        chosen = (None, None, None)
+            ascend, traverse, descend = chosen
             if ascend is not None and self._verify_path(ascend + traverse + descend):
                 self._retract_ascend   = ascend
                 self._retract_traverse = traverse
@@ -236,7 +274,7 @@ class MotionPlanner:
                 self._motion_state = MotionState.PRE_VERIFY
                 path_ok = True
                 n = len(ascend)
-                log.info(f"Lift path built ({3*n} poses) — pre-verified OK")
+                log.info(f"{label} built ({3*n} poses) — pre-verified OK")
         else:
             path = self._interpolate_joints(current_active, target_active)
             if self._verify_path(path):
@@ -258,6 +296,50 @@ class MotionPlanner:
         self.state.set_tracking_valid(False)
         self._motion_state = MotionState.COLLISION_HALT
 
+    def _build_safe_height_path(
+        self,
+        current_active: List[float],
+        current_pos_mm: List[float],
+        current_ori_deg: List[float],
+        target_active: List[float],
+        target_pos_mm: List[float],
+        target_ori_deg: List[float],
+        padded_initial: Optional[List[float]],
+    ) -> Tuple[Optional[List[List[float]]], Optional[List[List[float]]], Optional[List[List[float]]]]:
+        """Build the absolute safe-height crane path.
+
+        Used for the first target from the start pose and as the fallback
+        when the short tool-normal retract is blocked.
+        """
+        safe_z_mm = config.SAFE_HEIGHT_M * 1000.0
+        above_curr_p = [current_pos_mm[0], current_pos_mm[1], safe_z_mm]
+        above_tgt_p = [target_pos_mm[0], target_pos_mm[1], safe_z_mm]
+
+        _, sol_curr = self.ik_solver.solve_with_config(
+            above_curr_p, current_ori_deg,
+            initial_position=padded_initial,
+            elbow_up=config.IK_ELBOW_UP,
+            max_retries=config.IK_MAX_RETRIES,
+        )
+        if sol_curr is None:
+            return None, None, None
+
+        _, sol_tgt = self.ik_solver.solve_with_config(
+            above_tgt_p, target_ori_deg,
+            initial_position=padded_initial,
+            elbow_up=config.IK_ELBOW_UP,
+            max_retries=config.IK_MAX_RETRIES,
+        )
+        if sol_tgt is None:
+            return None, None, None
+
+        above_curr_active = self._active_joints(sol_curr)
+        above_tgt_active = self._active_joints(sol_tgt)
+        ascend = self._interpolate_joints(current_active, above_curr_active)
+        traverse = self._interpolate_joints(above_curr_active, above_tgt_active)
+        descend = self._interpolate_joints(above_tgt_active, target_active)
+        return ascend, traverse, descend
+
     def _build_retract_path(
         self,
         current_active: List[float],
@@ -270,14 +352,16 @@ class MotionPlanner:
     ) -> Tuple[Optional[List[List[float]]], Optional[List[List[float]]], Optional[List[List[float]]]]:
         """
         Build three joint-space segments for a target transition:
-          1.  RETRACT:  current → current + 20 mm along current tool +Z
+          1.  RETRACT:  current → current - 20 mm along current tool +Z
           2.  TRAVERSE: retracted_current → retracted_target
-          3.  APPROACH: retracted_target → target along target -Z
+          3.  APPROACH: retracted_target → target along target +Z
         Returns (retract, traverse, approach) or (None, None, None) if
         IK fails for an intermediate waypoint.
 
-        The retract is ``TARGET_RETRACT_M``, not the absolute
-        ``SAFE_HEIGHT_M`` used by the manual move-away action.
+        The tool +Z axis points toward the head at the coil targets, so the
+        away direction is the negative tool normal.  The retract is
+        ``TARGET_RETRACT_M``, not the absolute ``SAFE_HEIGHT_M`` used by the
+        manual move-away action.
         """
         from .utils.transforms import euler_deg_to_matrix
 
@@ -285,11 +369,11 @@ class MotionPlanner:
         current_z = euler_deg_to_matrix(current_ori_deg)[:, 2]
         target_z = euler_deg_to_matrix(target_ori_deg)[:, 2]
         retracted_curr_p = [
-            current_pos_mm[i] + float(current_z[i]) * retract_mm
+            current_pos_mm[i] - float(current_z[i]) * retract_mm
             for i in range(3)
         ]
         retracted_tgt_p = [
-            target_pos_mm[i] + float(target_z[i]) * retract_mm
+            target_pos_mm[i] - float(target_z[i]) * retract_mm
             for i in range(3)
         ]
 
@@ -471,6 +555,7 @@ class MotionPlanner:
         self.state.set_motion_done(motion_done)
         self.state.set_tracking_valid(motion_done)
         if motion_done:
+            self._has_reached_target = True
             # The coil origin (TCP) sits above the skin contact point (the
             # SimNIBS coil casing height), so reaching the target alone does
             # not produce contact. Press toward the head until the simulated
