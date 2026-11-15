@@ -1666,8 +1666,8 @@ class MainWindow(QtWidgets.QMainWindow):
         insert_at += 1
         for label, attr, suffix, maximum, step in (
                 ("Safe Z", "cfg_safe_height", " mm", 2000.0, 10.0),
-                ("Translation", "cfg_translation_threshold", " mm", 500.0, 1.0),
-                ("Rotation", "cfg_rotation_threshold", " deg", 180.0, 1.0)):
+                ("Translation thresh.", "cfg_translation_threshold", " mm", 500.0, 1.0),
+                ("Rotation thresh.", "cfg_rotation_threshold", " deg", 180.0, 1.0)):
             spin = QtWidgets.QDoubleSpinBox()
             spin.setRange(0.0, maximum)
             spin.setDecimals(1)

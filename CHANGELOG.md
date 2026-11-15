@@ -105,6 +105,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   **Resume collision scan** without clearing the current path or completed
   pulses. **Prev target** and **Next target** around **Stop** change the
   current pulse without restarting the scan; **Reset to start** is removed.
+  A collision now pauses the scan instead of ending it, so the operator can
+  raise the coil, move the base or head, and resume the same pulse.
+
+- **Contact colours and speed.** A **Colour** checkbox tints robot links by
+  head clearance: green at the near edge, orange halfway, red near contact and
+  dark red on contact. Head proximity is no longer reported as a near miss in
+  the scan text. The **Movement speed** slider sits below the progress bar,
+  is linked to **Default speed** on the Control page and sets the scan playback
+  interval. The three movement limits can be edited during a scan; the current
+  target is replanned without resetting completed pulses.
 - **Collision scan progress.** The collision 3D view now carries the same
   **Total targets** / **Current** overlay as the Control viewer, and the scan
   follows the project's target-order file and repetition count so pulse and

@@ -17,12 +17,13 @@ and training modes, where there is no arm to test.
 - the direct joint-space path from the start pose and then from one placement
   to the next.
 
-It stops at the first collision or IK failure and leaves the arm at that pose,
-so you can see what hit. The head and robot base can then be moved, the start
-pose changed, and the scan restarted. Placements are converted with the same
-pipeline-to-robot axis convention as the simulated robot and then into the
-robot base frame, so the planned world pose and an executed target agree even
-after the base is moved.
+It pauses at the first collision and leaves the arm at that pose, so you can
+see what hit. The head and robot base can then be moved, the coil raised with
+**Move coil up**, or another branch selected, and the same scan resumed. An IK
+failure still stops the scan because there is no colliding pose to inspect.
+Placements are converted with the same pipeline-to-robot axis convention as
+the simulated robot and then into the robot base frame, so the planned world
+pose and an executed target agree even after the base is moved.
 
 ## Method
 
@@ -40,13 +41,14 @@ emergency paths, where the arm always climbs to `SAFE_HEIGHT`.
 
 A head penetration of 4 mm or more and a self-penetration of 2 mm or more
 count as collisions. The 4 mm head allowance matches the production
-simulation, where the coil is pressed into the scalp. A head clearance of
-10 mm or less is a near miss and is reported without stopping the scan.
+simulation, where the coil is pressed into the scalp. Head clearance of 10 mm
+or less is not reported as a near miss, because the coil is often close to the
+scalp; the optional **Colour** overlay shows that clearance on the links.
 
 Self-collision ignores overlaps shallower than 2 mm. The robot's collision
 meshes overlap by about 1 mm at some wrist configurations even though the
 rendered links look clear, so these shallow self-contacts are treated as mesh
-overlap. A self-penetration of 2 mm or more still stops the scan. This
+overlap. A self-penetration of 2 mm or more still pauses the scan. This
 tolerance is a modelling limit, not a hardware safety margin.
 
 MuJoCo is described in Todorov, Erez and Tassa (2012), *MuJoCo: A physics
@@ -134,18 +136,18 @@ decide between a direct move and the safe-height path. They are also shown on
 | Field | `.env` key | Unit | Meaning |
 |---|---|---|---|
 | Safe Z | `SAFE_HEIGHT` | mm | Z above the robot base that the arm climbs to before traversing |
-| Trans. | `TRANSLATION_THRESHOLD` | mm | Largest per-axis translation that still allows a direct move |
-| Rot. | `ROTATION_THRESHOLD` | deg | Largest per-axis rotation that still allows a direct move |
+| Translation thresh. | `TRANSLATION_THRESHOLD` | mm | Largest per-axis translation that still allows a direct move |
+| Rotation thresh. | `ROTATION_THRESHOLD` | deg | Largest per-axis rotation that still allows a direct move |
 
 The fields start from the `.env` values in `neuropilot/.env`, the project
-collision block, or the lab collision block, in that order. A change stops the
-current scan, so the next scan starts with the new limits. The values are
-stored in the project and lab collision blocks when **Make project default**
-or **Make lab default** is pressed. They are sent to the simulated robot on
-`Pipeline to Robot: Set motion limits` at the next experiment start. The
-names and units match `tms-robot-control/.env`; the production controller
-must handle the topic before it can apply project values without an `.env`
-restart.
+collision block, or the lab collision block, in that order. They can be changed
+while a scan is running: the current target is replanned from the arm's present
+pose and the completed pulses stay in place. The values are stored in the
+project and lab collision blocks when **Make project default** or **Make lab
+default** is pressed. They are sent to the simulated robot on
+`Pipeline to Robot: Set motion limits` at the next experiment start. The names
+and units match `tms-robot-control/.env`; the production controller must
+handle the topic before it can apply project values without an `.env` restart.
 
 ## Run the scan
 
@@ -155,14 +157,22 @@ restart.
    while the scan runs; press it again to resume.
 4. Use **Prev target** and **Next target** around **Stop** to change the
    current target without restarting the scan.
+5. Set **Movement speed** in the row below the progress bar. It is linked to
+   **Default speed** on the Control page and changes both the scan playback
+   pace and the simulated experiment speed.
+6. Tick **Colour** to tint robot links by head clearance. Green marks the
+   outer near band, orange is halfway, red is close to contact and dark red is
+   actual contact.
 
 The scan follows the project's target-order file and repetition count, so its
 pulse numbers and target IDs match the Control page. Without an order file it
 uses every placement in file order. The progress bar counts reached pulses.
 **Pause collision scan** stops the timer but keeps the current path, target
-and completed results; the same button resumes. On a collision the scan stops,
-the message names the pulse and target, and the arm stays at the colliding
-waypoint.
+and completed results; the same button resumes. On a collision the scan
+pauses instead of ending, the message names the pulse and target, and the arm
+stays at the colliding waypoint. Move the coil up or change the base/head,
+then press **Resume collision scan**. The current target is replanned from the
+new pose.
 
 The robot base and subject placement can be changed while a scan is running.
 The scan continues from the current pulse, regenerates the remaining target
@@ -170,10 +180,11 @@ poses from the new layout and replans the current target from the arm's
 present pose. It does not restart at pulse zero. The progress bar keeps the
 pulses already completed.
 
-The collision line keeps the last near miss or collision visible after the
-current pose becomes clear, and the completed-scan summary reports the number
-of near-miss waypoints and the closest distance. A green "current pose clear"
-line therefore does not hide an earlier problem.
+Head proximity within the 10 mm band is not reported as a near miss: the coil
+is often close to the scalp. The optional **Colour** overlay shows clearance
+on the links instead. The collision line keeps a previous collision visible
+after the current pose becomes clear, and the completed summary reports any
+collision pauses that were resolved.
 
 An **IK failure is not a collision**. It means the selected shoulder, arm and
 wrist branch cannot reach that target from the previous pose. The scan keeps

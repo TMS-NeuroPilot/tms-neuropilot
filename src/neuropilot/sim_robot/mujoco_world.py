@@ -54,6 +54,11 @@ class MuJoCoWorld:
         self._head_body_ids: List[int] = []
         self._robot_geom_ids: List[int] = []
         self._head_geom_ids: List[int] = []
+        # Body -> all its geoms, including invisible visual geoms.  The
+        # contact-colour overlay tints the rendered link, not just the
+        # collision hull.
+        self._robot_body_geom_ids: Dict[int, List[int]] = {}
+        self._robot_geom_original_rgba: Dict[int, np.ndarray] = {}
 
         self._ee_site_id: Optional[int] = None
 
@@ -405,6 +410,8 @@ class MuJoCoWorld:
         self._head_body_ids = []
         self._robot_geom_ids = []
         self._head_geom_ids = []
+        self._robot_body_geom_ids = {}
+        self._robot_geom_original_rgba = {}
 
         head_id = mujoco.mj_name2id(
             self.model, mujoco.mjtObj.mjOBJ_BODY, config.HEAD_BODY_NAME)
@@ -421,8 +428,12 @@ class MuJoCoWorld:
         for i in range(self.model.ngeom):
             body_id = int(self.model.geom(i).bodyid[0])
             contype = int(self.model.geom(i).contype[0])
-            if body_id in robot_set and contype > 0:
-                self._robot_geom_ids.append(i)
+            if body_id in robot_set:
+                self._robot_body_geom_ids.setdefault(body_id, []).append(i)
+                self._robot_geom_original_rgba[i] = (
+                    self.model.geom_rgba[i].copy())
+                if contype > 0:
+                    self._robot_geom_ids.append(i)
             elif body_id in head_set and contype > 0:
                 self._head_geom_ids.append(i)
 
@@ -504,6 +515,65 @@ class MuJoCoWorld:
         if min_dist is not None and min_dist < distance_threshold:
             return float(min_dist)
         return None
+
+    def get_robot_head_body_distances(
+        self, distance_threshold: float = 0.02
+    ) -> Dict[int, float]:
+        """Closest distance from each robot body to the head, in metres.
+
+        Visual and collision geoms share a body, so the result can tint the
+        rendered link.  Geoms farther than ``distance_threshold`` are omitted.
+        """
+        if self.data is None or not self._robot_geom_ids or not self._head_geom_ids:
+            return {}
+
+        body_dist: Dict[int, float] = {}
+        with self._data_lock:
+            fromto = np.zeros(6)
+            for robot_gid in self._robot_geom_ids:
+                body_id = int(self.model.geom_bodyid[robot_gid])
+                for head_gid in self._head_geom_ids:
+                    dist = float(mujoco.mj_geomDistance(
+                        self.model, self.data,
+                        robot_gid, head_gid,
+                        distance_threshold, fromto,
+                    ))
+                    if dist > distance_threshold:
+                        continue
+                    previous = body_dist.get(body_id)
+                    if previous is None or dist < previous:
+                        body_dist[body_id] = dist
+
+        # Contact records are authoritative for penetration depth.
+        for contact in self.get_robot_head_contacts():
+            for geom_id in (contact.get("geom1"), contact.get("geom2")):
+                if geom_id not in self._robot_geom_ids:
+                    continue
+                body_id = int(self.model.geom_bodyid[int(geom_id)])
+                dist = float(contact.get("dist", 0.0))
+                previous = body_dist.get(body_id)
+                if previous is None or dist < previous:
+                    body_dist[body_id] = dist
+        return body_dist
+
+    def set_robot_body_colors(self, body_rgba: Dict[int, List[float]]) -> None:
+        """Tint all geoms of the selected robot bodies.
+
+        Call :meth:`restore_robot_colors` first when a body may have left the
+        proximity band; that method restores the MJCF colours.
+        """
+        if self.model is None:
+            return
+        for body_id, rgba in body_rgba.items():
+            for geom_id in self._robot_body_geom_ids.get(int(body_id), ()):
+                self.model.geom_rgba[geom_id] = rgba
+
+    def restore_robot_colors(self) -> None:
+        """Restore every robot geom to its original MJCF colour."""
+        if self.model is None:
+            return
+        for geom_id, rgba in self._robot_geom_original_rgba.items():
+            self.model.geom_rgba[geom_id] = rgba
 
     def get_robot_head_contacts(self) -> List[dict]:
         if self.data is None or not self._robot_geom_ids or not self._head_geom_ids:

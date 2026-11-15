@@ -57,6 +57,21 @@ def branch_of_active(active: Sequence[float]) -> Tuple[str, str, str]:
             "normal" if active[4] >= 0 else "flipped")
 
 
+def _clearance_rgba(distance_mm: float) -> List[float]:
+    """Green at the near band edge, orange halfway, red near contact."""
+    t = max(0.0, min(1.0, float(distance_mm) / (NEAR_MISS_M * 1000.0)))
+    red = (0.85, 0.05, 0.05)
+    orange = (1.0, 0.45, 0.0)
+    green = (0.10, 0.70, 0.15)
+    if t >= 0.5:
+        u = (t - 0.5) / 0.5
+        rgb = tuple(orange[i] + (green[i] - orange[i]) * u for i in range(3))
+    else:
+        u = t / 0.5
+        rgb = tuple(red[i] + (orange[i] - red[i]) * u for i in range(3))
+    return [float(rgb[0]), float(rgb[1]), float(rgb[2]), 1.0]
+
+
 class CollisionTestSession:
     """Local robot/head world used by the Collision test tab."""
 
@@ -297,8 +312,10 @@ class CollisionTestSession:
     def collision_state(self) -> Dict[str, object]:
         """Current robot/head and self-collision state.
 
-        ``collision`` is true on contact or penetration; ``warning`` is true
-        inside the 10 mm proximity band.  Distances are millimetres.
+        ``collision`` is true on contact or penetration.  Head proximity is
+        deliberately not a warning: the coil is often within 10 mm of the
+        scalp, and the optional 3D colour overlay shows that clearance
+        without flooding the scan report.  Distances are millimetres.
         """
         world = self._require_ready()
         distance = world.get_robot_head_closest_distance(
@@ -316,8 +333,7 @@ class CollisionTestSession:
                          if contact.get("dist", 0.0) <= PENETRATION_M]
         collision = bool(self_contacts) or bool(head_contacts) or (
             distance is not None and distance <= PENETRATION_M)
-        warning = (distance is not None and
-                   distance <= NEAR_MISS_M and not collision)
+        warning = False
         return {
             "collision": collision,
             "warning": warning,
@@ -326,6 +342,29 @@ class CollisionTestSession:
             "head_contact": bool(head_contacts),
             "distance_mm": distance_mm,
         }
+
+    def update_contact_colors(self) -> None:
+        """Tint robot bodies by their closest distance to the head.
+
+        Green marks the outer edge of the near band, orange is halfway and
+        red is close to contact.  Actual contact is dark red.  Bodies outside
+        the band get their original MJCF colour back.
+        """
+        world = self._require_ready()
+        world.restore_robot_colors()
+        distances = world.get_robot_head_body_distances(NEAR_MISS_M)
+        colors = {}
+        for body_id, distance_m in distances.items():
+            distance_mm = float(distance_m) * 1000.0
+            if distance_mm <= 0.0:
+                colors[body_id] = [0.45, 0.0, 0.0, 1.0]
+            elif distance_mm <= NEAR_MISS_M * 1000.0:
+                colors[body_id] = _clearance_rgba(distance_mm)
+        world.set_robot_body_colors(colors)
+
+    def clear_contact_colors(self) -> None:
+        """Restore the MJCF colours after the colour overlay is disabled."""
+        self._require_ready().restore_robot_colors()
 
     # ── placement scan ───────────────────────────────────────────────
     @property
@@ -655,7 +694,12 @@ class CollisionTestSession:
         if state["collision"]:
             self._record_result(False, "collision", collision=True,
                                 detail=state)
-            self.stop_scan("collision")
+            # Keep the scan alive.  The UI pauses it so the operator can
+            # move the coil up or adjust the layout and then resume; the
+            # current target is replanned from the new pose.
+            self._scan_path = []
+            self._scan_path_i = 0
+            self._scan_message = "collision paused"
             return self.scan_status()
 
         self._scan_path_i += 1

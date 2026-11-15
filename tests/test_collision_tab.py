@@ -109,10 +109,13 @@ def test_scan_stops_and_reports_a_collision(window, qapp, h5file):
             qapp.processEvents()
             if not tab.session.scan_active:
                 break
-        assert not tab.session.scan_active
+        assert tab.session.scan_active
+        assert tab._scan_paused
+        assert tab._scan_collision_paused
         assert tab.session.scan_results
         assert any(r["collision"] or not r["ok"]
                    for r in tab.session.scan_results)
+        assert "Collision detected; scan paused" in tab.status_label.text()
     finally:
         tab._disable()
 
@@ -233,6 +236,13 @@ def test_controls_fit_before_the_3d_view_at_the_design_size(window, qapp):
     assert scroll.maximumWidth() == 620
     assert scroll.verticalScrollBar().maximum() == 0
     assert not scroll.verticalScrollBar().isVisible()
+    # The progress track must stay thick enough to read, with the speed
+    # control on its own row underneath.
+    assert tab.progress.height() >= 20
+    assert (tab.speed_slider.geometry().top()
+            >= tab.progress.geometry().bottom())
+    assert all(spin.width() >= 120 for spin in (
+        tab.safe_height_spin, tab.translation_spin, tab.rotation_spin))
 
 
 def test_failed_enable_keeps_the_button_label(window, qapp, monkeypatch):
@@ -338,6 +348,13 @@ def test_start_pose_uses_visible_radio_buttons(window):
         assert choice.count() == 2
         assert tuple(button.text() for button in choice.buttons()) == labels
         assert sum(button.isChecked() for button in choice.buttons()) == 1
+    # The first radio of every row starts at the same x, so the three axes
+    # read as one aligned column.
+    assert len({choice.buttons()[0].x() for choice in (
+        tab.shoulder_choice, tab.arm_choice, tab.wrist_choice)}) == 1
+    assert all(button.width() >= 72 for choice in (
+        tab.shoulder_choice, tab.arm_choice, tab.wrist_choice)
+        for button in choice.buttons())
     assert tab.step_combo.sizeHint().height() < 48
     assert tab.step_combo.view().sizeHintForRow(0) >= 44
 
@@ -725,7 +742,7 @@ def test_shallow_head_contact_is_tolerated_and_deep_contact_is_not(monkeypatch):
         shallow = session.collision_state()
         assert shallow["collision"] is False
         assert shallow["head_contact"] is False
-        assert shallow["warning"] is True
+        assert shallow["warning"] is False
 
         monkeypatch.setattr(
             session.world, "get_robot_head_closest_distance",
@@ -738,6 +755,78 @@ def test_shallow_head_contact_is_tolerated_and_deep_contact_is_not(monkeypatch):
         assert deep["head_contact"] is True
     finally:
         session.dispose()
+
+
+def test_head_proximity_is_not_a_warning(monkeypatch):
+    session = CollisionTestSession(scene_name=SCENE_NAME)
+    session.ensure_ready()
+    try:
+        monkeypatch.setattr(
+            session.world, "get_robot_head_closest_distance",
+            lambda **kwargs: 0.006)
+        monkeypatch.setattr(
+            session.world, "get_self_collision_contacts", lambda: [])
+        monkeypatch.setattr(session.world, "get_robot_head_contacts",
+                            lambda: [])
+        state = session.collision_state()
+        assert state["collision"] is False
+        assert state["warning"] is False
+        assert state["distance_mm"] == pytest.approx(6.0)
+    finally:
+        session.dispose()
+
+
+def test_contact_colours_tint_and_restore_the_robot(monkeypatch):
+    session = CollisionTestSession(scene_name=SCENE_NAME)
+    session.ensure_ready()
+    try:
+        body_id = next(iter(session.world._robot_body_geom_ids))
+        geom_ids = session.world._robot_body_geom_ids[body_id]
+        original = [session.world.model.geom_rgba[gid].copy()
+                    for gid in geom_ids]
+        monkeypatch.setattr(
+            session.world, "get_robot_head_body_distances",
+            lambda *args, **kwargs: {body_id: 0.006})
+        session.update_contact_colors()
+        tinted = [session.world.model.geom_rgba[gid]
+                  for gid in geom_ids]
+        assert all(rgba[3] == pytest.approx(1.0) for rgba in tinted)
+        assert any(not np.allclose(rgba, before)
+                   for rgba, before in zip(tinted, original))
+
+        monkeypatch.setattr(
+            session.world, "get_robot_head_body_distances",
+            lambda *args, **kwargs: {body_id: -0.001})
+        session.update_contact_colors()
+        assert all(np.allclose(session.world.model.geom_rgba[gid],
+                               [0.45, 0.0, 0.0, 1.0])
+                   for gid in geom_ids)
+
+        session.clear_contact_colors()
+        assert all(np.allclose(session.world.model.geom_rgba[gid], before)
+                   for gid, before in zip(geom_ids, original))
+    finally:
+        session.dispose()
+
+
+def test_movement_speed_links_to_control_default_speed(window):
+    tab = window.collision_tab
+    assert tab.speed_slider.value() == window.spinBox2.value()
+
+    tab.speed_slider.setValue(80)
+    assert window.spinBox2.value() == 80
+    assert tab._scan_timer.interval() < 30
+
+    window.spinBox2.setValue(20)
+    assert tab.speed_slider.value() == 20
+    assert tab._scan_timer.interval() > 30
+
+
+def test_contact_colour_checkbox_is_available(window):
+    tab = window.collision_tab
+    assert tab.contact_colors_chk.text() == "Colour"
+    assert "green" in tab.contact_colors_chk.toolTip()
+    assert "dark red" in tab.contact_colors_chk.toolTip()
 
 
 def test_move_coil_up_uses_the_configured_safe_height(monkeypatch):

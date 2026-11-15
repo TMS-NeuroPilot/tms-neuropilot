@@ -43,9 +43,9 @@ class PoseEditor(QtWidgets.QGroupBox):
         self._caps: List[QtWidgets.QLabel] = []
         self._nudge_buttons: List[QtWidgets.QPushButton] = []
         grid = QtWidgets.QGridLayout(self)
-        grid.setContentsMargins(6, 4, 6, 4)
+        grid.setContentsMargins(6, 2, 6, 2)
         grid.setHorizontalSpacing(8)
-        grid.setVerticalSpacing(2)
+        grid.setVerticalSpacing(1)
         for index, (label, unit) in enumerate(self.AXES):
             column, row = divmod(index, 3)
             cell = QtWidgets.QHBoxLayout()
@@ -149,10 +149,12 @@ class BranchChoice(QtWidgets.QWidget):
         layout.setSpacing(6)
         caption = QtWidgets.QLabel(f"{label}:")
         caption.setProperty("role", "cap")
+        caption.setFixedWidth(90)
         layout.addWidget(caption)
         for index, (text, data) in enumerate(options):
             button = QtWidgets.QRadioButton(text)
             button.setProperty("role", "choice")
+            button.setMinimumWidth(72)
             self._group.addButton(button, index)
             layout.addWidget(button)
             self._buttons.append(button)
@@ -205,6 +207,7 @@ class CollisionTestTab(QtWidgets.QWidget):
         self._last_scan_render_key = None
         self._syncing_limits = False
         self._scan_paused = False
+        self._scan_collision_paused = False
         # Keep the last near miss or collision visible after the pose becomes
         # clear; otherwise a green "no collision" line hides the problem the
         # operator is looking for.
@@ -276,7 +279,7 @@ class CollisionTestTab(QtWidgets.QWidget):
         controls = QtWidgets.QWidget()
         left = QtWidgets.QVBoxLayout(controls)
         left.setContentsMargins(0, 0, 6, 0)
-        left.setSpacing(2)
+        left.setSpacing(0)
 
         self.base_editor = PoseEditor(
             "Robot base", sim_config.ROBOT_BASE_POSITION,
@@ -288,8 +291,8 @@ class CollisionTestTab(QtWidgets.QWidget):
         jog.setProperty("card", True)
         jog.setProperty("compact", True)
         jog_layout = QtWidgets.QVBoxLayout(jog)
-        jog_layout.setContentsMargins(6, 4, 6, 4)
-        jog_layout.setSpacing(2)
+        jog_layout.setContentsMargins(6, 1, 6, 1)
+        jog_layout.setSpacing(1)
         self._jog_nudges: List[QtWidgets.QPushButton] = []
         self._jog_caps: List[QtWidgets.QLabel] = []
         self._jog_value_labels: List[QtWidgets.QLabel] = []
@@ -355,8 +358,8 @@ class CollisionTestTab(QtWidgets.QWidget):
         start.setProperty("card", True)
         start.setProperty("compact", True)
         start_layout = QtWidgets.QVBoxLayout(start)
-        start_layout.setContentsMargins(6, 3, 6, 3)
-        start_layout.setSpacing(1)
+        start_layout.setContentsMargins(6, 0, 6, 0)
+        start_layout.setSpacing(0)
         branch_row = QtWidgets.QVBoxLayout()
         branch_row.setSpacing(3)
         self.shoulder_choice = BranchChoice(
@@ -401,7 +404,6 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.safe_height_spin.setRange(0.0, 2000.0)
         self.safe_height_spin.setDecimals(1)
         self.safe_height_spin.setSingleStep(10.0)
-        self.safe_height_spin.setSuffix(" mm")
         self.safe_height_spin.setValue(sim_config.SAFE_HEIGHT_MM)
         self.safe_height_spin.setToolTip(
             "Z above the robot base that the arm climbs to before traversing "
@@ -411,7 +413,6 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.translation_spin.setRange(0.0, 500.0)
         self.translation_spin.setDecimals(1)
         self.translation_spin.setSingleStep(1.0)
-        self.translation_spin.setSuffix(" mm")
         self.translation_spin.setValue(
             sim_config.TRANSLATION_THRESHOLD_MM)
         self.translation_spin.setToolTip(
@@ -422,7 +423,6 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.rotation_spin.setRange(0.0, 180.0)
         self.rotation_spin.setDecimals(1)
         self.rotation_spin.setSingleStep(1.0)
-        self.rotation_spin.setSuffix(" deg")
         self.rotation_spin.setValue(sim_config.ROTATION_THRESHOLD_DEG)
         self.rotation_spin.setToolTip(
             "Largest per-axis rotation that still allows a direct move. "
@@ -430,27 +430,34 @@ class CollisionTestTab(QtWidgets.QWidget):
             "tms-robot-control/.env.")
         for spin in (self.safe_height_spin, self.translation_spin,
                      self.rotation_spin):
+            spin.setFixedWidth(135)
             spin.setKeyboardTracking(False)
             spin.valueChanged.connect(self._limits_changed)
 
-        limit_row = QtWidgets.QHBoxLayout()
-        limit_row.setSpacing(4)
-        for label, spin in (
-                ("Safe Z", self.safe_height_spin),
-                ("Trans.", self.translation_spin),
-                ("Rot.", self.rotation_spin)):
+        limit_grid = QtWidgets.QGridLayout()
+        limit_grid.setHorizontalSpacing(8)
+        limit_grid.setVerticalSpacing(1)
+        for column, (label, spin) in enumerate((
+                ("Safe Z (mm)", self.safe_height_spin),
+                ("Translation thresh. (mm)", self.translation_spin),
+                ("Rotation thresh. (deg)", self.rotation_spin))):
+            cell = QtWidgets.QVBoxLayout()
+            cell.setSpacing(1)
             cap = QtWidgets.QLabel(label)
             cap.setProperty("role", "cap")
-            limit_row.addWidget(cap)
-            limit_row.addWidget(spin, 1)
-        start_layout.addLayout(limit_row)
+            cap.setAlignment(QtCore.Qt.AlignHCenter)
+            cell.addWidget(cap)
+            cell.addWidget(spin, 0, QtCore.Qt.AlignHCenter)
+            limit_grid.addLayout(cell, 0, column)
+            limit_grid.setColumnStretch(column, 1)
+        start_layout.addLayout(limit_grid)
 
         scan = QtWidgets.QGroupBox("Placement scan")
         scan.setProperty("card", True)
         scan.setProperty("compact", True)
         scan_layout = QtWidgets.QVBoxLayout(scan)
-        scan_layout.setContentsMargins(6, 4, 6, 4)
-        scan_layout.setSpacing(2)
+        scan_layout.setContentsMargins(6, 1, 6, 0)
+        scan_layout.setSpacing(0)
         self.scan_btn = QtWidgets.QPushButton("Start collision scan")
         self.scan_btn.setProperty("role", "primary")
         self.prev_btn = QtWidgets.QPushButton("Prev target")
@@ -459,6 +466,8 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.stop_btn.setProperty("role", "transport")
         self.next_btn = QtWidgets.QPushButton("Next target")
         self.next_btn.setProperty("role", "transport")
+        for button in (self.prev_btn, self.stop_btn, self.next_btn):
+            button.setMaximumHeight(36)
         self.scan_btn.clicked.connect(self._scan_button_clicked)
         self.prev_btn.clicked.connect(lambda: self._jump_target(-1))
         self.stop_btn.clicked.connect(self._stop_scan)
@@ -474,11 +483,55 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.progress = QtWidgets.QProgressBar()
         self.progress.setRange(0, 1)
         self.progress.setValue(0)
+        self.progress.setFixedHeight(24)
+        self.progress.setStyleSheet(
+            "QProgressBar { background: palette(base); "
+            "border: 1px solid palette(mid); "
+            "border-radius: 3px; min-height: 20px; max-height: 24px; "
+            "text-align: center; } "
+            "QProgressBar::chunk { background: palette(highlight); "
+            "border-radius: 2px; }")
         scan_layout.addWidget(self.progress)
+        speed_row = QtWidgets.QHBoxLayout()
+        speed_row.setSpacing(6)
+        speed_caption = QtWidgets.QLabel("Movement speed")
+        speed_caption.setProperty("role", "cap")
+        self.speed_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        self.speed_slider.setRange(1, 100)
+        self.speed_slider.setFixedWidth(110)
+        self.speed_slider.setToolTip(
+            "Collision-scan playback speed. Linked to Default speed on the "
+            "Control page.")
+        self.speed_value = QtWidgets.QLabel("")
+        self.speed_value.setProperty("role", "cap")
+        self.speed_value.setMinimumWidth(36)
+        speed_row.addWidget(speed_caption)
+        speed_row.addWidget(self.speed_slider)
+        speed_row.addWidget(self.speed_value)
+        speed_row.addStretch(1)
+        scan_layout.addLayout(speed_row)
         self.collision_label = QtWidgets.QLabel("Current pose: clear.")
         self.collision_label.setProperty("role", "cap")
         self.collision_label.setWordWrap(True)
-        scan_layout.addWidget(self.collision_label)
+        self.contact_colors_chk = QtWidgets.QCheckBox("Colour")
+        self.contact_colors_chk.setToolTip(
+            "Tint robot links by their closest distance to the head: "
+            "green at the near edge, orange halfway, red near contact, "
+            "dark red on contact.")
+        self.contact_colors_chk.toggled.connect(
+            self._toggle_contact_colors)
+        self.speed_slider.valueChanged.connect(self._speed_changed)
+        control_speed = getattr(self.window, "spinBox2", None)
+        if control_speed is not None:
+            self._sync_speed_from_control(control_speed.value())
+            control_speed.valueChanged.connect(self._sync_speed_from_control)
+        else:
+            self._sync_speed_from_control(40)
+        collision_row = QtWidgets.QHBoxLayout()
+        collision_row.setSpacing(8)
+        collision_row.addWidget(self.collision_label, 1)
+        collision_row.addWidget(self.contact_colors_chk, 0)
+        scan_layout.addLayout(collision_row)
         self.scan_status = QtWidgets.QLabel("Idle.")
         self.scan_status.setProperty("role", "cap")
         self.scan_status.setWordWrap(True)
@@ -576,13 +629,15 @@ class CollisionTestTab(QtWidgets.QWidget):
             for button in self._jog_nudges:
                 button.setFixedWidth(width)
         for button in (self.apply_branch_btn, self.move_up_btn):
-            button.setMinimumWidth(round(260 * s))
-            button.setMaximumWidth(round(340 * s))
+            button.setMinimumWidth(round(220 * s))
+            button.setMaximumWidth(round(320 * s))
         self.scan_btn.setMinimumWidth(round(340 * s))
         self.scan_btn.setMaximumWidth(round(420 * s))
         for button in (self.prev_btn, self.stop_btn, self.next_btn):
             button.setMinimumWidth(round(130 * s))
             button.setMaximumWidth(round(180 * s))
+        self.speed_slider.setFixedWidth(round(110 * s))
+        self.speed_value.setMinimumWidth(round(36 * s))
         if (self._last_ui_scale is not None
                 and abs(s - self._last_ui_scale) < 0.01):
             self._apply_split(s)
@@ -673,6 +728,12 @@ class CollisionTestTab(QtWidgets.QWidget):
             current_pulse = self._pulse_text(state)
             current_pulse = (current_pulse[:1].upper()
                              + current_pulse[1:])
+            if self._scan_paused:
+                if self._scan_collision_paused:
+                    return (f"Paused after collision at "
+                            f"{self._pulse_text(state)}. Move the coil up or "
+                            f"adjust the layout, then Resume.")
+                return f"Paused at {self._pulse_text(state)}."
             if state.get("preparing"):
                 if completed:
                     last_pulse = self._pulse_text(state, last=True)
@@ -689,9 +750,13 @@ class CollisionTestTab(QtWidgets.QWidget):
                         f"{state.get('path_total', 0)}.")
             return text
         if message.startswith("complete"):
-            text = (f"Complete: {total_targets} targets checked in "
-                    f"{completed} pulses, no collision.")
             results = state.get("results") or []
+            collisions = [result for result in results
+                          if result.get("collision")]
+            text = (f"Complete: {total_targets} targets checked in "
+                    f"{completed} pulses, "
+                    + (f"{len(collisions)} collision pause(s) resolved."
+                       if collisions else "no collision."))
             near = [result for result in results
                     if (result.get("detail") or {}).get("warning")]
             if near:
@@ -767,7 +832,8 @@ class CollisionTestTab(QtWidgets.QWidget):
                        self.arm_choice, self.wrist_choice,
                        self.scan_btn, self.prev_btn, self.stop_btn,
                        self.next_btn, self.step_combo, self.safe_height_spin,
-                       self.translation_spin, self.rotation_spin):
+                       self.translation_spin, self.rotation_spin,
+                       self.contact_colors_chk, self.speed_slider):
             widget.setEnabled(enabled)
         self.save_project_btn.setEnabled(enabled)
         self.save_lab_btn.setEnabled(enabled)
@@ -1157,6 +1223,10 @@ class CollisionTestTab(QtWidgets.QWidget):
         if self.session is not None:
             # Keep an unsaved layout for a later re-enable in this project.
             self._pending_config = self.project_config()
+            try:
+                self.session.clear_contact_colors()
+            except Exception:
+                pass
             self.session.dispose()
             self.session = None
         self._enabled = False
@@ -1167,6 +1237,7 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.enable_btn.blockSignals(False)
         self.enable_btn.setText("Enable collision test")
         self._scan_paused = False
+        self._scan_collision_paused = False
         self.scan_btn.setText("Start collision scan")
         self._set_controls_enabled(False)
         self._update_target_buttons()
@@ -1184,6 +1255,34 @@ class CollisionTestTab(QtWidgets.QWidget):
         self._set_status("Collision test is off.")
 
     # ── pose / start / jog ──────────────────────────────────────────
+    def _speed_changed(self, value):
+        value = max(1, min(100, int(value)))
+        self.speed_value.setText(f"{value}%")
+        self._apply_scan_speed()
+        control = getattr(self.window, "spinBox2", None)
+        if control is not None and control.value() != value:
+            control.setValue(value)
+
+    def _sync_speed_from_control(self, value):
+        if not hasattr(self, "speed_slider"):
+            return
+        value = max(1, min(100, int(value)))
+        self.speed_slider.blockSignals(True)
+        try:
+            self.speed_slider.setValue(value)
+        finally:
+            self.speed_slider.blockSignals(False)
+        self.speed_value.setText(f"{value}%")
+        self._apply_scan_speed()
+
+    def _apply_scan_speed(self):
+        ratio = max(0.01, self.speed_slider.value() / 100.0)
+        # 40 % is the simulator's baseline; higher speed shortens the
+        # waypoint interval, lower speed lengthens it.
+        interval = round(
+            30.0 * float(sim_config.SPEED_BASE_RATIO) / ratio)
+        self._scan_timer.setInterval(max(10, min(1000, interval)))
+
     def _limits_dict(self) -> dict:
         return {
             "safe_height_mm": float(self.safe_height_spin.value()),
@@ -1193,18 +1292,34 @@ class CollisionTestTab(QtWidgets.QWidget):
         }
 
     def _limits_changed(self, _value=None):
-        """Apply edited movement limits to the local scan and the controller."""
+        """Apply edited movement limits without restarting a running scan."""
         if self._syncing_limits:
             return
         self._has_setup = True
-        if (self.session is not None and self.session.scan_active) \
-                or self._scan_timer.isActive():
-            self._stop_scan()
-            self._set_status(
-                "Movement limits changed; the previous scan was stopped.")
         limits = self._limits_dict()
+        scanning = (self.session is not None and self.session.scan_active)
         if self.session is not None:
             self.session.set_motion_limits(**limits)
+            if scanning:
+                # Replan the current target from the present pose.  Completed
+                # pulses and the scan index stay unchanged.
+                self.session.reframe_scan()
+                self._scan_collision_paused = False
+                state = self.session.scan_status()
+                self._update_scan_ui(state)
+                if not state["active"]:
+                    self._scan_timer.stop()
+                    self._scan_paused = False
+                    self.scan_btn.setText("Start collision scan")
+                    self._report_scan_end(state)
+                else:
+                    self.scan_btn.setText(
+                        "Resume collision scan" if self._scan_paused
+                        else "Pause collision scan")
+                    self._set_status(
+                        "Movement limits updated; the current target was "
+                        "replanned.")
+                self._update_target_buttons()
             self._sync_view()
         if self.controller is not None:
             self.controller.set_motion_limits(limits)
@@ -1218,6 +1333,7 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.session.set_base_pose(position_m, orientation_deg)
         if scanning:
             self.session.reframe_scan()
+            self._scan_collision_paused = False
             state = self.session.scan_status()
             self._update_scan_ui(state)
             if state["active"]:
@@ -1244,6 +1360,7 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.session.set_head_pose(position_m, orientation_deg)
         if scanning:
             self.session.reframe_scan()
+            self._scan_collision_paused = False
             state = self.session.scan_status()
             self._update_scan_ui(state)
             if state["active"]:
@@ -1318,16 +1435,32 @@ class CollisionTestTab(QtWidgets.QWidget):
     def _move_coil_up(self):
         if self.session is None:
             return
-        if self.session.scan_active or self._scan_timer.isActive():
-            self._stop_scan()
+        scanning = self.session.scan_active
+        if scanning and self._scan_timer.isActive():
+            self._pause_scan()
         self._has_setup = True
         moved = self.session.move_coil_up()
+        if scanning and moved is not False:
+            self.session.reframe_scan()
+            self._scan_collision_paused = False
+            state = self.session.scan_status()
+            self._update_scan_ui(state)
+            if not state["active"]:
+                self._scan_timer.stop()
+                self._scan_paused = False
+                self.scan_btn.setText("Start collision scan")
+                self._report_scan_end(state)
+            else:
+                self.scan_btn.setText("Resume collision scan")
+            self._update_target_buttons()
         self._sync_view()
         self._update_collision()
         if moved is None:
             self._set_status("Already at or above the safe height.")
         elif moved:
-            self._set_status("Moved the coil to the safe height.")
+            self._set_status(
+                "Moved the coil to the safe height; press Resume to continue."
+                if scanning else "Moved the coil to the safe height.")
         else:
             self._set_status(
                 "No IK solution at the safe height in the selected branch.",
@@ -1379,25 +1512,35 @@ class CollisionTestTab(QtWidgets.QWidget):
         else:
             self._start_scan()
 
-    def _pause_scan(self):
+    def _pause_scan(self, collision=False):
         if (self.session is None or not self.session.scan_active
                 or self._scan_paused):
             return
         self._scan_timer.stop()
         self._scan_paused = True
+        self._scan_collision_paused = bool(collision)
         self.scan_btn.setText("Resume collision scan")
         state = self.session.scan_status()
         self._update_scan_ui(state)
-        self._set_status(
-            f"Collision scan paused at {self._pulse_text(state)}.")
+        if collision:
+            self._set_status(
+                "Collision detected; scan paused. Move coil up or adjust "
+                "the layout, then Resume.", True)
+        else:
+            self._set_status(
+                f"Collision scan paused at {self._pulse_text(state)}.")
         self._update_target_buttons()
 
     def _resume_scan(self):
         if self.session is None or not self.session.scan_active:
             self._scan_paused = False
+            self._scan_collision_paused = False
             self.scan_btn.setText("Start collision scan")
             self._update_target_buttons()
             return
+        if self._scan_collision_paused:
+            self.session.reframe_scan()
+            self._scan_collision_paused = False
         self._scan_paused = False
         self.scan_btn.setText("Pause collision scan")
         if not self._scan_timer.isActive():
@@ -1411,6 +1554,7 @@ class CollisionTestTab(QtWidgets.QWidget):
         was_paused = self._scan_paused
         if not self.session.jump_target(delta):
             return
+        self._scan_collision_paused = False
         state = self.session.scan_status()
         self._update_scan_ui(state)
         self._sync_view()
@@ -1421,6 +1565,7 @@ class CollisionTestTab(QtWidgets.QWidget):
         if not state["active"]:
             self._scan_timer.stop()
             self._scan_paused = False
+            self._scan_collision_paused = False
             self.scan_btn.setText("Start collision scan")
             self._report_scan_end(state)
         elif was_paused:
@@ -1452,6 +1597,7 @@ class CollisionTestTab(QtWidgets.QWidget):
         if self.session is None:
             return
         self._scan_paused = False
+        self._scan_collision_paused = False
         self.scan_btn.setText("Start collision scan")
         self._update_target_buttons()
         # A new scan starts a new problem history.
@@ -1534,6 +1680,7 @@ class CollisionTestTab(QtWidgets.QWidget):
     def _stop_scan(self):
         self._scan_timer.stop()
         self._scan_paused = False
+        self._scan_collision_paused = False
         self.scan_btn.setText("Start collision scan")
         if self.session is not None:
             self.session.stop_scan("stopped")
@@ -1568,14 +1715,19 @@ class CollisionTestTab(QtWidgets.QWidget):
         except Exception as e:
             self._scan_timer.stop()
             self._scan_paused = False
+            self._scan_collision_paused = False
             self.scan_btn.setText("Start collision scan")
             self.scan_status.setText(f"Scan stopped by an error: {e}")
             self._set_status("Collision scan failed.", True)
             self._update_target_buttons()
             return
+        collision = bool((state.get("collision") or {}).get("collision"))
         self.progress.setValue(int(state.get("completed") or 0))
         self._sync_view()
         self._update_collision()
+        if collision and state.get("active"):
+            self._pause_scan(collision=True)
+            return
         # One synchronous frame at every boundary (target reached, next
         # target being prepared, stop, failure) keeps the rendered arm from
         # lagging behind the status text.
@@ -1661,6 +1813,16 @@ class CollisionTestTab(QtWidgets.QWidget):
             if index >= 0:
                 choice.setCurrentIndex(index)
 
+    def _toggle_contact_colors(self, enabled):
+        if self.session is None:
+            return
+        if enabled:
+            self.session.update_contact_colors()
+        else:
+            self.session.clear_contact_colors()
+        if self.view is not None:
+            self.view.refresh()
+
     def _update_collision(self):
         if self.session is None:
             return
@@ -1707,6 +1869,10 @@ class CollisionTestTab(QtWidgets.QWidget):
         else:
             self.collision_label.setText("Current pose: clear.")
             self.collision_label.setStyleSheet("")
+        if self.contact_colors_chk.isChecked():
+            self.session.update_contact_colors()
+            if self.view is not None:
+                self.view.refresh()
 
     def _scan_context(self):
         """Pulse context for a problem found while scanning."""
