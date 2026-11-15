@@ -1,6 +1,7 @@
 """Collision-test tab: local world, saved setup and the placement scan."""
 
 import json
+import os
 
 import numpy as np
 import pytest
@@ -15,6 +16,11 @@ from neuropilot.controller.collision_test import SCAN_STEPS, CollisionTestSessio
 from neuropilot.controller.pipeline_controller import read_simnibs_targets_data
 from neuropilot.lab_profile import LabProfile
 from neuropilot.sim_robot.utils.transforms import orientation_distance_deg
+
+# A scene file per process: the parallel workers compose their own world,
+# and a shared file name would let one worker read another's head or base
+# pose (the file is rewritten at every connect()).
+SCENE_NAME = f"_collision_scene_{os.getpid()}.xml"
 
 pytestmark = pytest.mark.gui
 
@@ -110,7 +116,7 @@ def test_a_project_without_a_block_drops_the_previous_pose(
 
 
 def test_scan_completes_when_the_path_is_clear(h5file):
-    session = CollisionTestSession()
+    session = CollisionTestSession(scene_name=SCENE_NAME)
     session.ensure_ready()
     try:
         home_pos, home_ori = session.home_pose()
@@ -163,7 +169,7 @@ def test_malformed_setup_is_ignored(window, controller):
 
 
 def test_moving_the_base_keeps_a_world_target_fixed():
-    session = CollisionTestSession()
+    session = CollisionTestSession(scene_name=SCENE_NAME)
     session.ensure_ready()
     try:
         target = ([388.0, -332.0, 61.5], [125.0, 34.0, 14.0])
@@ -177,7 +183,7 @@ def test_moving_the_base_keeps_a_world_target_fixed():
 
 
 def test_fixed_mjcf_base_rotation_is_divided_out():
-    session = CollisionTestSession()
+    session = CollisionTestSession(scene_name=SCENE_NAME)
     session.ensure_ready()
     try:
         target = ([388.0, -332.0, 61.5], [125.0, 34.0, 14.0])
@@ -368,7 +374,7 @@ def test_collision_controls_are_compact_and_axes_are_coloured(window):
 
 
 def test_scan_reports_a_branch_change_from_the_production_solver(monkeypatch):
-    session = CollisionTestSession()
+    session = CollisionTestSession(scene_name=SCENE_NAME)
     session.ensure_ready()
     try:
         solution = [0.0] * len(session.ik.chain.links)
@@ -406,7 +412,7 @@ def test_scan_reports_a_branch_change_from_the_production_solver(monkeypatch):
 
 
 def test_ik_failure_is_reported_as_ik_not_collision(monkeypatch):
-    session = CollisionTestSession()
+    session = CollisionTestSession(scene_name=SCENE_NAME)
     session.ensure_ready()
     try:
         monkeypatch.setattr(session.ik, "solve_with_config",
@@ -428,7 +434,7 @@ def test_ik_failure_is_reported_as_ik_not_collision(monkeypatch):
 
 
 def test_target_reached_is_rendered_before_preparing_the_next(monkeypatch):
-    session = CollisionTestSession()
+    session = CollisionTestSession(scene_name=SCENE_NAME)
     session.ensure_ready()
     try:
         monkeypatch.setattr(session, "collision_state",
@@ -502,7 +508,7 @@ def test_scan_overlay_shows_visible_target_and_ik_failure_state(window):
 
 
 def test_scan_builds_the_target_order_and_repetition_sequence(monkeypatch):
-    session = CollisionTestSession()
+    session = CollisionTestSession(scene_name=SCENE_NAME)
     session.ensure_ready()
     try:
         monkeypatch.setattr(session, "_prepare_next", lambda: None)
@@ -677,7 +683,7 @@ def test_collision_preflight_shares_the_simulator_limits():
 
 
 def test_shallow_head_contact_is_tolerated_and_deep_contact_is_not(monkeypatch):
-    session = CollisionTestSession()
+    session = CollisionTestSession(scene_name=SCENE_NAME)
     session.ensure_ready()
     try:
         monkeypatch.setattr(session.world, "get_self_collision_contacts", lambda: [])
@@ -706,7 +712,7 @@ def test_shallow_head_contact_is_tolerated_and_deep_contact_is_not(monkeypatch):
 
 
 def test_crane_path_is_used_for_large_moves(monkeypatch):
-    session = CollisionTestSession()
+    session = CollisionTestSession(scene_name=SCENE_NAME)
     session.ensure_ready()
     try:
         solution = [0.0] * len(session.ik.chain.links)
@@ -732,7 +738,7 @@ def test_crane_path_is_used_for_large_moves(monkeypatch):
 
 
 def test_shallow_self_mesh_overlap_is_not_a_collision(monkeypatch):
-    session = CollisionTestSession()
+    session = CollisionTestSession(scene_name=SCENE_NAME)
     session.ensure_ready()
     try:
         monkeypatch.setattr(session.world, "get_robot_head_contacts", lambda: [])
@@ -757,7 +763,7 @@ def test_shallow_self_mesh_overlap_is_not_a_collision(monkeypatch):
 
 
 def test_known_link3_link5_false_contact_is_excluded():
-    session = CollisionTestSession()
+    session = CollisionTestSession(scene_name=SCENE_NAME)
     session.ensure_ready()
     try:
         session.world.reset_joint_positions(np.radians(
@@ -771,7 +777,7 @@ def test_known_link3_link5_false_contact_is_excluded():
 
 
 def test_self_collision_still_detects_a_real_fold():
-    session = CollisionTestSession()
+    session = CollisionTestSession(scene_name=SCENE_NAME)
     session.ensure_ready()
     try:
         session.world.reset_joint_positions(np.radians(
