@@ -167,6 +167,9 @@ QGroupBox[card="true"] {
     margin-top: 14px; padding: 14px 14px 12px 14px;
     font-size: 11px; font-weight: 600; color: %(muted)s;
 }
+QGroupBox[card="true"][compact="true"] {
+    margin-top: 10px; padding: 8px 10px 6px 10px;
+}
 QGroupBox[card="true"]::title {
     subcontrol-origin: margin; subcontrol-position: top left;
     left: 12px; padding: 0 4px 0 4px; background: %(card)s;

@@ -32,6 +32,7 @@ class PoseEditor(QtWidgets.QGroupBox):
     def __init__(self, title, position_m, orientation_deg, parent=None):
         super().__init__(title, parent)
         self.setProperty("card", True)
+        self.setProperty("compact", True)
         self._step_mm = 5.0
         self._step_deg = 5.0
         self._spins: List[QtWidgets.QDoubleSpinBox] = []
@@ -42,11 +43,13 @@ class PoseEditor(QtWidgets.QGroupBox):
         grid.setHorizontalSpacing(8)
         grid.setVerticalSpacing(2)
         for index, (label, unit) in enumerate(self.AXES):
-            row, column = divmod(index, 3)
+            column, row = divmod(index, 3)
             cell = QtWidgets.QHBoxLayout()
             cell.setSpacing(4)
             cap = QtWidgets.QLabel(label)
             cap.setProperty("role", "cap")
+            if label in ("X", "Y", "Z"):
+                cap.setProperty("axis", label.lower())
             self._caps.append(cap)
             spin = QtWidgets.QDoubleSpinBox()
             spin.setDecimals(1)
@@ -131,7 +134,7 @@ class BranchChoice(QtWidgets.QWidget):
     the second option, and the labels name the axis and value together.
     """
 
-    def __init__(self, options, parent=None):
+    def __init__(self, label, options, parent=None):
         super().__init__(parent)
         self._buttons: List[QtWidgets.QRadioButton] = []
         self._data: List[str] = []
@@ -139,7 +142,10 @@ class BranchChoice(QtWidgets.QWidget):
         self._group.setExclusive(True)
         layout = QtWidgets.QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
+        layout.setSpacing(6)
+        caption = QtWidgets.QLabel(f"{label}:")
+        caption.setProperty("role", "cap")
+        layout.addWidget(caption)
         for index, (text, data) in enumerate(options):
             button = QtWidgets.QRadioButton(text)
             button.setProperty("role", "choice")
@@ -255,7 +261,7 @@ class CollisionTestTab(QtWidgets.QWidget):
         # The control stack gets the larger share; the 3D view yields width.
         # The handle stays draggable for an operator who wants more room.
         scroll.setMinimumWidth(560)
-        scroll.setMaximumWidth(760)
+        scroll.setMaximumWidth(680)
         self.scroll = scroll
         controls = QtWidgets.QWidget()
         left = QtWidgets.QVBoxLayout(controls)
@@ -270,6 +276,7 @@ class CollisionTestTab(QtWidgets.QWidget):
 
         jog = QtWidgets.QGroupBox("Jog coil (world XYZ / tool rotations)")
         jog.setProperty("card", True)
+        jog.setProperty("compact", True)
         jog_layout = QtWidgets.QVBoxLayout(jog)
         jog_layout.setContentsMargins(6, 4, 6, 4)
         jog_layout.setSpacing(2)
@@ -292,7 +299,7 @@ class CollisionTestTab(QtWidgets.QWidget):
         jog_grid.setHorizontalSpacing(8)
         jog_grid.setVerticalSpacing(4)
         for index, axis in enumerate(("X", "Y", "Z", "RX", "RY", "RZ")):
-            row, column = divmod(index, 3)
+            column, row = divmod(index, 3)
             line = QtWidgets.QHBoxLayout()
             line.setSpacing(4)
             cap = QtWidgets.QLabel(axis)
@@ -336,17 +343,18 @@ class CollisionTestTab(QtWidgets.QWidget):
 
         start = QtWidgets.QGroupBox("Start pose")
         start.setProperty("card", True)
+        start.setProperty("compact", True)
         start_layout = QtWidgets.QVBoxLayout(start)
         start_layout.setContentsMargins(6, 4, 6, 4)
         start_layout.setSpacing(2)
         branch_row = QtWidgets.QVBoxLayout()
         branch_row.setSpacing(3)
         self.shoulder_choice = BranchChoice(
-            (("Shoulder left", "left"), ("Shoulder right", "right")))
+            "Shoulder", (("left", "left"), ("right", "right")))
         self.arm_choice = BranchChoice(
-            (("Arm up", "up"), ("Arm down", "down")))
+            "Arm", (("up", "up"), ("down", "down")))
         self.wrist_choice = BranchChoice(
-            (("Wrist normal", "normal"), ("Wrist flipped", "flipped")))
+            "Wrist", (("normal", "normal"), ("flipped", "flipped")))
         for choice in (self.shoulder_choice, self.arm_choice,
                        self.wrist_choice):
             choice.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
@@ -358,16 +366,21 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.apply_branch_btn.setToolTip(
             "Solve the selected shoulder, arm and wrist branch.")
         self.apply_branch_btn.clicked.connect(self._apply_branch)
-        start_layout.addLayout(branch_row)
-        start_layout.addWidget(self.apply_branch_btn, 0,
-                               QtCore.Qt.AlignHCenter)
         self.set_start_btn = QtWidgets.QPushButton("Set start from current")
         self.set_start_btn.setToolTip(
             "Store the current six joint angles as the start pose.")
         self.set_start_btn.setProperty("role", "branch")
         self.set_start_btn.clicked.connect(self._capture_start)
-        start_layout.addWidget(self.set_start_btn, 0,
-                               QtCore.Qt.AlignHCenter)
+        start_body = QtWidgets.QHBoxLayout()
+        start_body.setSpacing(8)
+        start_body.addLayout(branch_row, 1)
+        actions = QtWidgets.QVBoxLayout()
+        actions.setSpacing(4)
+        actions.addWidget(self.apply_branch_btn)
+        actions.addWidget(self.set_start_btn)
+        actions.addStretch(1)
+        start_body.addLayout(actions, 0)
+        start_layout.addLayout(start_body)
         self.start_label = QtWidgets.QLabel("")
         self.start_label.setProperty("role", "cap")
         self.start_label.setWordWrap(True)
@@ -376,6 +389,7 @@ class CollisionTestTab(QtWidgets.QWidget):
 
         scan = QtWidgets.QGroupBox("Placement scan")
         scan.setProperty("card", True)
+        scan.setProperty("compact", True)
         scan_layout = QtWidgets.QVBoxLayout(scan)
         scan_layout.setContentsMargins(6, 4, 6, 4)
         scan_layout.setSpacing(2)
@@ -512,12 +526,12 @@ class CollisionTestTab(QtWidgets.QWidget):
             return
         self._last_ui_scale = s
         self.scroll.setMinimumWidth(round(560 * s))
-        self.scroll.setMaximumWidth(round(760 * s))
+        self.scroll.setMaximumWidth(round(680 * s))
         self.view_label.setMinimumSize(round(300 * s), round(300 * s))
         self._apply_split(s)
 
     def _apply_split(self, s):
-        """Give the controls a narrower 52% share, once per real width."""
+        """Give the controls a compact 44% share, once per real width."""
         total = self.splitter.width()
         if total < round(1100 * s):
             return
@@ -526,7 +540,7 @@ class CollisionTestTab(QtWidgets.QWidget):
             return
         view_min = round(300 * s)
         desired = max(round(560 * s),
-                      min(round(total * 0.52), round(760 * s)))
+                      min(round(total * 0.44), round(680 * s)))
         target = min(desired, max(1, total - view_min))
         self.splitter.setSizes([target, max(1, total - target)])
         self._last_split_total = total

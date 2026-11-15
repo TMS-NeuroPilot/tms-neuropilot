@@ -206,10 +206,10 @@ def test_controls_fit_before_the_3d_view_at_the_design_size(window, qapp):
     scroll = next(s for s in tab.findChildren(QtWidgets.QScrollArea)
                   if s.widget() is not None
                   and tab.isAncestorOf(s.widget()))
-    assert 560 <= scroll.width() <= 760
+    assert 560 <= scroll.width() <= 680
     assert tab.view_label.width() >= 300
     assert tab.view_label.minimumWidth() == 300
-    assert scroll.maximumWidth() == 760
+    assert scroll.maximumWidth() == 680
     assert scroll.verticalScrollBar().maximum() == 0
     assert not scroll.verticalScrollBar().isVisible()
 
@@ -306,9 +306,9 @@ def test_collision_action_labels_and_short_tooltips(window):
 def test_start_pose_uses_visible_radio_buttons(window):
     tab = window.collision_tab
     for choice, labels in (
-            (tab.shoulder_choice, ("Shoulder left", "Shoulder right")),
-            (tab.arm_choice, ("Arm up", "Arm down")),
-            (tab.wrist_choice, ("Wrist normal", "Wrist flipped"))):
+            (tab.shoulder_choice, ("left", "right")),
+            (tab.arm_choice, ("up", "down")),
+            (tab.wrist_choice, ("normal", "flipped"))):
         assert choice.count() == 2
         assert tuple(button.text() for button in choice.buttons()) == labels
         assert sum(button.isChecked() for button in choice.buttons()) == 1
@@ -363,6 +363,12 @@ def test_collision_controls_are_compact_and_axes_are_coloured(window):
         "x", "y", "z"]
     assert all(caps[axis].property("axis") is None
                for axis in ("RX", "RY", "RZ"))
+    for editor in (tab.base_editor, tab.head_editor):
+        editor_caps = {cap.text(): cap for cap in editor._caps}
+        assert [editor_caps[axis].property("axis")
+                for axis in ("X", "Y", "Z")] == ["x", "y", "z"]
+        assert all(editor_caps[axis].property("axis") is None
+                   for axis in ("RX", "RY", "RZ"))
     assert all(label.property("role") == "jog-value"
                for label in tab._jog_value_labels)
 

@@ -43,6 +43,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the jog pad shows the live coil-site pose next to each axis, the step menu
   is compact, and **Start collision scan** sits above **Stop** / **Reset to
   start**.
+- **Compact collision pose editors.** Robot base, jog coil and subject
+  placement use two columns, with X/Y/Z stacked in the first and RX/RY/RZ in
+  the second. X/Y/Z labels use the same axis colours as the 3D view. The
+  start-pose radios share one axis caption and the two actions sit beside
+  them, and the left pane is capped at 680 logical px.
 - **Collision preflight follows the Control path.** The scan now uses the
   simulated planner's crane strategy for moves above 20 mm, the same free IK
   solver and elbow preference, and the same 4 mm coil-head contact allowance.
