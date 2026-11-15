@@ -97,7 +97,7 @@ jog failed.
 Use a small step for final placement. A red `COLLISION` or amber `NEAR MISS`
 label updates after every jog.
 
-## Choose the start pose
+## Cobot pose setting
 
 Three radio groups choose the IK branch. Every option stays visible, so a
 branch never depends on a dropdown popup:
@@ -120,17 +120,16 @@ placement stays fixed; only the arm configuration changes. If only a colliding
 solution exists, it still stores that pose and warns you to adjust the
 base/head before scanning. If no solution exists, it leaves the current pose
 untouched, keeps your radio selection, and asks you to jog to another pose.
-The resulting six joints become the start configuration.
-
-Use **Set start from current** to store the six joint angles of the pose you
-reached by jogging. **Reset to start** in the placement-scan row returns the
-arm to that saved configuration. The status line reports whether the arm moved
-or was already at the saved pose.
+The resulting six joints become the start configuration and are sent to the
+Control page, so both pages show the same cobot pose. **Move coil up** moves
+the local arm to the configured safe Z while keeping the coil orientation; it
+does not change the stored start pose.
 
 ## Movement limits
 
-The compact row under **Start pose** exposes the three values that decide
-between a direct move and the safe-height path:
+The compact row under **Cobot pose setting** exposes the three values that
+decide between a direct move and the safe-height path. They are also shown on
+**Config › Lab** under **Cobot pose**:
 
 | Field | `.env` key | Unit | Meaning |
 |---|---|---|---|
@@ -138,10 +137,11 @@ between a direct move and the safe-height path:
 | Trans. | `TRANSLATION_THRESHOLD` | mm | Largest per-axis translation that still allows a direct move |
 | Rot. | `ROTATION_THRESHOLD` | deg | Largest per-axis rotation that still allows a direct move |
 
-The fields start from the `.env` values in `neuropilot/.env` and can be
-changed before a scan. A change stops the current scan, so the next scan
-starts with the new limits. The values are stored in the project and lab
-collision blocks and are sent to the simulated robot on
+The fields start from the `.env` values in `neuropilot/.env`, the project
+collision block, or the lab collision block, in that order. A change stops the
+current scan, so the next scan starts with the new limits. The values are
+stored in the project and lab collision blocks when **Make project default**
+or **Make lab default** is pressed. They are sent to the simulated robot on
 `Pipeline to Robot: Set motion limits` at the next experiment start. The
 names and units match `tms-robot-control/.env`; the production controller
 must handle the topic before it can apply project values without an `.env`
@@ -150,14 +150,19 @@ restart.
 ## Run the scan
 
 1. Load the project's placement file on the **Project** page.
-2. Choose a start pose and, if needed, adjust the movement limits.
-3. Press **Start collision scan**.
+2. Choose a cobot pose and, if needed, adjust the movement limits.
+3. Press **Start collision scan**. The button becomes **Pause collision scan**
+   while the scan runs; press it again to resume.
+4. Use **Prev target** and **Next target** around **Stop** to change the
+   current target without restarting the scan.
 
 The scan follows the project's target-order file and repetition count, so its
 pulse numbers and target IDs match the Control page. Without an order file it
-uses every placement in file order. The progress bar counts reached pulses. On
-a collision the scan stops, the message names the pulse and target, and the
-arm stays at the colliding waypoint.
+uses every placement in file order. The progress bar counts reached pulses.
+**Pause collision scan** stops the timer but keeps the current path, target
+and completed results; the same button resumes. On a collision the scan stops,
+the message names the pulse and target, and the arm stays at the colliding
+waypoint.
 
 The robot base and subject placement can be changed while a scan is running.
 The scan continues from the current pulse, regenerates the remaining target
@@ -172,18 +177,19 @@ line therefore does not hide an earlier problem.
 
 An **IK failure is not a collision**. It means the selected shoulder, arm and
 wrist branch cannot reach that target from the previous pose. The scan keeps
-the chosen branch for every target and every safe-height or retract waypoint;
+the chosen branch for every target and every safe-height waypoint;
 it never substitutes another arm shape. If a waypoint or target has no
 solution in that branch, the scan stops, leaves the arm at the last reached
 target, and says that the selected branch has no IK solution. This is the
 behaviour the simulated experiment uses when the start pose carries the same
-branch.
+branch. The same decision is shown on the Config page and can be saved there
+with the lab profile.
 
 ## Save and use the result
 
 | Button | Effect |
 |---|---|
-| **Make project default** | Stores head pose, robot base, start joints and branch in the project YAML |
+| **Make project default** | Stores head pose, robot base, cobot pose, branch, safe Z and movement limits in the project YAML |
 | **Make lab default** | Stores the same block in `~/.neuropilot/lab.yaml` for projects that do not override it |
 | **Use at start pose** | Queues the six-joint start pose and its branch for the next experiment start |
 

@@ -187,6 +187,32 @@ class CollisionTestSession:
         self._require_ready().reset_joint_positions(
             [_canonical_angle(value) for value in self.start_joints])
 
+    def move_coil_up(self) -> Optional[bool]:
+        """Move the coil to the configured safe height in one step.
+
+        Returns ``True`` when the arm moved, ``None`` when it was already at
+        or above the safe height, and ``False`` when the selected branch has
+        no IK solution at the safe-height pose.
+        """
+        self._require_ready()
+        position_mm, orientation_deg = self.current_end_effector()
+        safe_z_mm = self._safe_height_z_mm()
+        if position_mm[2] >= safe_z_mm:
+            return None
+        target_world = [position_mm[0], position_mm[1], safe_z_mm]
+        base_pos, base_ori = self.world_to_base_pose(
+            target_world, orientation_deg)
+        initial = self._full_solution(self.current_joints())
+        ok, solution = self._solve_selected_branch(
+            base_pos, base_ori, initial)
+        if not ok or solution is None:
+            return False
+        target = [_canonical_angle(solution[index])
+                  for index in self.ik.active_indices]
+        self.world.reset_joint_positions(target)
+        self.branch = self.branch_of_active(target)
+        return True
+
     def world_to_base_pose(self, position_mm: Sequence[float],
                            orientation_deg: Sequence[float]
                            ) -> Tuple[List[float], List[float]]:
@@ -347,6 +373,32 @@ class CollisionTestSession:
         if not self._scan_active or not self._scan_placements:
             return False
         self._rebuild_scan_targets()
+        self._scan_path = []
+        self._scan_path_i = 0
+        self._prepare_next()
+        return True
+
+    def can_jump_target(self, delta: int) -> bool:
+        """Whether the running scan can move ``delta`` targets from here."""
+        if not self._scan_active:
+            return False
+        target = self._scan_index + int(delta)
+        return 0 <= target < len(self._scan_base_targets)
+
+    def jump_target(self, delta: int) -> bool:
+        """Change the current target without restarting the scan.
+
+        Completed results stay in the log.  Moving backwards also moves the
+        progress counter back to the selected pulse; moving forwards leaves
+        the skipped pulses unrecorded and lets the counter catch up when the
+        selected target is reached.
+        """
+        if not self.can_jump_target(delta):
+            return False
+        target = self._scan_index + int(delta)
+        if target < self._scan_completed:
+            self._scan_completed = target
+        self._scan_index = target
         self._scan_path = []
         self._scan_path_i = 0
         self._prepare_next()

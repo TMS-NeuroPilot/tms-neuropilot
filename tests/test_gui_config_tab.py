@@ -5,6 +5,7 @@ The store is pointed at ``tmp_path`` in every test; the repository's real
 """
 
 
+import json
 import os
 
 import pytest
@@ -90,6 +91,42 @@ def test_set_int_parsing(window, text, fallback):
 
 
 # ── saving ────────────────────────────────────────────────────────────
+
+def test_cobot_pose_and_limits_reload_and_save(window):
+    block = {
+        "head_position_m": [0.4, -0.4, 0.0],
+        "head_orientation_deg": [0.0, 0.0, -90.0],
+        "robot_base_position_m": [0.0, 0.0, 0.0],
+        "robot_base_orientation_deg": [0.0, 0.0, 0.0],
+        "start_joints_rad": [0.0] * 6,
+        "branch": ["left", "down", "flipped"],
+        "safe_height_mm": 410.0,
+        "translation_threshold_mm": 12.0,
+        "rotation_threshold_deg": 7.0,
+    }
+    window.collision_tab.apply_config(None)
+    window._lab_profile.write({"COLLISION_TEST": json.dumps(block)})
+    window.on_config_reload()
+    assert window.cfg_cobot_shoulder.currentText() == "left"
+    assert window.cfg_cobot_arm.currentText() == "down"
+    assert window.cfg_cobot_wrist.currentText() == "flipped"
+    assert window.cfg_safe_height.value() == pytest.approx(410.0)
+    assert window.cfg_translation_threshold.value() == pytest.approx(12.0)
+    assert window.cfg_rotation_threshold.value() == pytest.approx(7.0)
+
+    window.cfg_cobot_shoulder.setCurrentText("right")
+    window.cfg_cobot_arm.setCurrentText("up")
+    window.cfg_cobot_wrist.setCurrentText("normal")
+    window.cfg_safe_height.setValue(420.0)
+    window.cfg_translation_threshold.setValue(15.0)
+    window.cfg_rotation_threshold.setValue(8.0)
+    window.on_config_save()
+    saved = json.loads(window._lab_profile.read()["COLLISION_TEST"])
+    assert saved["branch"] == ["right", "up", "normal"]
+    assert saved["safe_height_mm"] == pytest.approx(420.0)
+    assert saved["translation_threshold_mm"] == pytest.approx(15.0)
+    assert saved["rotation_threshold_deg"] == pytest.approx(8.0)
+
 
 def test_save_writes_the_hardware_values_to_lab_yaml(window, env_file):
     window.cfg_relay_port.setValue(6001)

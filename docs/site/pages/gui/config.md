@@ -36,6 +36,8 @@ page documents the controls.
 |---|---|---|
 | **Model** | `ROBOT` | the list comes from `sim_robot/robots.py`: Omron TM5X-700, Universal Robots UR5, Han's Robot Elfin E5, Dobot CR5; driver names (`ur`, `elfin`, `dobot`) are accepted too. An unknown value stays visible and is reported on save |
 | **tms-robot-control** | `TMS_ROBOT_CONTROL_PATH` | used by `--launch-relay` and the Relay card to start the production relay |
+| **Cobot pose** | `COLLISION_TEST` | shoulder/arm/wrist branch from the effective project or lab collision block |
+| **Movement limits** | `COLLISION_TEST` | safe Z, translation threshold and rotation threshold from the same block |
 
 ### Stimulator
 

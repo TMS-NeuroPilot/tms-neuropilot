@@ -47,7 +47,19 @@ Values are stored as strings; the GUI converts them when it reads them.
 | `EMG_COMPUTER_PASSWORD` | `<set in .env>` | SMB password |
 | `ONLINE_FEM_SOLVER` | `pardiso` | FEM solver |
 | `ONLINE_FEM_ANISOTROPY` | `scalar` | conductivity model |
-| `COLLISION_TEST` | empty | saved collision-test layout (JSON: head/base poses, start joints, IK branch) |
+| `COLLISION_TEST` | empty | saved collision-test layout (JSON: head/base poses, start joints, IK branch, safe Z, translation and rotation limits) |
+
+## Cobot pose and movement limits
+
+**Config › Lab › Cobot pose** shows the same shoulder, arm and wrist choices and
+the safe Z, translation and rotation limits as the collision test. The values
+come from the loaded project first, then the `COLLISION_TEST` lab block, then
+the built-in collision defaults.
+
+**Make project default** and **Make lab default** in the collision test write
+the complete block. The Config page can also update the lab block with **Save
+lab profile**. A loaded project keeps its own values until another project or
+lab default is applied.
 
 ## Precedence
 
@@ -61,7 +73,8 @@ why a value can "not stick": `.env` is still defining it.
 
 ## Who writes it
 
-- **Config › Lab › Save lab profile** writes the 14 keys above.
+- **Config › Lab › Save lab profile** writes the hardware keys and merges the
+  Config-page cobot pose and movement limits into `COLLISION_TEST`.
 - **Config › Lab › Theme** writes `UI_THEME` immediately when you change it.
 - The controller itself never writes the file; a read-only home directory is
   fine until you press Save.

@@ -7,6 +7,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Cobot pose and movement limits.** The collision tab's start-pose card is
+  now **Cobot pose setting**. The shoulder/arm/wrist branch and the safe Z,
+  translation and rotation limits are stored in the project and lab collision
+  blocks, and the same values are exposed on **Config › Lab › Cobot pose**.
+  **Set start pose from selection** also sends the accepted pose and branch to
+  the Control page. **Set start from current** and **Reset to start** are
+  removed.
+
 - **Collision scan follows layout edits.** Moving the robot base or subject
   placement during a scan now keeps the scan running from the current pulse,
   regenerates the target poses from the new layout, and replans the current
@@ -63,19 +71,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   visible and the selected branch is applied in place. Applying a branch
   solves that branch for the current coil pose, so the coil placement does
   not change; it keeps the radio selection if no solution exists and warns
-  when only a colliding solution exists. The redundant **Move to current
-  start pose** button is gone;
-  **Reset to start** remains in the scan row. Nudge buttons are compact and
-  centred on their numeric fields, and the collision control column scales
-  with the window instead of clipping labels and units at 2x.
+  when only a colliding solution exists. The local **Move coil up** button
+  moves to the safe height without changing the start pose. Nudge buttons are
+  compact and centred on their numeric fields, and the collision control
+  column scales with the window instead of clipping labels and units at 2x.
 - **Wrist-flip fix.** IK solutions are canonicalised to [-180°, 180°] before
   the shoulder, arm and wrist signs are compared, so **Wrist normal** and
   **Wrist flipped** are physically distinct instead of the same pose written
   360° apart.
 - **Compact collision layout.** The collision controls take 60% of the page,
   the jog pad shows the live coil-site pose next to each axis, the step menu
-  is compact, and **Start collision scan** sits above **Stop** / **Reset to
-  start**.
+  is compact, and **Start collision scan** sits above **Prev target** /
+  **Stop** / **Next target**.
 - **Compact collision pose editors.** Robot base, jog coil and subject
   placement use two columns, with X/Y/Z stacked in the first and RX/RY/RZ in
   the second. X/Y/Z labels use the same axis colours as the 3D view. The
@@ -94,8 +101,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   minima that miss the requested pose, and `solve_with_config` uses a local
   seeded retry generator. An infeasible target now fails visibly instead of
   settling a few millimetres off target and leaving `motion_done` false.
-- **Start-pose feedback.** **Reset to start** reports whether it moved the
-  arm or the arm was already at the saved configuration.
+- **Scan controls.** The primary button toggles **Pause collision scan** /
+  **Resume collision scan** without clearing the current path or completed
+  pulses. **Prev target** and **Next target** around **Stop** change the
+  current pulse without restarting the scan; **Reset to start** is removed.
 - **Collision scan progress.** The collision 3D view now carries the same
   **Total targets** / **Current** overlay as the Control viewer, and the scan
   follows the project's target-order file and repetition count so pulse and

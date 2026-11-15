@@ -275,6 +275,7 @@ def test_collision_groups_use_the_requested_order_and_caption(window):
     assert titles[:3] == [
         "Robot base", "Jog coil (world XYZ / tool rotations)",
         "Subject placement"]
+    assert "Cobot pose setting" in titles
     step_labels = [label for label in tab.findChildren(QtWidgets.QLabel)
                    if label.text() == "Step"]
     assert step_labels
@@ -317,8 +318,12 @@ def test_collision_action_labels_and_short_tooltips(window):
     assert tab.save_project_btn.text() == "Make project default"
     assert tab.save_lab_btn.text() == "Make lab default"
     assert tab.use_btn.text() == "Use at start pose"
-    assert tab.set_start_btn.text() == "Set start from current"
     assert tab.apply_branch_btn.text() == "Set start pose from selection"
+    assert tab.move_up_btn.text() == "Move coil up"
+    assert tab.prev_btn.text() == "Prev target"
+    assert tab.stop_btn.text() == "Stop"
+    assert tab.next_btn.text() == "Next target"
+    assert tab.scan_btn.text() == "Start collision scan"
     assert tab.wrist_choice.count() == 2
     for button in (tab.save_project_btn, tab.save_lab_btn, tab.use_btn):
         assert button.toolTip().strip()
@@ -337,32 +342,6 @@ def test_start_pose_uses_visible_radio_buttons(window):
     assert tab.step_combo.view().sizeHintForRow(0) >= 44
 
 
-def test_go_start_returns_to_the_saved_pose_and_reports_it(window, qapp):
-    tab = window.collision_tab
-    tab._enable()
-    qapp.processEvents()
-    try:
-        start = list(tab.session.start_joints)
-        before = list(tab.session.current_joints())
-        tab._jog("X", 1)
-        qapp.processEvents()
-        assert not np.allclose(tab.session.current_joints(), before)
-        assert not np.allclose(tab.session.current_joints(), start)
-
-        tab.reset_btn.click()
-        qapp.processEvents()
-        assert np.allclose(tab.session.current_joints(), start)
-        assert tab.status_label.text() == "Moved to the saved start pose."
-        assert tab.scan_status.text() == "Idle."
-
-        tab.reset_btn.click()
-        qapp.processEvents()
-        assert tab.status_label.text() == "Already at the saved start pose."
-        assert tab.scan_status.text() == "Idle."
-    finally:
-        tab._disable()
-
-
 def test_collision_controls_scale_with_the_window(window, qapp):
     tab = window.collision_tab
     tab._last_ui_scale = None
@@ -371,6 +350,8 @@ def test_collision_controls_scale_with_the_window(window, qapp):
     assert tab.view_label.minimumWidth() >= 600
     assert all(button.width() < spin.width() for button, spin in zip(
         tab.base_editor._nudge_buttons[::2], tab.base_editor._spins))
+    assert tab.prev_btn.maximumWidth() <= 360
+    assert tab.next_btn.maximumWidth() <= 360
 
 
 def test_collision_controls_are_compact_and_axes_are_coloured(window):
@@ -759,6 +740,79 @@ def test_shallow_head_contact_is_tolerated_and_deep_contact_is_not(monkeypatch):
         session.dispose()
 
 
+def test_move_coil_up_uses_the_configured_safe_height(monkeypatch):
+    session = CollisionTestSession(scene_name=SCENE_NAME)
+    session.ensure_ready()
+    try:
+        session.set_motion_limits(400.0, 20.0, 15.0)
+        solution = [0.0] * len(session.ik.chain.links)
+        calls = []
+
+        def fake_solve(position, orientation, initial):
+            calls.append(list(position))
+            return True, solution
+
+        monkeypatch.setattr(
+            session, "current_end_effector",
+            lambda: ([0.0, 0.0, 100.0], [0.0, 0.0, 0.0]))
+        monkeypatch.setattr(session, "_solve_selected_branch", fake_solve)
+        assert session.move_coil_up() is True
+        assert calls[0] == pytest.approx([0.0, 0.0, 400.0])
+
+        monkeypatch.setattr(
+            session, "current_end_effector",
+            lambda: ([0.0, 0.0, 450.0], [0.0, 0.0, 0.0]))
+        assert session.move_coil_up() is None
+    finally:
+        session.dispose()
+
+
+def test_scan_button_pauses_and_resumes_without_stopping(window, monkeypatch):
+    class FakeSession:
+        scan_active = True
+
+        def scan_status(self):
+            return {
+                "active": True, "index": 1, "completed": 1, "total": 3,
+                "total_targets": 3, "repetitions": 1, "target_id": 2,
+                "order_index": 1, "rep": 1, "last_target_id": 1,
+                "last_order_index": 0, "last_rep": 1, "path_step": 0,
+                "path_total": 0, "preparing": False, "message": "pulse 1",
+                "branch_changes": [], "results": [],
+            }
+
+        def can_jump_target(self, delta):
+            return False
+
+        def stop_scan(self, message="stopped"):
+            pass
+
+    tab = window.collision_tab
+    original_session = tab.session
+    original_enabled = tab._enabled
+    fake = FakeSession()
+    tab.session = fake
+    tab._enabled = True
+    tab._scan_paused = False
+    tab.scan_btn.setText("Start collision scan")
+    timer = tab._scan_timer
+    monkeypatch.setattr(timer, "start", lambda: None)
+    monkeypatch.setattr(timer, "stop", lambda: None)
+    monkeypatch.setattr(timer, "isActive", lambda: False)
+    try:
+        tab._scan_button_clicked()
+        assert tab._scan_paused is True
+        assert tab.scan_btn.text() == "Resume collision scan"
+        tab._scan_button_clicked()
+        assert tab._scan_paused is False
+        assert tab.scan_btn.text() == "Pause collision scan"
+    finally:
+        tab.session = original_session
+        tab._enabled = original_enabled
+        tab._scan_paused = False
+        tab.scan_btn.setText("Start collision scan")
+
+
 def test_layout_change_during_scan_continues_from_current_pulse(
         window, monkeypatch):
     class FakeSession:
@@ -943,6 +997,36 @@ def test_movement_limits_are_saved_and_edited(window, qapp):
         assert tab.project_config()["safe_height_mm"] == pytest.approx(410.0)
     finally:
         tab._disable()
+
+
+def test_scan_target_jump_moves_one_pulse(monkeypatch):
+    session = CollisionTestSession(scene_name=SCENE_NAME)
+    session.ensure_ready()
+    try:
+        session._scan_active = True
+        session._scan_base_targets = [
+            ([0.0, 0.0, 0.0], [0.0, 0.0, 0.0]) for _ in range(4)]
+        session._scan_index = 1
+        session._scan_completed = 1
+        prepared = []
+        monkeypatch.setattr(
+            session, "_prepare_next", lambda: prepared.append(True))
+
+        assert session.can_jump_target(-1)
+        assert session.can_jump_target(1)
+        assert session.jump_target(1) is True
+        assert session._scan_index == 2
+        assert session.jump_target(-1) is True
+        assert session._scan_index == 1
+        assert prepared == [True, True]
+
+        session._scan_index = 0
+        assert not session.can_jump_target(-1)
+        assert not session.jump_target(-1)
+        session._scan_index = 3
+        assert not session.can_jump_target(1)
+    finally:
+        session.dispose()
 
 
 def test_reframe_scan_keeps_progress_and_recomputes_targets(monkeypatch):

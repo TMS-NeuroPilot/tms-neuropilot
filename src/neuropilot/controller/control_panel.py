@@ -1,6 +1,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
+import json
 import math
 import re
 import sys
@@ -1627,6 +1628,54 @@ class MainWindow(QtWidgets.QMainWindow):
             self.cfg_robot_type.addItem("Omron TM5X-700", "omron")
         self.cfg_robot_type.setEditable(True)
 
+        # The collision test stores the accepted cobot pose and movement
+        # limits in the project and lab profile.  Expose the same values here
+        # so they can be inspected or changed without opening the collision
+        # page.
+        robot_layout = self.groupBox_cfg_robot.layout()
+        insert_at = max(0, robot_layout.count() - 1)   # before the hint
+        cobot_cap = QtWidgets.QLabel("Cobot pose")
+        cobot_cap.setProperty("role", "cap")
+        robot_layout.insertWidget(insert_at, cobot_cap)
+        insert_at += 1
+
+        def add_row(label, widget):
+            nonlocal insert_at
+            row = QtWidgets.QHBoxLayout()
+            row.setSpacing(8)
+            cap = QtWidgets.QLabel(label)
+            cap.setProperty("role", "cap")
+            cap.setMinimumWidth(120)
+            row.addWidget(cap)
+            row.addWidget(widget, 1)
+            robot_layout.insertLayout(insert_at, row)
+            insert_at += 1
+
+        for label, attr, choices in (
+                ("Shoulder", "cfg_cobot_shoulder", ("left", "right")),
+                ("Arm", "cfg_cobot_arm", ("up", "down")),
+                ("Wrist", "cfg_cobot_wrist", ("normal", "flipped"))):
+            combo = QtWidgets.QComboBox()
+            combo.addItems(choices)
+            setattr(self, attr, combo)
+            add_row(label, combo)
+
+        limits_cap = QtWidgets.QLabel("Movement limits")
+        limits_cap.setProperty("role", "cap")
+        robot_layout.insertWidget(insert_at, limits_cap)
+        insert_at += 1
+        for label, attr, suffix, maximum, step in (
+                ("Safe Z", "cfg_safe_height", " mm", 2000.0, 10.0),
+                ("Translation", "cfg_translation_threshold", " mm", 500.0, 1.0),
+                ("Rotation", "cfg_rotation_threshold", " deg", 180.0, 1.0)):
+            spin = QtWidgets.QDoubleSpinBox()
+            spin.setRange(0.0, maximum)
+            spin.setDecimals(1)
+            spin.setSingleStep(step)
+            spin.setSuffix(suffix)
+            setattr(self, attr, spin)
+            add_row(label, spin)
+
         self._theme_loading = True
         self.cfg_theme.addItems(list(THEMES))     # populate without writing
         # The .ui carries Precomputed/Online; the interpolated library is the
@@ -2092,6 +2141,86 @@ class MainWindow(QtWidgets.QMainWindow):
             ("ONLINE_FEM_ANISOTROPY", self.cfg_fem_anisotropy, "combo"),
         )
 
+    def _collision_lab_block(self):
+        """Parse the lab profile's COLLISION_TEST JSON, or return None."""
+        raw = self._lab_profile.read().get("COLLISION_TEST")
+        if not raw:
+            return None
+        try:
+            data = json.loads(raw)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return None
+        return data if isinstance(data, dict) else None
+
+    def _effective_cobot_config(self):
+        """Project override, then lab block, then built-in collision defaults."""
+        tab = getattr(self, "collision_tab", None)
+        if tab is not None:
+            current = tab.project_config()
+            if current:
+                return current
+            pending = getattr(tab, "_pending_config", None)
+            if pending:
+                normalised = tab._validated_config(pending)
+                if normalised:
+                    return normalised
+        lab = self._collision_lab_block()
+        if tab is not None and lab:
+            normalised = tab._validated_config(lab)
+            if normalised:
+                return normalised
+        from ..sim_robot import config as sim_config
+        from .collision_test import branch_of_active
+        start = list(sim_config.START_JOINTS)
+        return {
+            "head_position_m": list(sim_config.HEAD_POSITION),
+            "head_orientation_deg": list(sim_config.HEAD_ORIENTATION),
+            "robot_base_position_m": list(sim_config.ROBOT_BASE_POSITION),
+            "robot_base_orientation_deg": list(sim_config.ROBOT_BASE_ORIENTATION),
+            "start_joints_rad": start,
+            "branch": list(branch_of_active(start)),
+            "safe_height_mm": float(sim_config.SAFE_HEIGHT_MM),
+            "translation_threshold_mm": float(
+                sim_config.TRANSLATION_THRESHOLD_MM),
+            "rotation_threshold_deg": float(
+                sim_config.ROTATION_THRESHOLD_DEG),
+        }
+
+    def refresh_cobot_settings_from_collision(self):
+        """Show the effective cobot pose and movement limits on Config › Lab."""
+        if not hasattr(self, "cfg_cobot_shoulder"):
+            return
+        config = self._effective_cobot_config()
+        branch = list(config.get("branch") or ())
+        for combo, value in zip(
+                (self.cfg_cobot_shoulder, self.cfg_cobot_arm,
+                 self.cfg_cobot_wrist), branch):
+            index = combo.findText(str(value))
+            if index >= 0:
+                combo.setCurrentIndex(index)
+        self.cfg_safe_height.setValue(
+            float(config.get("safe_height_mm", 350.0)))
+        self.cfg_translation_threshold.setValue(
+            float(config.get("translation_threshold_mm", 20.0)))
+        self.cfg_rotation_threshold.setValue(
+            float(config.get("rotation_threshold_deg", 15.0)))
+
+    def _cobot_lab_block(self):
+        """Existing collision block with the Config-page values merged in."""
+        config = dict(self._collision_lab_block()
+                      or self._effective_cobot_config())
+        config["branch"] = [
+            self.cfg_cobot_shoulder.currentText().strip(),
+            self.cfg_cobot_arm.currentText().strip(),
+            self.cfg_cobot_wrist.currentText().strip(),
+        ]
+        config["safe_height_mm"] = float(self.cfg_safe_height.value())
+        config["translation_threshold_mm"] = float(
+            self.cfg_translation_threshold.value())
+        config["rotation_threshold_deg"] = float(
+            self.cfg_rotation_threshold.value())
+        return config
+
     def lab_values(self):
         """Current Lab-page values, as they would be written to lab.yaml."""
         values = {}
@@ -2200,6 +2329,7 @@ class MainWindow(QtWidgets.QMainWindow):
             env.get("VIRTUAL_MEP_TRIAL_VARIABILITY"),
             self._as_bool(self._config_defaults.get("VIRTUAL_MEP_TRIAL_VARIABILITY"), True)))
         self._refresh_simulation_summary()
+        self.refresh_cobot_settings_from_collision()
 
         saved_theme = env.get("UI_THEME") or lab.get("UI_THEME")
         if saved_theme:
@@ -2272,6 +2402,9 @@ class MainWindow(QtWidgets.QMainWindow):
         wins after the restart.
         """
         lab_values = self.lab_values()
+        if hasattr(self, "cfg_cobot_shoulder"):
+            lab_values["COLLISION_TEST"] = json.dumps(
+                self._cobot_lab_block())
         env_values = {
             "EMG_CHANNELS": self.cfg_emg_channels.text().strip(),
             "SAMPLING_RATE": str(self.cfg_sampling_rate.value()),
