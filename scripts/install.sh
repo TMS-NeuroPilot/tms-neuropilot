@@ -3,7 +3,9 @@
 #
 #   scripts/install.sh                         # conda env 'neuropilot'
 #   scripts/install.sh --env-name my-env      # custom conda env name
-#   scripts/install.sh --with-invesalius      # also clone + install InVesalius
+#   scripts/install.sh --with-invesalius      # install the PR test InVesalius branch
+#   scripts/install.sh --with-invesalius --with-robot-control
+#                                             # also clone the GitHub robot-control fork
 #
 # Prerequisite: conda (miniforge or miniconda) on the PATH.
 # The environment spec is environment.yml in the repository root; the
@@ -11,15 +13,20 @@
 set -euo pipefail
 
 usage() {
-    echo "usage: scripts/install.sh [--env-name NAME] [--with-invesalius]"
+    echo "usage: scripts/install.sh [--env-name NAME] [--with-invesalius] [--with-robot-control]"
 }
 
 WITH_INVESALIUS=0
+WITH_ROBOT_CONTROL=0
 ENV_NAME="neuropilot"
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --with-invesalius)
             WITH_INVESALIUS=1
+            shift
+            ;;
+        --with-robot-control)
+            WITH_ROBOT_CONTROL=1
             shift
             ;;
         --env-name)
@@ -57,6 +64,14 @@ fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
+
+# Temporary local-test refs. Override with the NEUROPILOT_* variables.
+INV_REPO="${NEUROPILOT_INVESALIUS_REPO:-https://github.com/0nu/invesalius3.git}"
+INV_REF="${NEUROPILOT_INVESALIUS_REF:-installer-three-prs}"
+INV_DIR="${NEUROPILOT_INVESALIUS_DIR:-$(dirname "$REPO_ROOT")/invesalius-prs}"
+ROBOT_REPO="${NEUROPILOT_ROBOT_REPO:-https://github.com/0nu/tms-robot-control.git}"
+ROBOT_REF="${NEUROPILOT_ROBOT_REF:-pipeline-relay-channels}"
+ROBOT_DIR="${NEUROPILOT_ROBOT_DIR:-$(dirname "$REPO_ROOT")/tms-robot-control}"
 
 announce() {
     printf '[install] %s\n' "$*"
@@ -139,14 +154,15 @@ if ! import_check >"$IMPORT_LOG" 2>&1; then
 fi
 announce "all required imports loaded."
 
-# ── 4. Optional: InVesalius (real, manual and training modes) ───────────
+# ── 4. Optional: InVesalius PR test branch ─────────────────────────────
 if [ "$WITH_INVESALIUS" -eq 1 ]; then
-    INV_DIR="$(dirname "$REPO_ROOT")/invesalius-mpi"
     if [ ! -d "$INV_DIR" ]; then
-        announce "cloning InVesalius into $INV_DIR..."
-        git clone https://gitlab.gwdg.de/tms-localization/cobot/invesalius-mpi.git "$INV_DIR"
+        announce "cloning InVesalius '$INV_REF' from GitHub into $INV_DIR..."
+        git clone --branch "$INV_REF" --depth 1 "$INV_REPO" "$INV_DIR"
     else
-        announce "using existing InVesalius checkout at $INV_DIR."
+        announce "using existing InVesalius checkout at $INV_DIR; checking out '$INV_REF'..."
+        git -C "$INV_DIR" fetch origin "$INV_REF" --depth 1
+        git -C "$INV_DIR" checkout "$INV_REF"
     fi
     if ! conda env list | grep -qE '^invesalius\s'; then
         announce "creating conda env 'invesalius'..."
@@ -164,6 +180,32 @@ if [ "$WITH_INVESALIUS" -eq 1 ]; then
     pip install -e "$INV_DIR" --no-deps
     conda activate "$ENV_NAME"
     announce "InVesalius installed in the 'invesalius' env ($INV_DIR)."
+fi
+
+# ── 5. Optional: GitHub robot-control checkout ──────────────────────────
+if [ "$WITH_ROBOT_CONTROL" -eq 1 ]; then
+    if [ ! -d "$ROBOT_DIR" ]; then
+        announce "cloning robot-control '$ROBOT_REF' from GitHub into $ROBOT_DIR..."
+        git clone --branch "$ROBOT_REF" --depth 1 "$ROBOT_REPO" "$ROBOT_DIR"
+    else
+        announce "using existing robot-control checkout at $ROBOT_DIR; checking out '$ROBOT_REF'..."
+        git -C "$ROBOT_DIR" fetch origin "$ROBOT_REF" --depth 1
+        git -C "$ROBOT_DIR" checkout "$ROBOT_REF"
+    fi
+    if [ -f "$ROBOT_DIR/.env.example" ] && [ ! -f "$ROBOT_DIR/.env" ]; then
+        cp "$ROBOT_DIR/.env.example" "$ROBOT_DIR/.env"
+        announce "created $ROBOT_DIR/.env from .env.example; edit it for your robot."
+    fi
+    ENV_FILE="$REPO_ROOT/.env"
+    if [ -f "$ENV_FILE" ] && ! grep -q '^TMS_ROBOT_CONTROL_PATH=' "$ENV_FILE"; then
+        printf '\nTMS_ROBOT_CONTROL_PATH="%s"\n' "$ROBOT_DIR" >> "$ENV_FILE"
+        announce "added TMS_ROBOT_CONTROL_PATH to $ENV_FILE"
+    elif [ ! -f "$ENV_FILE" ]; then
+        echo "[install] create $ENV_FILE and set:"
+        echo "  TMS_ROBOT_CONTROL_PATH=\"$ROBOT_DIR\""
+    fi
+    echo "[install] robot-control dependencies:"
+    echo "  conda activate $ENV_NAME && pip install -r $ROBOT_DIR/requirements.txt"
 fi
 
 announce "installation complete. Start with:  conda activate $ENV_NAME && neuropilot sim"
