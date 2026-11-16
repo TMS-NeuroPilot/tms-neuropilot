@@ -208,13 +208,19 @@ so GNOME does not reuse its cached placeholder.
 ## InVesalius (real, manual and training modes)
 
 The simulator does not need InVesalius. Real, manual and training sessions use
-it for neuronavigation, and it runs in its own conda environment. Use the group's fork:
-stock upstream InVesalius does not publish the relay topics or the tracker
-handling that NeuroPilot expects.
+it for neuronavigation, and it runs in its own conda environment. Use the main
+InVesalius repository:
+
+```text
+https://github.com/invesalius/invesalius3
+```
+
+The relay and tracker changes are being proposed upstream; use the branch from
+the relevant pull request until they are merged.
 
 ```bash
-git clone https://gitlab.gwdg.de/tms-localization/cobot/invesalius-mpi.git
-cd invesalius-mpi
+git clone https://github.com/invesalius/invesalius3.git
+cd invesalius3
 conda create -n invesalius python=3.12 -y
 conda activate invesalius
 conda install -c conda-forge -y wxpython=4.2.2 numpy scipy pillow matplotlib \
@@ -234,8 +240,8 @@ Two details that cause most failed installs:
 
 `--no-deps` keeps pip from resolving the full dependency set, and from
 rebuilding wxPython; the navigation runtime is already in the environment. The
-two pip packages before it are runtime additions that the fork imports but does
-not list in `requirements.txt`: the relay client (`python-socketio`) and the
+two pip packages before it are runtime additions that the PR changes import but
+do not list in `requirements.txt`: the relay client (`python-socketio`) and the
 NDI tracker binding (`pypolaris`).
 
 `torch`, the backend for the deep-learning segmentation tools, is not needed
