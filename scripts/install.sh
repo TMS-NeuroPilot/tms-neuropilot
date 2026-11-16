@@ -58,17 +58,26 @@ fi
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+announce() {
+    printf '[install] %s\n' "$*"
+    sleep 1
+}
+
 # ── 1. Conda environment from the one-file spec ────────────────────────
 if conda env list | awk -v name="$ENV_NAME" '$1 == name { found=1 } END { exit !found }'; then
-    echo "[install] conda env '$ENV_NAME' already exists -- skipping create"
+    announce "conda env '$ENV_NAME' already exists; reusing it."
 else
+    announce "creating conda env '$ENV_NAME' from environment.yml (this can take several minutes)..."
     conda env create -f environment.yml -n "$ENV_NAME"
 fi
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate "$ENV_NAME"
+announce "activated conda env '$ENV_NAME'."
 
 # ── 2. NeuPilot in editable mode ────────────────────────────────────────
+announce "installing NeuroPilot in editable mode..."
 pip install -e . --no-deps
+announce "NeuroPilot installed; checking required imports..."
 
 # ── 3. Verify the heavy imports before anything else runs ──────────────
 import_check() {
@@ -105,9 +114,10 @@ if ! import_check >"$IMPORT_LOG" 2>&1; then
             SIMNIBS_LIB="$(conda info --base)/envs/pipeline/lib"
         fi
         if [ -d "$SIMNIBS_LIB" ]; then
-            echo "[install] missing MKL .so.2 libraries; copying them from $SIMNIBS_LIB"
+            announce "missing MKL .so.2 libraries; copying them from $SIMNIBS_LIB"
             find "$SIMNIBS_LIB" -maxdepth 1 -name 'libmkl*.so.2' \
                 -exec cp -a {} "$CONDA_PREFIX/lib/" \;
+            announce "MKL repair complete; rechecking imports..."
             if ! import_check >"$IMPORT_LOG" 2>&1; then
                 cat "$IMPORT_LOG"
                 echo "[install] the MKL repair did not fix the imports; see docs/site/pages/install/install.md"
@@ -123,25 +133,33 @@ if ! import_check >"$IMPORT_LOG" 2>&1; then
         exit 1
     fi
 fi
-echo "[install] imports ok"
+announce "all required imports loaded."
 
 # ── 4. Optional: InVesalius (real, manual and training modes) ───────────
 if [ "$WITH_INVESALIUS" -eq 1 ]; then
     INV_DIR="$(dirname "$REPO_ROOT")/invesalius-mpi"
     if [ ! -d "$INV_DIR" ]; then
+        announce "cloning InVesalius into $INV_DIR..."
         git clone https://gitlab.gwdg.de/tms-localization/cobot/invesalius-mpi.git "$INV_DIR"
+    else
+        announce "using existing InVesalius checkout at $INV_DIR."
     fi
     if ! conda env list | grep -qE '^invesalius\s'; then
+        announce "creating conda env 'invesalius'..."
         conda create -n invesalius python=3.12 -y
+    else
+        announce "conda env 'invesalius' already exists; reusing it."
     fi
     conda activate invesalius
+    announce "installing InVesalius dependencies in 'invesalius'..."
     conda install -c conda-forge -y wxpython=4.2.2 numpy scipy pillow matplotlib \
         scikit-image nibabel pyserial psutil vtk==9.4.2 cython h5py imageio \
         pypubsub gdcm pyacvd
+    announce "installing InVesalius Python packages..."
     pip install "python-socketio[client]" pypolaris
     pip install -e "$INV_DIR" --no-deps
     conda activate "$ENV_NAME"
-    echo "[install] InVesalius installed in the 'invesalius' env ($INV_DIR)"
+    announce "InVesalius installed in the 'invesalius' env ($INV_DIR)."
 fi
 
-echo "[install] done. Start with:  conda activate $ENV_NAME && neuropilot sim"
+announce "installation complete. Start with:  conda activate $ENV_NAME && neuropilot sim"
