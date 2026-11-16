@@ -65,6 +65,11 @@ fi
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+if [ ! -f "$REPO_ROOT/.env" ] && [ -f "$REPO_ROOT/.env.example" ]; then
+    cp "$REPO_ROOT/.env.example" "$REPO_ROOT/.env"
+    announce "created $REPO_ROOT/.env from .env.example"
+fi
+
 # Temporary local-test refs. Override with the NEUROPILOT_* variables.
 INV_REPO="${NEUROPILOT_INVESALIUS_REPO:-https://github.com/0nu/invesalius3.git}"
 INV_REF="${NEUROPILOT_INVESALIUS_REF:-installer-three-prs}"
