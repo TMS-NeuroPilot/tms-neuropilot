@@ -183,7 +183,10 @@ if [ "$WITH_INVESALIUS" -eq 1 ]; then
     announce "installing InVesalius Python packages..."
     # The upstream package imports its deep-learning module during startup,
     # so pandas and torch are needed even for a navigation-only session.
-    pip install "scipy==1.14.0" "pandas==2.3.3" "nibabel==5.2.1" \
+    # Newer tifffile and ml_dtypes releases force NumPy 2; keep both pinned
+    # to versions that work with the NumPy 1.26 ABI.
+    pip install "numpy==1.26.4" "scipy==1.14.0" "pandas==2.3.3" \
+        "tifffile==2026.3.3" "ml_dtypes==0.5.4" "nibabel==5.2.1" \
         "scikit-image==0.24.0" "h5py==3.11.0" "imageio==2.34.2" \
         "matplotlib==3.9.0" "pillow==10.3.0" "pydicom==2.4.5" \
         "pynetdicom==2.0.2" "lib3mf==2.3.2" "onnx>=1.17,<2" onnxruntime \

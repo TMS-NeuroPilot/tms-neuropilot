@@ -225,7 +225,8 @@ conda create -n invesalius python=3.12 -y
 conda activate invesalius
 conda install -c conda-forge -y wxpython=4.2.2 "numpy=1.26.4" \
     vtk==9.4.2 cython pyserial psutil pypubsub gdcm pyacvd
-pip install "scipy==1.14.0" "pandas==2.3.3" "nibabel==5.2.1" \
+pip install "numpy==1.26.4" "scipy==1.14.0" "pandas==2.3.3" \
+    "tifffile==2026.3.3" "ml_dtypes==0.5.4" "nibabel==5.2.1" \
     "scikit-image==0.24.0" "h5py==3.11.0" "imageio==2.34.2" \
     "matplotlib==3.9.0" "pillow==10.3.0" "pydicom==2.4.5" \
     "pynetdicom==2.0.2" "lib3mf==2.3.2" "onnx>=1.17,<2" onnxruntime \
