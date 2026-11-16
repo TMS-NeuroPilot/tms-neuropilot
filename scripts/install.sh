@@ -107,7 +107,7 @@ import traceback
 
 modules = (
     "numpy", "h5py", "PyQt5", "qasync", "pyvista", "mujoco",
-    "pybullet", "pynibs", "magicpy", "simnibs",
+    "pybullet", "pynibs", "magicpy", "simnibs", "pandas", "seaborn",
 )
 failed = []
 for name in modules:

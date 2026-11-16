@@ -24,6 +24,7 @@ dependencies:
   - aiohttp
   - pandas
   - matplotlib
+  - seaborn
   - pyqt=5.15
   - qasync
   - pyvista
