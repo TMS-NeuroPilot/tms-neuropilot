@@ -63,26 +63,42 @@ check:docs:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH'
 
+# The full headless suite runs on a **lab workstation runner** — a
+# gitlab-runner with the `lab` tag and a *shell* executor, registered on a
+# lab PC where the project's `pipeline` conda environment exists
+# (scripts/ci-python.sh finds it).  It runs once a day from the nightly
+# pipeline schedule (CI/CD -> Schedules, cron 0 9 * * *) and can be started
+# by hand from any pipeline view.  Every push runs only the cheap gates
+# above; nothing is installed by the pipeline, so a shared runner cannot
+# run this job (no `pipeline` env) and the fake-green skip it used to
+# report is gone.
 test:
   stage: test
-  image: python:3.11
+  tags:
+    - lab
   before_script: []
   script:
-    # The suite imports PyQt5, pynibs, simnibs and mujoco, which only the lab
-    # `pipeline` environment has.  On a shared runner those are absent; say so
-    # once and skip instead of failing a pipeline that cannot possibly pass.
-    # Run `scripts/run_tests.sh` locally or point a lab runner at this job.
-    - python3 -c "import PyQt5, pynibs, simnibs, mujoco" || { echo "lab Python environment not available on this runner -- suite skipped"; exit 0; }
+    - PYTHON=$(bash scripts/ci-python.sh)
+    # The suite imports PyQt5, pynibs, simnibs and mujoco, which only the
+    # `pipeline` environment has.  Fail loudly if the workstation env is
+    # missing instead of reporting a skip as success.
+    - '$PYTHON -c "import PyQt5, pynibs, simnibs, mujoco" || { echo "lab Python environment not available on this runner"; exit 1; }'
     - mkdir -p "$ROOT_FOLDER"
-    - python3 -m pytest -m "not gui" -q --junitxml=report.xml
+    - '$PYTHON -m pytest -m "not gui" -q --junitxml=report.xml'
   artifacts:
     when: always
     expire_in: 1 week
     reports:
       junit: report.xml
   rules:
+    # Once a day: the nightly schedule on the lab workstation.
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    # Startable by hand from the pipeline view (only the lab runner picks
+    # this job up - it carries the `lab` tag).
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: manual
     - if: '$CI_COMMIT_BRANCH'
+      when: manual
 
 # GitLab Pages: publish the documentation site.  The `pages` job name and the
 # `public` artifact are what GitLab expects; the build needs no network.
@@ -103,33 +119,34 @@ pages:
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 
-# Optional: run on a machine with a display (the six-page snapshot test needs
-# OpenGL, so a headless runner is not enough).  Start it by hand from the
-# pipeline view.
+# The GUI tests build real Qt windows and need OpenGL and a display: run on
+# the lab workstation runner (the same `lab`-tagged shell runner as `test`),
+# once a day from the nightly schedule and by hand from the pipeline view.
 test:gui:
   stage: test
-  image: python:3.11
+  tags:
+    - lab
   when: manual
   allow_failure: true
   before_script: []
   script:
-    # Needs PyQt5, OpenGL and a display: start it on a lab workstation runner
-    # (or a purpose-built image), not on the shared alpine runner.
-    - python3 -c "import PyQt5" || { echo "PyQt5/display not available on this runner -- see the comment in .gitlab-ci.yml"; exit 1; }
+    - PYTHON=$(bash scripts/ci-python.sh)
+    - '$PYTHON -c "import PyQt5" || { echo "PyQt5/display not available on this runner"; exit 1; }'
     - mkdir -p "$ROOT_FOLDER"
-    - python3 -m pytest -m gui -q --junitxml=report-gui.xml
+    - '$PYTHON -m pytest -m gui -q --junitxml=report-gui.xml'
   artifacts:
     when: always
     expire_in: 1 week
     reports:
       junit: report-gui.xml
   rules:
+    # Once a day: the nightly schedule on the lab workstation.  `when: always`
+    # overrides the job-level `manual` so the schedule really runs it.
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: always
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: manual
       allow_failure: true
     - if: '$CI_COMMIT_BRANCH'
       when: manual
       allow_failure: true
-  # Uncomment and set the tag of a runner that has a display:
-  # tags:
-  #   - workstation

@@ -7,6 +7,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **The full test suite runs once a day in CI, not on every commit.** The
+  headless suite moves to a `lab`-tagged workstation runner (a gitlab-runner
+  with a shell executor on a lab PC, where the `pipeline` env exists) and
+  runs from the nightly pipeline schedule (cron 09:00 UTC) plus by hand from
+  any pipeline view.  Every push runs the cheap gates only (syntax, docs,
+  pages) - the old push `test` job reported a fake green: the heavy imports
+  are absent on a shared runner, so it skipped the whole suite and still
+  said success.  A missing workstation env now fails loudly instead.  The
+  GUI tests join the nightly schedule on the same runner.  Setup: register
+  a gitlab-runner with tag `lab` and a shell executor on a lab PC.
+
 - **Contact colours cover both sides.** The colour-by-collision overlay on
   the Collision test page tints both bodies of a real self-collision (e.g.
   the coil handle against the shoulder) and the head mesh itself on a head
