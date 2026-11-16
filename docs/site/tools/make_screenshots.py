@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Regenerate the screenshots used by the documentation site.
 
-    conda activate pipeline
+    conda activate neuropilot
     python docs/site/tools/make_screenshots.py [--keep-stack]
 
 The script:

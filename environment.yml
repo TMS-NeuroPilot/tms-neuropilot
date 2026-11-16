@@ -3,14 +3,14 @@
 #   git clone https://gitlab.gwdg.de/tms-localization/papers/neuropilot.git
 #   cd neuropilot
 #   conda env create -f environment.yml
-#   conda activate pipeline
+#   conda activate neuropilot
 #   pip install -e . --no-deps
 #
 # or run scripts/install.sh, which does all of the above (and optionally
 # installs InVesalius). Derived from a working lab environment; the
 # long-form recipe with the reasoning is
 # docs/site/pages/install/install.md.
-name: pipeline
+name: neuropilot
 channels:
   - conda-forge
 dependencies:

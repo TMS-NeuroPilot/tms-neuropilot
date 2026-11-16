@@ -6,7 +6,7 @@
 |---|---|
 | **Operating system** | Linux. The suite is developed and used on Debian/Ubuntu; macOS and Windows are not tested. |
 | **Display** | A graphical session (X11, or Wayland with XWayland). The controller is a PyQt5 application and needs a display; headless runs only make sense for the test suite. |
-| **Python** | 3.11, in a conda environment named `pipeline` throughout this documentation. |
+| **Python** | 3.11, in a conda environment named `neuropilot` throughout this documentation. |
 | **Disk** | ~6 GB for the environment and SimNIBS; subject meshes and E-field libraries add several GB per subject. |
 | **RAM** | 8 GB is enough for the simulator and the GUI; a full SimNIBS head mesh and the online solver are happier with 16 GB. |
 | **GPU** | None required. The 3-D view uses OpenGL; Mesa's software renderer is fine for everything except smooth interaction with a million-triangle mesh. |

@@ -1,7 +1,7 @@
 # Quick start
 
 This page takes you from a fresh clone to a running simulated mapping session.
-It needs no hardware and no subject data. With the `pipeline` environment
+It needs no hardware and no subject data. With the `neuropilot` environment
 already in place it takes about ten minutes; creating that environment the first
 time takes longer.
 
@@ -25,8 +25,8 @@ cd neuropilot
 ## 2. Create the environment
 
 ```bash
-conda create -n pipeline python=3.11 -y
-conda activate pipeline
+conda create -n neuropilot python=3.11 -y
+conda activate neuropilot
 python --version          # must be 3.11.x
 conda install -c conda-forge -y pyqt qasync pyvista vtk h5py scipy numpy \
     pyyaml requests python-socketio aiohttp python-dotenv
@@ -34,7 +34,7 @@ pip install mujoco pybullet ikpy smbprotocol pynibs
 ```
 
 These are the packages the GUI, the 3-D view, the relay, the analysis and the
-virtual robot need. If the `pipeline` environment already exists, activate it
+virtual robot need. If the `neuropilot` environment already exists, activate it
 and skip the create/install lines.
 
 SimNIBS is not needed to run the simulator or the precomputed mapping mode. It
@@ -186,7 +186,7 @@ results** page has a mesh to draw on.
 
 | Symptom | First thing to try |
 |---|---|
-| `neuropilot: command not found` | `pip install -e . --no-deps` in the active `pipeline` env |
+| `neuropilot: command not found` | `pip install -e . --no-deps` in the active `neuropilot` env |
 | Controller window never appears | Check the last 30 lines of the terminal for a traceback; a missing `DISPLAY` is the usual cause on a remote machine |
 | `ROOT_FOLDER` permission error | `ROOT_FOLDER=/tmp/neuropilot_test neuropilot sim` |
 | MuJoCo window fails to open on Wayland | See `PYGLFW_LIBRARY` in [Troubleshooting](reference/troubleshooting.md) |

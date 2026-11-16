@@ -12,7 +12,7 @@ without any physical device.
 ## Quick start
 
 ```bash
-pip install -e . --no-deps      # in the `pipeline` conda env (heavy deps come from conda)
+pip install -e . --no-deps      # in the `neuropilot` conda env (heavy deps come from conda)
 neuropilot                      # GUI: choose simulated or real
 neuropilot sim                  # simulated stack, one command
 neuropilot sim --components relay,robot    # subset for debugging
@@ -29,7 +29,7 @@ shuts the whole stack down.
 
 NeuroPilot's four components and the whole simulated stack are
 cross-platform. On Windows (Python 3.11+ in a conda env with the heavy deps
-installed — same `pipeline` environment as on Linux):
+installed — same `neuropilot` environment as on Linux):
 
 ```bat
 pip install -e . --no-deps
@@ -151,7 +151,7 @@ write a scene file per process, so the workers cannot read each other's
 head or base pose.
 
 CI (`.gitlab-ci.yml`) runs a syntax gate and `pytest -m "not gui"` on every
-push and merge request.  `scripts/ci-python.sh` finds the `pipeline`
+push and merge request.  `scripts/ci-python.sh` finds the `neuropilot`
 interpreter automatically (`PYTHON`, then the usual conda locations, then
 `python3`), so the job needs no configuration when the runner has that
 environment.  The GUI tests are a separate, manually started job for a runner

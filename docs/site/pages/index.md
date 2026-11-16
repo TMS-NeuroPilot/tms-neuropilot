@@ -94,7 +94,7 @@ functions and brain regions.
 ## Run the simulator in three commands
 
 ```bash
-conda activate pipeline
+conda activate neuropilot
 pip install -e . --no-deps          # once, from the repository root
 neuropilot sim                      # relay → nav + robot → controller
 ```

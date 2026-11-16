@@ -16,7 +16,7 @@ stages:
   - deploy
 
 variables:
-  # Empty -> scripts/ci-python.sh looks for the `pipeline` env.
+  # Empty -> scripts/ci-python.sh looks for the `neuropilot` env.
   PYTHON: ""
   # Keep every artefact out of the runner's home directory, and do not let a
   # checked-out .env or a developer's lab profile influence the run.
@@ -33,7 +33,7 @@ default:
     # Quoted: an unquoted "Interpreter: ..." is a YAML mapping, which makes the
     # whole pipeline invalid (GitLab then runs no job at all).
     - 'echo "Interpreter: $PYTHON ($($PYTHON --version 2>&1))"'
-    - '$PYTHON -c "import pytest" || { echo "pytest is not installed in $PYTHON -- point PYTHON at the pipeline env"; exit 1; }'
+    - '$PYTHON -c "import pytest" || { echo "pytest is not installed in $PYTHON -- point PYTHON at the neuropilot env"; exit 1; }'
 
 
 # Cheap and dependency-free: catches a syntax error even on a runner where the
@@ -122,7 +122,7 @@ pages:
   stage: deploy
   image: python:3.11-alpine
   # Deploy the docs independently of the heavy test stage: a runner without
-  # the `pipeline` conda env can still publish the site.  `build.py` already
+  # the `neuropilot` conda env can still publish the site.  `build.py` already
   # fails on broken links, so the artifact is checked by construction.
   needs: []
   before_script: []

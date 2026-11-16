@@ -3,11 +3,12 @@
 #
 # Priority:
 #   1. $PYTHON, if it is an executable path or on the PATH
-#   2. the project's `pipeline` conda environment in the usual locations
-#   3. python3
+#   2. the project's `neuropilot` conda environment in the usual locations
+#   3. the legacy `pipeline` environment, for existing lab machines
+#   4. python3
 #
 # The suite imports PyQt5, pynibs, simnibs and mujoco, which only the
-# `pipeline` environment has (see README).  Keeping the detection here means
+# `neuropilot` environment has (see README).  Keeping the detection here means
 # the CI job and the local script agree on what "the right python" is.
 set -euo pipefail
 
@@ -24,17 +25,20 @@ if [ -n "${PYTHON:-}" ]; then
     exit 1
 fi
 
-for candidate in \
-    "${HOME}/miniforge3/envs/pipeline/bin/python" \
-    "${HOME}/miniconda3/envs/pipeline/bin/python" \
-    "${HOME}/anaconda3/envs/pipeline/bin/python" \
-    "/opt/conda/envs/pipeline/bin/python" \
-    "/opt/miniforge3/envs/pipeline/bin/python" \
-    "/usr/local/envs/pipeline/bin/python"; do
-    if [ -x "$candidate" ]; then
-        echo "$candidate"
-        exit 0
-    fi
+for env_name in neuropilot pipeline; do
+    for prefix in \
+        "${HOME}/miniforge3" \
+        "${HOME}/miniconda3" \
+        "${HOME}/anaconda3" \
+        "/opt/conda" \
+        "/opt/miniforge3" \
+        "/usr/local"; do
+        candidate="${prefix}/envs/${env_name}/bin/python"
+        if [ -x "$candidate" ]; then
+            echo "$candidate"
+            exit 0
+        fi
+    done
 done
 
 if command -v python3 >/dev/null 2>&1; then
@@ -42,5 +46,5 @@ if command -v python3 >/dev/null 2>&1; then
     exit 0
 fi
 
-echo "no Python interpreter found (set PYTHON to the pipeline env)" >&2
+echo "no Python interpreter found (set PYTHON to the neuropilot env)" >&2
 exit 1
