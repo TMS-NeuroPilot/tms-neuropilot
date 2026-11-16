@@ -223,10 +223,15 @@ git clone https://github.com/invesalius/invesalius3.git
 cd invesalius3
 conda create -n invesalius python=3.12 -y
 conda activate invesalius
-conda install -c conda-forge -y wxpython=4.2.2 numpy scipy pillow matplotlib \
-    scikit-image nibabel pyserial psutil vtk==9.4.2 cython h5py imageio \
-    pypubsub gdcm pyacvd
-pip install "python-socketio[client]" pypolaris
+conda install -c conda-forge -y wxpython=4.2.2 "numpy=1.26.4" \
+    vtk==9.4.2 cython pyserial psutil pypubsub gdcm pyacvd
+pip install "scipy==1.14.0" "pandas==2.3.3" "nibabel==5.2.1" \
+    "scikit-image==0.24.0" "h5py==3.11.0" "imageio==2.34.2" \
+    "matplotlib==3.9.0" "pillow==10.3.0" "pydicom==2.4.5" \
+    "pynetdicom==2.0.2" "lib3mf==2.3.2" "onnx>=1.17,<2" onnxruntime \
+    "python-socketio[client]" pypolaris
+pip install --extra-index-url https://download.pytorch.org/whl/cpu \
+    "torch==2.15.0+cpu"
 pip install -e . --no-deps
 ```
 
@@ -239,13 +244,11 @@ Two details that cause most failed installs:
   install takes much longer.
 
 `--no-deps` keeps pip from resolving the full dependency set, and from
-rebuilding wxPython; the navigation runtime is already in the environment. The
-two pip packages before it are runtime additions that the PR changes import but
-do not list in `requirements.txt`: the relay client (`python-socketio`) and the
-NDI tracker binding (`pypolaris`).
-
-`torch`, the backend for the deep-learning segmentation tools, is not needed
-for navigation; install it separately if you use those tools.
+rebuilding wxPython. The Python packages above are installed explicitly because
+this branch imports its deep-learning module during startup: `pandas` and
+`torch` are required even for a navigation-only session. The CPU torch wheel is
+enough for normal use; install a CUDA build separately if you use GPU
+segmentation.
 
 Start it pointed at the relay:
 

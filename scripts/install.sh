@@ -65,6 +65,11 @@ fi
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+announce() {
+    printf '[install] %s\n' "$*"
+    sleep 1
+}
+
 if [ ! -f "$REPO_ROOT/.env" ] && [ -f "$REPO_ROOT/.env.example" ]; then
     cp "$REPO_ROOT/.env.example" "$REPO_ROOT/.env"
     announce "created $REPO_ROOT/.env from .env.example"
@@ -77,11 +82,6 @@ INV_DIR="${NEUROPILOT_INVESALIUS_DIR:-$(dirname "$REPO_ROOT")/invesalius-prs}"
 ROBOT_REPO="${NEUROPILOT_ROBOT_REPO:-https://github.com/0nu/tms-robot-control.git}"
 ROBOT_REF="${NEUROPILOT_ROBOT_REF:-installer-omron-relay}"
 ROBOT_DIR="${NEUROPILOT_ROBOT_DIR:-$(dirname "$REPO_ROOT")/tms-robot-control}"
-
-announce() {
-    printf '[install] %s\n' "$*"
-    sleep 1
-}
 
 # ── 1. Conda environment from the one-file spec ────────────────────────
 if conda env list | awk -v name="$ENV_NAME" '$1 == name { found=1 } END { exit !found }'; then
@@ -177,12 +177,29 @@ if [ "$WITH_INVESALIUS" -eq 1 ]; then
     fi
     conda activate invesalius
     announce "installing InVesalius dependencies in 'invesalius'..."
-    conda install -c conda-forge -y wxpython=4.2.2 numpy scipy pillow matplotlib \
-        scikit-image nibabel pyserial psutil vtk==9.4.2 cython h5py imageio \
-        pypubsub gdcm pyacvd
+    # InVesalius pins NumPy 1.26; keep conda from solving a newer ABI.
+    conda install -c conda-forge -y wxpython=4.2.2 "numpy=1.26.4" \
+        vtk==9.4.2 cython pyserial psutil pypubsub gdcm pyacvd
     announce "installing InVesalius Python packages..."
-    pip install "python-socketio[client]" pypolaris
+    # The upstream package imports its deep-learning module during startup,
+    # so pandas and torch are needed even for a navigation-only session.
+    pip install "scipy==1.14.0" "pandas==2.3.3" "nibabel==5.2.1" \
+        "scikit-image==0.24.0" "h5py==3.11.0" "imageio==2.34.2" \
+        "matplotlib==3.9.0" "pillow==10.3.0" "pydicom==2.4.5" \
+        "pynetdicom==2.0.2" "lib3mf==2.3.2" "onnx>=1.17,<2" onnxruntime \
+        "python-socketio[client]" pypolaris
+    pip install --extra-index-url https://download.pytorch.org/whl/cpu \
+        "torch==2.15.0+cpu"
     pip install -e "$INV_DIR" --no-deps
+    # The upstream GUI entry point names invesalius.app, but app.py lives at
+    # the repository root. Keep the shortcut usable in the installed checkout.
+    if ! python -c 'import invesalius.app' >/dev/null 2>&1; then
+        cat > "$CONDA_PREFIX/bin/inv" <<EOF
+#!/usr/bin/env bash
+exec "$CONDA_PREFIX/bin/python" "$INV_DIR/app.py" "\$@"
+EOF
+        chmod +x "$CONDA_PREFIX/bin/inv"
+    fi
     conda activate "$ENV_NAME"
     announce "InVesalius installed in the 'invesalius' env ($INV_DIR)."
 fi
@@ -217,4 +234,7 @@ fi
 announce "installation complete. Start with:  conda activate $ENV_NAME && neuropilot sim"
 if [ "$WITH_ROBOT_CONTROL" -eq 1 ]; then
     echo "[install] robot-control:  conda activate $ENV_NAME && cd $ROBOT_DIR && python main_loop.py"
+fi
+if [ "$WITH_INVESALIUS" -eq 1 ]; then
+    echo "[install] InVesalius:     conda activate invesalius && cd $INV_DIR && python app.py --remote-host http://localhost:5000"
 fi
