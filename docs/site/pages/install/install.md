@@ -94,9 +94,9 @@ SimNIBS `.msh` head meshes do.
 One known-good recipe, all inside `pipeline`:
 
 ```bash
-# official SimNIBS 4.5.0 wheel from the GitHub release
-pip install simnibs-4.5.0-*.whl
-pip install petsc4py-*.whl          # SimNIBS' own wheel
+# SimNIBS' own petsc4py wheel, then the official SimNIBS 4.5.0 wheel
+pip install "petsc4py @ https://github.com/simnibs/petsc4py/releases/download/v3.21.5/petsc4py-3.21.5-cp311-cp311-manylinux_2_28_x86_64.whl"
+pip install --no-build-isolation "simnibs @ https://github.com/simnibs/simnibs/releases/download/v4.5.0/simnibs-4.5.0-cp311-cp311-linux_x86_64.whl"
 pip install "mkl==2024.2.0" tbb numba fmm3dpy samseg
 conda install -c conda-forge python-mumps
 ```
