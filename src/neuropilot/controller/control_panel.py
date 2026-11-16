@@ -1205,7 +1205,10 @@ class MainWindow(QtWidgets.QMainWindow):
         if busy and not self._close_force:
             if not self._close_requested:
                 self._close_requested = True
-                self._close_deadline = time.monotonic() + 30.0
+                # Do not hold the GUI/relay open while a large mesh read
+                # finishes. Two seconds is enough for the common case; the
+                # clean-up below stops the loaders and forces the close.
+                self._close_deadline = time.monotonic() + 2.0
                 self._closing = True
                 self._prepare_close()
                 self.setEnabled(False)
