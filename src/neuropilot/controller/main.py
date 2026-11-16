@@ -79,6 +79,13 @@ async def main(enable_health_check_and_control_panel, simulation, manual=False,
     # Configure logging.
     np.set_printoptions(formatter={'float': '{:0.1f}'.format})
 
+    # Closing the last Qt window must also stop this coroutine. qasync keeps
+    # the asyncio loop alive while main() is pending; without this event the
+    # process can outlive the GUI.
+    shutdown = asyncio.Event()
+    if app is not None:
+        app.aboutToQuit.connect(shutdown.set)
+
     if simulation:
         from .sim_remote_connection import Remote
     else:
@@ -112,10 +119,15 @@ async def main(enable_health_check_and_control_panel, simulation, manual=False,
 
     # Run the algorithm and health checks (if enabled). create_task runs it
     # in parallel to this coroutine instead of in sequence.
-    asyncio.create_task(run_pipeline(controller))
-
-    while True:
-        await asyncio.sleep(1)
+    pipeline_task = asyncio.create_task(run_pipeline(controller))
+    try:
+        await shutdown.wait()
+    finally:
+        pipeline_task.cancel()
+        try:
+            await pipeline_task
+        except asyncio.CancelledError:
+            pass
 
 
 
