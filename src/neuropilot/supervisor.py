@@ -25,20 +25,28 @@ READY_LINE = "Connected"  # printed by sim_nav and sim_robot once registered
 
 
 class Component:
-    def __init__(self, name, module, args, wait_ready, log_prefix=None, cwd=None):
+    def __init__(self, name, module, args, wait_ready, log_prefix=None, cwd=None,
+                 executable=None, wait_for_port=False, shutdown_on_exit=True):
         self.name = name
         self.module = module
         self.args = args
         self.wait_ready = wait_ready  # None | 'port' | 'line'
         self.prefix = log_prefix or f"[{name}]"
         self.cwd = cwd  # None -> the component's own package directory
+        self.executable = executable
+        self.wait_for_port = wait_for_port
+        # Optional children (InVesalius) may exit without taking the controller
+        # and relay down with them.
+        self.shutdown_on_exit = shutdown_on_exit
         self.process = None
+        self.skipped = False
         self.ready = asyncio.Event()
 
     def argv(self):
+        executable = self.executable or sys.executable
         if self.module:
-            return [sys.executable, "-m", self.module, *self.args]
-        return [sys.executable, *self.args]
+            return [executable, "-m", self.module, *self.args]
+        return [executable, *self.args]
 
 
 def _child_env():
@@ -50,9 +58,11 @@ def _child_env():
     return env
 
 
-async def _wait_port_open(host, port, timeout):
+async def _wait_port_open(host, port, timeout, abort=None):
     deadline = asyncio.get_event_loop().time() + timeout
     while asyncio.get_event_loop().time() < deadline:
+        if abort is not None and abort():
+            return False
         try:
             _, writer = await asyncio.open_connection(host, port)
             writer.close()
@@ -76,13 +86,18 @@ async def _pump(component):
 
 
 async def _start(component):
+    if component.cwd is not None:
+        cwd = component.cwd
+    elif component.module:
+        cwd = os.path.join(config.REPO_ROOT, "src", *component.module.split("."))
+    else:
+        cwd = str(config.REPO_ROOT)
     component.process = await asyncio.create_subprocess_exec(
         *component.argv(),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
         env=_child_env(),
-        cwd=component.cwd or os.path.join(
-            config.REPO_ROOT, "src", *component.module.split(".")),
+        cwd=cwd,
     )
     print(f"[neuropilot] started {component.name} (pid {component.process.pid})", flush=True)
     pump = asyncio.create_task(_pump(component))
@@ -108,12 +123,51 @@ async def run_stack(components, timeout=None):
     - 'port': relay — wait until RELAY_PORT accepts connections
     - 'line': nav/robot — wait until READY_LINE appears in their output
     - None:   controller — no probe, just keep it alive
+
+    A component with ``shutdown_on_exit=False`` is optional.  InVesalius uses
+    that: if it fails to start or closes during a session, the controller and
+    relay stay alive and the reason is printed.
     """
-    env = _child_env()
     pumps = []
+    started = []
+    startup_failed = False
+    reported_optional = set()
     try:
         for component in components:
-            pumps.append(await _start(component))
+            if component.wait_for_port:
+                def _previous_died():
+                    return any(c.process is not None
+                               and c.process.returncode is not None
+                               for c in started)
+
+                ok = await _wait_port_open(
+                    config.RELAY_HOST, config.RELAY_PORT,
+                    config.READINESS_TIMEOUT_S, abort=_previous_died)
+                if not ok:
+                    if _previous_died():
+                        reason = ("the controller exited before the relay "
+                                  "became reachable")
+                    else:
+                        reason = (f"relay {config.RELAY_HOST}:"
+                                  f"{config.RELAY_PORT} is not reachable "
+                                  f"after {config.READINESS_TIMEOUT_S:.0f}s")
+                    print(f"[neuropilot] {component.name} not started: {reason}",
+                          flush=True)
+                    component.skipped = True
+                    continue
+
+            try:
+                pumps.append(await _start(component))
+                started.append(component)
+            except OSError as exc:
+                print(f"[neuropilot] could not start {component.name}: {exc}",
+                      flush=True)
+                component.skipped = True
+                if component.shutdown_on_exit:
+                    startup_failed = True
+                    break
+                continue
+
             if component.wait_ready == "port":
                 ok = await _wait_port_open(config.RELAY_HOST, config.RELAY_PORT,
                                            config.READINESS_TIMEOUT_S)
@@ -136,20 +190,40 @@ async def run_stack(components, timeout=None):
                               f"after {config.READINESS_TIMEOUT_S}s", flush=True)
                 asyncio.create_task(_announce())
 
-        # Wait until every child has exited, or one exits on its own. The
+        # Wait until every child has exited, or a critical child exits.  The
         # controller is the user-facing component: closing its window must
         # stop the relay and the virtual components, even with exit code 0.
-        while True:
-            codes = [c.process.returncode for c in components]
-            exited = [(c.name, code) for c, code in zip(components, codes)
-                      if code is not None]
-            if len(exited) == len(components):
-                break
-            if exited:
-                print(f"[neuropilot] component exited: {exited} — shutting down stack",
-                      flush=True)
-                break
-            await asyncio.sleep(0.5)
+        if not startup_failed:
+            while True:
+                critical = [
+                    (c.name, c.process.returncode)
+                    for c in components
+                    if c.shutdown_on_exit and c.process is not None
+                    and c.process.returncode is not None
+                ]
+                if critical:
+                    print(f"[neuropilot] component exited: {critical} — "
+                          "shutting down stack", flush=True)
+                    break
+
+                for component in components:
+                    if (not component.shutdown_on_exit
+                            and component.process is not None
+                            and component.process.returncode is not None
+                            and component.name not in reported_optional):
+                        print(f"[neuropilot] {component.name} exited with code "
+                              f"{component.process.returncode}; keeping the "
+                              "stack alive", flush=True)
+                        reported_optional.add(component.name)
+
+                if all(
+                    component.skipped
+                    or (component.process is not None
+                        and component.process.returncode is not None)
+                    for component in components
+                ):
+                    break
+                await asyncio.sleep(0.5)
     finally:
         for component in components:
             await _stop(component)
@@ -175,25 +249,55 @@ def controller_with_dialog():
     return [Component("controller", "neuropilot.controller", [], wait_ready=None)]
 
 
-def real_stack(with_relay=False):
+def invesalius_component(spec):
+    """Build the optional InVesalius child from a launcher spec."""
+    host = config.RELAY_HOST
+    if host in ("", "0.0.0.0", "::"):
+        host = "127.0.0.1"
+    argv = spec.argv(host, config.RELAY_PORT)
+    return Component(
+        "invesalius",
+        None,
+        argv[1:],
+        wait_ready=None,
+        executable=argv[0],
+        cwd=str(spec.checkout) if spec.checkout is not None else None,
+        wait_for_port=True,
+        shutdown_on_exit=False,
+    )
+
+
+def _with_invesalius(components, invesalius):
+    if invesalius is not None:
+        components.append(invesalius_component(invesalius))
+    return components
+
+
+def real_stack(with_relay=False, invesalius=None):
     args = ["--real"] + (["--manage-relay"] if with_relay else [])
-    return [Component("controller", "neuropilot.controller", args,
-                      wait_ready=None)]
+    return _with_invesalius([
+        Component("controller", "neuropilot.controller", args,
+                  wait_ready=None)
+    ], invesalius)
 
 
-def manual_stack(with_relay=False):
+def manual_stack(with_relay=False, invesalius=None):
     """Manual mode: real hardware, no robot (the operator moves the coil)."""
     args = ["--manual"] + (["--manage-relay"] if with_relay else [])
-    return [Component("controller", "neuropilot.controller", args,
-                      wait_ready=None)]
+    return _with_invesalius([
+        Component("controller", "neuropilot.controller", args,
+                  wait_ready=None)
+    ], invesalius)
 
 
-def training_stack(with_relay=False):
+def training_stack(with_relay=False, invesalius=None):
     """Training: real stimulator and navigation, virtual EMG, no robot."""
     args = ["--training"] + (["--manage-relay"] if with_relay else [])
-    return [Component("controller", "neuropilot.controller", args,
-                      wait_ready=None)]
+    return _with_invesalius([
+        Component("controller", "neuropilot.controller", args,
+                  wait_ready=None)
+    ], invesalius)
 
 
-def real_controller():
-    return real_stack(with_relay=False)
+def real_controller(invesalius=None):
+    return real_stack(with_relay=False, invesalius=invesalius)

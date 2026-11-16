@@ -62,15 +62,20 @@ Use it to:
 neuropilot real
 ```
 
-The controller connects to the relay and expects the other three roles to be
+The controller connects to the relay and expects the other roles to be
 running. Start order on the lab PC:
 
 ```bash
 python relay_server.py 5000                  # 1. production relay
-python app.py --remote-host http://localhost:5000   # 2. InVesalius
-python main_loop.py                          # 3. robot driver
-neuropilot real                              # 4. controller
+python main_loop.py                          # 2. robot driver
+neuropilot real                              # 3. controller + InVesalius
 ```
+
+`neuropilot real` starts a local InVesalius automatically after the relay is
+reachable. It uses the conda environment discovered from `CONDA_EXE`, or the
+values stored in `~/.neuropilot/lab.yaml`. `--no-invesalius` disables this;
+start it manually with `inv --remote-host http://localhost:5000` (or
+`python app.py --remote-host ...`) when needed.
 
 Or let the controller start the production relay for you:
 
@@ -79,7 +84,7 @@ neuropilot real --launch-relay
 ```
 
 which requires `TMS_ROBOT_CONTROL_PATH` to point at a `tms-robot-control`
-checkout. InVesalius and `main_loop.py` are never started by NeuroPilot.
+checkout. `main_loop.py` is never started by NeuroPilot.
 
 !!! danger "Safety: real stimulation"
     Real mode fires a stimulator at a person. Do not start it without ethics
@@ -111,16 +116,17 @@ coil, InVesalius tracks it, the controller waits for *Coil at target*, and the
 stimulator fires. The MEP trace is generated from the E-field at the configured
 channel sources instead of being recorded.
 
-Start the production relay and InVesalius, then the controller:
+Start the production relay, then the controller. InVesalius starts
+automatically by default:
 
 ```bash
 python relay_server.py 5000
-python app.py --remote-host http://localhost:5000
 neuropilot training
 ```
 
-No robot driver and no EMG PC are needed. `--launch-relay` starts the production
-relay from `TMS_ROBOT_CONTROL_PATH` as in real mode.
+Use `--no-invesalius` if you want to start InVesalius yourself. No robot driver
+and no EMG PC are needed. `--launch-relay` starts the production relay from
+`TMS_ROBOT_CONTROL_PATH` as in real mode.
 
 The channel sources are project data. The [Config › Simulation](gui/config.md)
 page shows the configured channel names and the sources file; edit the mapping

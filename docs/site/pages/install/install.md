@@ -264,6 +264,11 @@ also available in the `invesalius` environment:
 inv --remote-host http://localhost:5000
 ```
 
+`neuropilot real`, `manual`, and `training` start a local InVesalius
+automatically by default. Discovery checks the conda environments and stores
+the selected environment, checkout, and launcher in `~/.neuropilot/lab.yaml`.
+Use `--no-invesalius` to suppress the automatic start.
+
 Replace `localhost` with the relay host when the two programs run on different
 machines.
 

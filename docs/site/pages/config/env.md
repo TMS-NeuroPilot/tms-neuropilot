@@ -51,6 +51,10 @@ cp .env.example .env
 |---|---|---|---|
 | `ROBOT` | `omron` | simulated robot model (key from `sim_robot/robots.py`) | yes |
 | `TMS_ROBOT_CONTROL_PATH` | empty | `tms-robot-control` checkout for starting the relay (`--launch-relay` or the Relay card) | yes |
+| `INVESALIUS_LAUNCH` | `auto` | auto-start InVesalius in real/manual/training mode (`auto`, `local`, `off`) | yes |
+| `INVESALIUS_ENV` | empty | conda environment containing InVesalius | yes |
+| `INVESALIUS_CHECKOUT` | empty | InVesalius checkout containing `app.py` | yes |
+| `INVESALIUS_LAUNCHER` | empty | `inv` wrapper or equivalent launcher | yes |
 
 ### Stimulator
 

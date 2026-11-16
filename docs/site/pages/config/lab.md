@@ -18,6 +18,10 @@ NEUROPILOT_UI_SCALE: ''
 UI_THEME: Workstation Light
 ROBOT: omron
 TMS_ROBOT_CONTROL_PATH: ''
+INVESALIUS_LAUNCH: auto
+INVESALIUS_ENV: /opt/miniforge3/envs/invesalius
+INVESALIUS_CHECKOUT: /opt/invesalius-prs
+INVESALIUS_LAUNCHER: /opt/miniforge3/envs/invesalius/bin/inv
 STIMULATOR_PORT: /dev/ttyS1
 STIMULATOR_TTL_PORT: /dev/parport0
 EMG_COMPUTER_IP: 192.168.1.2
@@ -40,6 +44,10 @@ Values are stored as strings; the GUI converts them when it reads them.
 | `UI_THEME` | `Workstation Light` | colour theme |
 | `ROBOT` | `omron` | simulated robot key |
 | `TMS_ROBOT_CONTROL_PATH` | empty | `tms-robot-control` checkout |
+| `INVESALIUS_LAUNCH` | `auto` | auto-start policy: `auto`, `local`, or `off`/`external` (case-insensitive) |
+| `INVESALIUS_ENV` | empty | conda environment that contains InVesalius |
+| `INVESALIUS_CHECKOUT` | empty | InVesalius source checkout containing `app.py` |
+| `INVESALIUS_LAUNCHER` | empty | `inv` wrapper or other launcher path |
 | `STIMULATOR_PORT` | `/dev/ttyS1` | stimulator serial port |
 | `STIMULATOR_TTL_PORT` | `/dev/parport0` | stimulator TTL port |
 | `EMG_COMPUTER_IP` | `192.168.1.2` | EMG acquisition PC address |
@@ -48,6 +56,22 @@ Values are stored as strings; the GUI converts them when it reads them.
 | `ONLINE_FEM_SOLVER` | `pardiso` | FEM solver |
 | `ONLINE_FEM_ANISOTROPY` | `scalar` | conductivity model |
 | `COLLISION_TEST` | empty | saved collision-test layout (JSON: head/base poses, start joints, IK branch, safe Z, translation and rotation limits) |
+
+## InVesalius auto-start
+
+In `real`, `manual`, and `training` mode NeuroPilot starts a local InVesalius
+before the controller. Simulation does not use InVesalius. With
+`INVESALIUS_LAUNCH: auto`, this happens only when the relay is local; use
+`local` to start a local InVesalius against a remote relay, or `off`/`external`
+to manage it yourself.
+
+The `INVESALIUS_ENV`, `INVESALIUS_CHECKOUT`, and `INVESALIUS_LAUNCHER` values
+are filled automatically after the first successful discovery and can be
+edited directly in this YAML file. Discovery asks conda for the environment
+list; `CONDA_EXE` (or a `conda` executable on `PATH`) provides the conda
+binary. The installer wrapper in the environment is preferred; when it is
+missing or broken, NeuroPilot uses the environment's Python together with
+`INVESALIUS_CHECKOUT/app.py`. Closing InVesalius does not stop the controller.
 
 ## Cobot pose and movement limits
 
@@ -76,8 +100,10 @@ why a value can "not stick": `.env` is still defining it.
 - **Config › Lab › Save lab profile** writes the hardware keys and merges the
   Config-page cobot pose and movement limits into `COLLISION_TEST`.
 - **Config › Lab › Theme** writes `UI_THEME` immediately when you change it.
-- The controller itself never writes the file; a read-only home directory is
-  fine until you press Save.
+- The first real/manual/training launch writes the discovered
+  `INVESALIUS_ENV`, `INVESALIUS_CHECKOUT`, and `INVESALIUS_LAUNCHER` values.
+- The controller itself does not write hardware settings; a read-only home
+  directory is fine until you press Save.
 
 The GUI writes atomically (temp file + rename) and preserves unknown keys and
 comments in the existing file where the writer can.

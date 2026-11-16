@@ -64,4 +64,12 @@ if sys.platform.startswith("linux"):
 # `neuropilot real --launch-relay` to start the production relay.
 TMS_ROBOT_CONTROL_PATH = _env("TMS_ROBOT_CONTROL_PATH", "")
 
+# Optional: how to start local InVesalius for real/manual/training modes.
+# auto = local relay and a discovered/configured launcher; local = also with a
+# remote relay; off/external = never start it from NeuroPilot.
+INVESALIUS_LAUNCH = _env("INVESALIUS_LAUNCH", "auto")
+INVESALIUS_ENV = _env("INVESALIUS_ENV", "")
+INVESALIUS_CHECKOUT = _env("INVESALIUS_CHECKOUT", "")
+INVESALIUS_LAUNCHER = _env("INVESALIUS_LAUNCHER", "")
+
 READINESS_TIMEOUT_S = float(_env("READINESS_TIMEOUT_S", "60"))

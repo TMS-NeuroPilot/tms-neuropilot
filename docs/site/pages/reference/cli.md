@@ -47,6 +47,11 @@ neuropilot controller             # asks for the mode in a dialog
 
 `--sim`, `--real`, `--manual` and `--training` are mutually exclusive.
 
+For `--real`, `--manual`, and `--training`, the controller also starts a local
+InVesalius by default. Use `--no-invesalius` to suppress that, or
+`--invesalius PATH` to provide an environment, wrapper, or checkout for this
+run.
+
 ## `neuropilot real`
 
 Real-hardware mode.
@@ -59,10 +64,14 @@ neuropilot real --launch-relay
 | Flag | Meaning |
 |---|---|
 | `--launch-relay` | let the controller start and own the production relay from `TMS_ROBOT_CONTROL_PATH` |
+| `--no-invesalius` | do not start InVesalius automatically |
+| `--invesalius PATH` | use this environment, wrapper, or checkout for this run |
 
 Without the flag the controller **expects** a relay on `RELAY_HOST:RELAY_PORT`
 and prints a reminder. With the flag but no `TMS_ROBOT_CONTROL_PATH` it exits 1
 with an explanation.
+
+The same InVesalius flags are available on `manual` and `training`.
 
 ## `neuropilot manual`
 
