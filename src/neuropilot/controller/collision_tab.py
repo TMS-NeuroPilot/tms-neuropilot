@@ -52,6 +52,7 @@ class PoseEditor(QtWidgets.QGroupBox):
             cell.setSpacing(4)
             cap = QtWidgets.QLabel(label)
             cap.setProperty("role", "cap")
+            cap.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
             if label in ("X", "Y", "Z"):
                 cap.setProperty("axis", label.lower())
             self._caps.append(cap)
@@ -317,13 +318,16 @@ class CollisionTestTab(QtWidgets.QWidget):
             line.setSpacing(4)
             cap = QtWidgets.QLabel(axis)
             cap.setProperty("role", "cap")
+            cap.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
             if axis in ("X", "Y", "Z"):
                 cap.setProperty("axis", axis.lower())
             self._jog_caps.append(cap)
             line.addWidget(cap)
             value = QtWidgets.QLabel("—")
             value.setProperty("role", "jog-value")
-            value.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            # Keep the numeric value next to its axis descriptor instead of
+            # right-aligning it across a fixed-width label.
+            value.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
             value.setToolTip(
                 "Current coil-site pose in world millimetres and tool degrees")
             self._jog_value_labels.append(value)

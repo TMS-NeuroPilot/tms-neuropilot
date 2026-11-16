@@ -5,7 +5,7 @@ import os
 
 import numpy as np
 import pytest
-from PyQt5 import QtWidgets
+from PyQt5 import QtCore, QtWidgets
 from scipy.spatial.transform import Rotation
 
 pytest.importorskip("PyQt5.QtWidgets")
@@ -422,6 +422,10 @@ def test_collision_controls_are_compact_and_axes_are_coloured(window):
                    for axis in ("RX", "RY", "RZ"))
     assert all(label.property("role") == "jog-value"
                for label in tab._jog_value_labels)
+    assert all(label.alignment() & QtCore.Qt.AlignLeft
+               for label in tab._jog_value_labels)
+    assert all(cap.alignment() & QtCore.Qt.AlignRight
+               for cap in tab._jog_caps)
 
 
 def test_scan_enforces_the_selected_branch(monkeypatch):
