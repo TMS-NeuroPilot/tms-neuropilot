@@ -162,7 +162,7 @@ if [ "$WITH_INVESALIUS" -eq 1 ]; then
     else
         announce "using existing InVesalius checkout at $INV_DIR; checking out '$INV_REF'..."
         git -C "$INV_DIR" fetch origin "$INV_REF" --depth 1
-        git -C "$INV_DIR" checkout "$INV_REF"
+        git -C "$INV_DIR" checkout -B "$INV_REF" FETCH_HEAD
     fi
     if ! conda env list | grep -qE '^invesalius\s'; then
         announce "creating conda env 'invesalius'..."
@@ -190,7 +190,7 @@ if [ "$WITH_ROBOT_CONTROL" -eq 1 ]; then
     else
         announce "using existing robot-control checkout at $ROBOT_DIR; checking out '$ROBOT_REF'..."
         git -C "$ROBOT_DIR" fetch origin "$ROBOT_REF" --depth 1
-        git -C "$ROBOT_DIR" checkout "$ROBOT_REF"
+        git -C "$ROBOT_DIR" checkout -B "$ROBOT_REF" FETCH_HEAD
     fi
     if [ -f "$ROBOT_DIR/.env.example" ] && [ ! -f "$ROBOT_DIR/.env" ]; then
         cp "$ROBOT_DIR/.env.example" "$ROBOT_DIR/.env"
