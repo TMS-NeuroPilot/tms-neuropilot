@@ -3,6 +3,7 @@
 
     conda activate neuropilot
     python docs/site/tools/make_screenshots.py [--keep-stack]
+    python docs/site/tools/make_screenshots.py --only-mode-selector
 
 The script:
 
@@ -10,8 +11,9 @@ The script:
    bundled ``data/ernie`` subject — no personal paths appear in the images),
 2. starts the simulated relay/nav/robot so the Connections page is live,
 3. builds the real MainWindow in simulation mode, loads the project,
-4. drives the pages to representative states (R² map, MEP history, Config
-   sub-tabs, a dark theme) and writes PNGs to ``docs/site/assets/screenshots``.
+4. captures the no-argument mode selector and drives the pages to
+   representative states (R² map, MEP history, Config sub-tabs, a dark theme),
+   writing PNGs to ``docs/site/assets/screenshots``.
 
 The 3-D view is a VTK surface and is not part of a Qt ``grab()``; it is rendered
 by ``MeshWidget.screenshot()`` and composited into the window image at the
@@ -110,6 +112,25 @@ def render_robot_scene(width: int, height: int):
     frame = renderer.render().copy()
     renderer.close()
     return frame
+
+
+def grab_mode_selector(app, path: Path) -> None:
+    """Capture the dialog that ``neuropilot`` shows without arguments."""
+    from neuropilot.controller.experiment_mode import ModeSelectionDialog
+
+    dialog = ModeSelectionDialog()
+    dialog.show()
+    for _ in range(8):
+        app.processEvents()
+        time.sleep(0.05)
+    pixmap = dialog.grab()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not pixmap.save(str(path), "PNG"):
+        raise RuntimeError(f"could not write {path}")
+    print(f"[screenshot] {path} ({pixmap.width()}x{pixmap.height()})")
+    dialog.close()
+    dialog.deleteLater()
+    app.processEvents()
 
 
 def grab_window(app, win, path: Path, composite_mesh=False,
@@ -247,6 +268,7 @@ def run(args, project: Path) -> None:
         print(f"robot view: {error}")
 
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    grab_mode_selector(app, OUT / "mode-selector.png")
     loop = qasync.QEventLoop(app)
     asyncio.set_event_loop(loop)
     controller_main.app = app
@@ -400,13 +422,21 @@ def main(argv=None) -> int:
     parser.add_argument("--keep-stack", action="store_true",
                         help="leave a stack started by this script running")
     parser.add_argument("--python", default=sys.executable)
+    parser.add_argument(
+        "--only-mode-selector", action="store_true",
+        help="capture only the mode-selection dialog (no stack or dataset)")
     args = parser.parse_args(argv)
 
+    if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+        raise SystemExit("no display: set DISPLAY (or WAYLAND_DISPLAY) first")
+    if args.only_mode_selector:
+        from PyQt5 import QtWidgets
+        app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+        grab_mode_selector(app, OUT / "mode-selector.png")
+        return 0
     if not (DATA / "mesh" / "m2m_ernie" / "ernie.msh").is_file():
         raise SystemExit("example dataset missing: data/ernie (run git lfs pull, "
                          "or see data/create_ernie.py)")
-    if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
-        raise SystemExit("no display: set DISPLAY (or WAYLAND_DISPLAY) first")
 
     DEMO.mkdir(parents=True, exist_ok=True)
     (DEMO / "data").mkdir(parents=True, exist_ok=True)

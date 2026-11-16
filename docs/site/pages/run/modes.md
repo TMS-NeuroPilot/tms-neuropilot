@@ -4,6 +4,9 @@ NeuroPilot has four run modes. They share the controller, the state machine,
 the relay protocol and the analysis; they differ only in who provides the
 robot, the neuronavigation, the stimulator and the EMG.
 
+Run `neuropilot` with no arguments to choose a mode in the selector, or start a
+mode directly with `neuropilot sim`, `real`, `manual` or `training`.
+
 <figure>
   <img src="assets/diagrams/run-modes.svg" alt="The four run modes and the processes each one starts.">
   <figcaption>Simulation replaces all peers with NeuroPilot's virtual twin.
@@ -30,6 +33,11 @@ The hardware entries name the integration point, not a required device: the
 robot driver in `tms-robot-control`, the stimulator driver `magicpy`, and the
 SMB share of your EMG acquisition. Any device that speaks those interfaces
 works the same way.
+
+`real`, `manual`, and `training` start a local InVesalius automatically when a
+launcher is configured. `sim` uses the virtual neuronavigation and does not
+start InVesalius. The launcher settings and discovery are described in the
+[lab profile reference](config/lab.md).
 
 ## Simulation
 
@@ -98,9 +106,10 @@ neuropilot manual
 ```
 
 Everything of real mode except the robot. The experimenter holds the coil;
-InVesalius tracks it; the controller waits for *Coil at target* exactly as it
-does with the robot. The robot card disappears from the Connections page and the
-Start gate no longer waits for a robot.
+InVesalius tracks it and starts automatically by default; the controller waits
+for *Coil at target* exactly as it does with the robot. The robot card
+disappears from the Connections page and the Start gate no longer waits for a
+robot.
 
 Use it when the robot is unavailable, when the coil must be handled by a person,
 or to isolate a robot problem from the rest of the pipeline.
@@ -144,8 +153,15 @@ stimulator caveats.
 neuropilot
 ```
 
-opens a small dialog with the four modes. The chosen mode is what the controller
-starts in; it is a launcher, not a setting.
+opens the mode selector. The chosen mode is what the controller starts in; it
+is a launcher, not a setting.
+
+<figure>
+  <img src="assets/screenshots/mode-selector.png" alt="The NeuroPilot mode selector with Simulation, Real Hardware, Manual and Training buttons.">
+  <figcaption>Running <code>neuropilot</code> with no arguments opens the
+  Experiment Setup dialog. Real, manual and training modes start InVesalius
+  automatically by default.</figcaption>
+</figure>
 
 ## What is identical
 
