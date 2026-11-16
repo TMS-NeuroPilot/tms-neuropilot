@@ -204,8 +204,9 @@ if [ "$WITH_ROBOT_CONTROL" -eq 1 ]; then
         echo "[install] create $ENV_FILE and set:"
         echo "  TMS_ROBOT_CONTROL_PATH=\"$ROBOT_DIR\""
     fi
-    echo "[install] robot-control dependencies:"
-    echo "  conda activate $ENV_NAME && pip install -r $ROBOT_DIR/requirements.txt"
+    announce "installing robot-control dependencies in '$ENV_NAME'..."
+    pip install -r "$ROBOT_DIR/requirements.txt"
+    announce "robot-control dependencies installed."
 fi
 
 announce "installation complete. Start with:  conda activate $ENV_NAME && neuropilot sim"
