@@ -96,9 +96,11 @@ conda install -c conda-forge python-mumps
     The `petsc4py` wheel links older MKL sonames (`libmkl*.so.2`). If the
     simulation import fails with a missing `libmkl_*.so.2`, copy those files
     from a working SimNIBS environment into `$CONDA_PREFIX/lib`; this is a
-    packaging quirk, not a NeuroPilot problem. A separate `simnibs` conda
-    environment (the official installer) also works; NeuroPilot only needs
-    `simnibs` importable in `pipeline` for the online solver.
+    packaging quirk, not a NeuroPilot problem. `scripts/install.sh` performs
+    this copy automatically from `envs/simnibs`, or from the environment in
+    `NEUROPILOT_SIMNIBS_ENV` when set. A separate `simnibs` conda environment
+    (the official installer) also works; NeuroPilot only needs `simnibs`
+    importable in the same environment for the online solver.
 
 Check it:
 

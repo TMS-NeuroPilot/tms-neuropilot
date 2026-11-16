@@ -71,18 +71,57 @@ conda activate "$ENV_NAME"
 pip install -e . --no-deps
 
 # ── 3. Verify the heavy imports before anything else runs ──────────────
-if ! python -c "import numpy, h5py, PyQt5, qasync, pyvista, mujoco, pybullet, pynibs, magicpy" 2>/dev/null; then
-    echo "[install] a core import failed -- see docs/site/pages/install/install.md"
-    exit 1
-fi
-if ! python -c "import simnibs" 2>/dev/null; then
-    cat <<'NOTE'
-[install] 'import simnibs' failed. The petsc4py wheel links older MKL
-sonames (libmkl*.so.2). Copy those files from a working SimNIBS
-environment into "$CONDA_PREFIX/lib" and rerun, or see
-docs/site/pages/install/install.md ("MKL sonames").
-NOTE
-    exit 1
+import_check() {
+    python - <<'PY'
+import importlib
+import sys
+import traceback
+
+modules = (
+    "numpy", "h5py", "PyQt5", "qasync", "pyvista", "mujoco",
+    "pybullet", "pynibs", "magicpy", "simnibs",
+)
+failed = []
+for name in modules:
+    try:
+        importlib.import_module(name)
+    except Exception:
+        print(f"[install] import failed: {name}")
+        traceback.print_exc()
+        failed.append(name)
+if failed:
+    sys.exit(1)
+PY
+}
+
+IMPORT_LOG="$(mktemp)"
+trap 'rm -f "$IMPORT_LOG"' EXIT
+if ! import_check >"$IMPORT_LOG" 2>&1; then
+    cat "$IMPORT_LOG"
+    if grep -qE 'libmkl_[A-Za-z0-9_]+\.so\.2' "$IMPORT_LOG"; then
+        SIMNIBS_ENV="${NEUROPILOT_SIMNIBS_ENV:-$(conda info --base)/envs/simnibs}"
+        SIMNIBS_LIB="$SIMNIBS_ENV/lib"
+        if [ ! -d "$SIMNIBS_LIB" ]; then
+            SIMNIBS_LIB="$(conda info --base)/envs/pipeline/lib"
+        fi
+        if [ -d "$SIMNIBS_LIB" ]; then
+            echo "[install] missing MKL .so.2 libraries; copying them from $SIMNIBS_LIB"
+            find "$SIMNIBS_LIB" -maxdepth 1 -name 'libmkl*.so.2' \
+                -exec cp -a {} "$CONDA_PREFIX/lib/" \;
+            if ! import_check >"$IMPORT_LOG" 2>&1; then
+                cat "$IMPORT_LOG"
+                echo "[install] the MKL repair did not fix the imports; see docs/site/pages/install/install.md"
+                exit 1
+            fi
+        else
+            echo "[install] missing MKL .so.2 libraries and no SimNIBS environment was found."
+            echo "[install] Set NEUROPILOT_SIMNIBS_ENV to a working SimNIBS environment and rerun."
+            exit 1
+        fi
+    else
+        echo "[install] fix the failed import shown above, then rerun."
+        exit 1
+    fi
 fi
 echo "[install] imports ok"
 
