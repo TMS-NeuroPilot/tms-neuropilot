@@ -27,7 +27,8 @@ conda activate neuropilot
 pip install -e . --no-deps
 ```
 
-That is it — `neuropilot sim` starts the simulated stack. The numbered
+That is it — `neuropilot` starts the suite and opens the mode selector;
+`neuropilot sim` starts the simulated stack directly. The numbered
 sections after this one walk the same steps in detail and explain what each
 package is for; they remain the reference when something in the quick path
 fails on your machine.
