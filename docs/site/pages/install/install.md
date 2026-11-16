@@ -15,7 +15,15 @@ git clone https://gitlab.gwdg.de/tms-localization/papers/neuropilot.git
 cd neuropilot
 scripts/install.sh                     # conda env + NeuPilot
 scripts/install.sh --with-invesalius   # also install InVesalius
+scripts/install.sh --with-invesalius --with-robot-control
+                                         # also clone the GitHub robot-control test stack
 ```
+
+`--with-invesalius` uses the GitHub `installer-three-prs` branch. For a full
+local test stack, add `--with-robot-control`, which clones the GitHub
+`tms-robot-control` `installer-omron-relay` branch and installs its
+requirements into the selected NeuroPilot environment. It does not create a
+second robot-control environment.
 
 or by hand:
 
@@ -31,7 +39,9 @@ note below. The numbered sections after this one walk the same steps in
 detail and explain what each package is for; they remain the reference when
 something in the quick path fails on your machine.
 
-## 1. Get the code
+## Manual installation
+
+### 1. Get the code
 
 ```bash
 git clone https://gitlab.gwdg.de/tms-localization/papers/neuropilot.git
@@ -43,7 +53,7 @@ the data-preparation tools, `docs/` the documentation sources. The example
 subject under `data/ernie` is stored through Git LFS; run `git lfs pull` after
 cloning if you want to use it.
 
-## 2. Create the environment
+### 2. Create the environment
 
 ```bash
 conda create -n pipeline python=3.11 -y
@@ -63,7 +73,7 @@ old machine is the reference.
     ships consistent builds; a mixed pip/conda environment is the most common
     source of "it starts on my machine but not on the lab PC".
 
-## 3. Install the lab packages
+### 3. Install the lab packages
 
 ```bash
 pip install pynibs            # MEP extraction + fit functions
@@ -77,7 +87,7 @@ GitLab or on the lab share. Check what is missing with:
 python -c "import pynibs; print(pynibs.__file__)"
 ```
 
-## 4. Install SimNIBS (for the online E-field mode and `.msh` meshes)
+### 4. Install SimNIBS (for the online E-field mode and `.msh` meshes)
 
 The precomputed E-field mode needs no SimNIBS. The online mode and reading
 SimNIBS `.msh` head meshes do.
@@ -110,7 +120,7 @@ Check it:
 python -c "import simnibs; print(simnibs.__version__)"
 ```
 
-## 5. Install NeuroPilot in editable mode
+### 5. Install NeuroPilot in editable mode
 
 ```bash
 pip install -e . --no-deps
@@ -127,7 +137,7 @@ neuropilot --help
 python -c "import neuropilot, neuropilot.controller; print('imports ok')"
 ```
 
-## 6. Create `.env`
+### 6. Create `.env`
 
 ```bash
 cp .env.example .env
@@ -150,7 +160,7 @@ controller after editing it. See the [`.env` reference](config/env.md) for all
 keys and the [settings model](config/model.md) for how `.env` interacts with
 the lab profile.
 
-## 6b. Windows
+### 6b. Windows
 
 The controller, the four components and the whole simulated stack run on
 Windows. The conda steps above work unchanged on win-64 (conda-forge ships
@@ -190,7 +200,7 @@ Platform-specific notes:
   installed console script `neuropilot.exe` from the environment's
   `Scripts\` folder.
 
-## 7. Optional: the GUI scale and the theme
+### 7. Optional: the GUI scale and the theme
 
 On a HiDPI screen the GUI may open too small or too large. Set the scale
 explicitly in `.env`:
@@ -202,7 +212,7 @@ NEUROPILOT_UI_SCALE=1.25
 The colour theme is chosen in **Config › Lab › Theme** and stored in the lab
 profile; see [Themes and display](gui/themes.md).
 
-## 8. Optional: desktop entry and Alt+Tab icon
+### 8. Optional: desktop entry and Alt+Tab icon
 
 GNOME on Wayland takes the window icon from the desktop file named by
 `QApplication.setDesktopFileName("neuropilot")`, not only from the icon set on
