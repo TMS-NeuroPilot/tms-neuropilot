@@ -115,7 +115,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   A collision now pauses the scan instead of ending it, so the operator can
   raise the coil, move the base or head, and resume the same pulse.
 
-- **Contact colours and speed.** A **Color by collision** checkbox tints
+- **Contact colours and speed.** The always-on contact-colour overlay tints
   robot links by head clearance: green at the near edge, orange halfway, red
   near contact and dark red on contact. Only the visible link meshes are
   tinted; the transparent collision hulls stay hidden, and links farther than
