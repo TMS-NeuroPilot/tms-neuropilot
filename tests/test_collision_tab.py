@@ -617,6 +617,9 @@ def test_start_scan_passes_the_project_order_and_repetitions(
         def __init__(self):
             self.calls = None
 
+        def update_contact_colors(self):
+            pass
+
         def reset_to_start(self):
             pass
 
@@ -864,6 +867,76 @@ def test_far_bodies_are_not_tinted_by_the_distance_cap():
         session.dispose()
 
 
+def test_contact_colours_tint_both_sides_of_a_self_collision(monkeypatch):
+    session = CollisionTestSession(scene_name=SCENE_NAME)
+    session.ensure_ready()
+    try:
+        bodies = list(session.world._robot_body_visual_geom_ids)
+        body_a, body_b = bodies[0], bodies[1]
+        geoms = {
+            body_id: session.world._robot_body_visual_geom_ids[body_id]
+            for body_id in (body_a, body_b)}
+
+        def fake_contacts():
+            return [{"dist": -0.002,
+                     "geom1": geoms[body_a][0], "geom2": geoms[body_b][0]}]
+
+        monkeypatch.setattr(
+            session.world, "get_robot_head_body_distances",
+            lambda *args, **kwargs: {})
+        monkeypatch.setattr(
+            session.world, "get_self_collision_contacts", fake_contacts)
+        monkeypatch.setattr(session.world, "get_robot_head_contacts",
+                            lambda: [])
+        session.update_contact_colors()
+
+        # Both involved bodies tint dark red.
+        for body_id in (body_a, body_b):
+            assert all(np.allclose(session.world.model.geom_rgba[gid],
+                                   [0.45, 0.0, 0.0, 1.0])
+                       for gid in geoms[body_id])
+    finally:
+        session.dispose()
+
+
+def test_contact_colours_tint_the_head_on_a_head_contact(monkeypatch):
+    session = CollisionTestSession(scene_name=SCENE_NAME)
+    session.ensure_ready()
+    try:
+        head_geoms = [gid for geoms in
+                      session.world._head_body_visual_geom_ids.values()
+                      for gid in geoms]
+        assert head_geoms
+        original = [session.world.model.geom_rgba[gid].copy()
+                    for gid in head_geoms]
+
+        def fake_head_contacts():
+            # Beyond the 4 mm production tolerance: an actual contact.
+            return [{"dist": -0.005, "geom1": 0, "geom2": 0,
+                     "normal_force": 0.0}]
+
+        monkeypatch.setattr(
+            session.world, "get_robot_head_body_distances",
+            lambda *args, **kwargs: {})
+        monkeypatch.setattr(
+            session.world, "get_self_collision_contacts", lambda: [])
+        monkeypatch.setattr(session.world, "get_robot_head_contacts",
+                            fake_head_contacts)
+        session.update_contact_colors()
+        assert all(np.allclose(session.world.model.geom_rgba[gid],
+                               [0.45, 0.0, 0.0, 1.0])
+                   for gid in head_geoms)
+
+        # No head contact: the mesh gets its MJCF colour back.
+        monkeypatch.setattr(session.world, "get_robot_head_contacts",
+                            lambda: [])
+        session.update_contact_colors()
+        assert all(np.allclose(session.world.model.geom_rgba[gid], before)
+                   for gid, before in zip(head_geoms, original))
+    finally:
+        session.dispose()
+
+
 def test_movement_speed_links_to_control_default_speed(window):
     tab = window.collision_tab
     assert tab.speed_slider.value() == window.spinBox2.value()
@@ -877,12 +950,32 @@ def test_movement_speed_links_to_control_default_speed(window):
     assert tab._scan_timer.interval() > 30
 
 
-def test_contact_colour_checkbox_is_available(window):
+def test_contact_colour_overlay_is_always_on(window):
     tab = window.collision_tab
-    assert tab.contact_colors_chk.text() == "Color by collision"
-    assert tab.contact_colors_chk.property("role") == "cap"
-    assert "green" in tab.contact_colors_chk.toolTip()
-    assert "dark red" in tab.contact_colors_chk.toolTip()
+    # The checkbox is gone: the overlay shows without a toggle to remember.
+    assert not hasattr(tab, "contact_colors_chk")
+
+    class FakeSession:
+        def __init__(self):
+            self.updates = 0
+
+        def update_contact_colors(self):
+            self.updates += 1
+
+        def collision_state(self):
+            return {"collision": False, "warning": False, "distance_mm": None,
+                    "self_collision": False, "self_contact_mm": None,
+                    "head_contact": False}
+
+    original = tab.session
+    fake = FakeSession()
+    tab.session = fake
+    tab._last_problem = None
+    try:
+        tab._update_collision()
+        assert fake.updates == 1
+    finally:
+        tab.session = original
 
 
 def test_move_coil_up_uses_the_configured_safe_height(monkeypatch):
@@ -915,6 +1008,9 @@ def test_move_coil_up_uses_the_configured_safe_height(monkeypatch):
 def test_scan_button_pauses_and_resumes_without_stopping(window, monkeypatch):
     class FakeSession:
         scan_active = True
+
+        def update_contact_colors(self):
+            pass
 
         def scan_status(self):
             return {
@@ -966,6 +1062,9 @@ def test_layout_change_during_scan_continues_from_current_pulse(
         def __init__(self):
             self.reframes = 0
             self.resets = 0
+
+        def update_contact_colors(self):
+            pass
 
         def set_base_pose(self, position, orientation):
             pass
@@ -1024,6 +1123,9 @@ def test_clear_pose_keeps_the_last_near_miss_visible(window):
                 "self_contact_mm": None,
                 "head_contact": False,
             }
+
+        def update_contact_colors(self):
+            pass
 
         def collision_state(self):
             return self.state

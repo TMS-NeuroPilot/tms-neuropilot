@@ -59,6 +59,10 @@ class MuJoCoWorld:
         # speckle the rendered link.
         self._robot_body_visual_geom_ids: Dict[int, List[int]] = {}
         self._robot_geom_original_rgba: Dict[int, np.ndarray] = {}
+        # The rendered head mesh: tintable on a head contact, with its MJCF
+        # colour restored when the contact clears.
+        self._head_body_visual_geom_ids: Dict[int, List[int]] = {}
+        self._head_geom_original_rgba: Dict[int, np.ndarray] = {}
 
         self._ee_site_id: Optional[int] = None
 
@@ -412,6 +416,8 @@ class MuJoCoWorld:
         self._head_geom_ids = []
         self._robot_body_visual_geom_ids = {}
         self._robot_geom_original_rgba = {}
+        self._head_body_visual_geom_ids = {}
+        self._head_geom_original_rgba = {}
 
         head_id = mujoco.mj_name2id(
             self.model, mujoco.mjtObj.mjOBJ_BODY, config.HEAD_BODY_NAME)
@@ -436,8 +442,16 @@ class MuJoCoWorld:
                 elif self.model.geom_rgba[i][3] > 0:
                     self._robot_body_visual_geom_ids.setdefault(
                         body_id, []).append(i)
-            elif body_id in head_set and contype > 0:
-                self._head_geom_ids.append(i)
+            elif body_id in head_set:
+                if contype > 0:
+                    self._head_geom_ids.append(i)
+                if self.model.geom_rgba[i][3] > 0:
+                    # The head mesh is rendered *and* collidable (one opaque
+                    # geom): it tints on contact and restores afterwards.
+                    self._head_body_visual_geom_ids.setdefault(
+                        body_id, []).append(i)
+                    self._head_geom_original_rgba[i] = (
+                        self.model.geom_rgba[i].copy())
 
     def _index_site(self):
         try:
@@ -619,5 +633,31 @@ class MuJoCoWorld:
                 c = self.data.contact[i]
                 g1, g2 = int(c.geom1), int(c.geom2)
                 if g1 in robot_set and g2 in robot_set:
-                    contacts.append({"dist": float(c.dist)})
+                    contacts.append({"dist": float(c.dist),
+                                     "geom1": g1, "geom2": g2})
         return contacts
+
+    def body_of_geom(self, geom_id: int) -> Optional[int]:
+        """Body id of a geom, or None without a compiled model."""
+        if self.model is None:
+            return None
+        return int(self.model.geom_bodyid[int(geom_id)])
+
+    def set_head_color(self, rgba: List[float]) -> None:
+        """Tint the rendered head mesh (the visual geoms only).
+
+        The collision hulls of the head keep their original colours, like
+        the robot's.  Call :meth:`restore_head_color` when the contact
+        clears."""
+        if self.model is None:
+            return
+        for geoms in self._head_body_visual_geom_ids.values():
+            for geom_id in geoms:
+                self.model.geom_rgba[geom_id] = rgba
+
+    def restore_head_color(self) -> None:
+        """Restore the head mesh to its original MJCF colour."""
+        if self.model is None:
+            return
+        for geom_id, rgba in self._head_geom_original_rgba.items():
+            self.model.geom_rgba[geom_id] = rgba
