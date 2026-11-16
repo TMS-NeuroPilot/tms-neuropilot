@@ -72,6 +72,7 @@ INV_DIR="${NEUROPILOT_INVESALIUS_DIR:-$(dirname "$REPO_ROOT")/invesalius-prs}"
 ROBOT_REPO="${NEUROPILOT_ROBOT_REPO:-https://github.com/0nu/tms-robot-control.git}"
 ROBOT_REF="${NEUROPILOT_ROBOT_REF:-pipeline-relay-channels}"
 ROBOT_DIR="${NEUROPILOT_ROBOT_DIR:-$(dirname "$REPO_ROOT")/tms-robot-control}"
+ROBOT_ENV_NAME="${NEUROPILOT_ROBOT_ENV:-robot-control}"
 
 announce() {
     printf '[install] %s\n' "$*"
@@ -204,9 +205,20 @@ if [ "$WITH_ROBOT_CONTROL" -eq 1 ]; then
         echo "[install] create $ENV_FILE and set:"
         echo "  TMS_ROBOT_CONTROL_PATH=\"$ROBOT_DIR\""
     fi
-    announce "installing robot-control dependencies in '$ENV_NAME'..."
+    if conda env list | awk -v name="$ROBOT_ENV_NAME" '$1 == name { found=1 } END { exit !found }'; then
+        announce "robot-control env '$ROBOT_ENV_NAME' already exists; reusing it."
+    else
+        announce "creating robot-control env '$ROBOT_ENV_NAME'..."
+        conda create -n "$ROBOT_ENV_NAME" python=3.11 -y
+    fi
+    conda activate "$ROBOT_ENV_NAME"
+    announce "installing robot-control dependencies in '$ROBOT_ENV_NAME'..."
     pip install -r "$ROBOT_DIR/requirements.txt"
-    announce "robot-control dependencies installed."
+    conda activate "$ENV_NAME"
+    announce "robot-control dependencies installed in '$ROBOT_ENV_NAME'."
 fi
 
 announce "installation complete. Start with:  conda activate $ENV_NAME && neuropilot sim"
+if [ "$WITH_ROBOT_CONTROL" -eq 1 ]; then
+    echo "[install] robot-control:  conda activate $ROBOT_ENV_NAME && cd $ROBOT_DIR && python main_loop.py"
+fi
