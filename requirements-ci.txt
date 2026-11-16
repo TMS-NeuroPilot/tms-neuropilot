@@ -1,0 +1,33 @@
+# The CI test job installs this stack on a shared runner (nothing is
+# preinstalled there).  numpy is pinned: SimNIBS 4.5.0's compiled extensions
+# are built against the 1.26 series, and the petsc4py wheel (from the
+# official SimNIBS GitHub releases) needs the same MKL-era stack.
+numpy==1.26.4
+h5py
+scipy
+pandas
+matplotlib
+seaborn
+pyyaml
+pyserial
+python-dotenv
+PyQt5
+pytest>=8
+pytest-xdist>=3.6
+mujoco
+pyvista
+pyvistaqt
+python-socketio
+smbprotocol
+ikpy
+gdist
+magicpy
+# The 2024 mkl ships the libmkl*.so.2 ABI that petsc4py/pynibs from SimNIBS
+# link; the 2026 wheel's .so.3 sonames do not resolve for them.
+mkl==2024.2.0
+tbb
+numba
+fmm3dpy
+samseg
+petsc4py @ https://github.com/simnibs/petsc4py/releases/download/v3.21.5/petsc4py-3.21.5-cp311-cp311-manylinux_2_28_x86_64.whl
+pynibs @ git+https://gitlab.gwdg.de/tms-localization/pynibs.git@dev

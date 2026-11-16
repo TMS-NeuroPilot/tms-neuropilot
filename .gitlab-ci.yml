@@ -1,13 +1,14 @@
-# GitLab CI -- syntax gate plus the headless test suite.
+# GitLab CI -- cheap gates on every push, the full test suite once a day.
 #
-# The suite imports PyQt5, pynibs, simnibs and mujoco at collection time, so
-# the jobs need the project's `pipeline` conda environment (see README).
-# scripts/ci-python.sh finds it automatically (or set PYTHON in the CI/CD
-# variables to an absolute path); nothing is installed by the pipeline.
+# The gates (syntax, docs check) are dependency-free and run on the shared
+# runners.  The `test` job installs the heavy stack itself
+# (requirements-ci.txt + the SimNIBS wheel) and runs the headless suite once
+# a day from the nightly pipeline schedule, or by hand from any pipeline
+# view.
 #
-# GUI tests (marked `gui`) build a real window and need an X display.  They
-# run only in the optional, manual `test:gui` job, i.e. on a runner with a
-# display (a lab workstation rather than a shared CI runner).
+# GUI tests (marked `gui`) build a real window and need a display.  On the
+# display-less shared runners they simply skip (the suite's conftest skips
+# them without DISPLAY); the job stays manual and is allowed to fail.
 
 stages:
   - check
@@ -63,26 +64,57 @@ check:docs:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH'
 
+# The full headless suite runs on the **shared runners**: the job installs
+# the heavy stack itself (requirements-ci.txt + the SimNIBS wheel; nothing
+# is preinstalled there).  It runs once a day from the nightly pipeline
+# schedule (CI/CD -> Schedules, cron 0 9 * * *) and can be started by hand
+# from any pipeline view.  Every push runs only the cheap gates above - the
+# old push `test` job reported a fake green (the heavy imports were absent,
+# so it skipped the suite and still said success).
 test:
   stage: test
+  # The full Debian-based python image: apt-get for git/gfortran, pip for
+  # the stack.  The runner's default image is alpine (no apt-get, no pip).
   image: python:3.11
   before_script: []
+  # python-mumps compiles MUMPS against the system library: the image needs
+  # a Fortran compiler AND libmumps-dev.  libgl1 (headless import of mujoco
+  # and PyQt5) and libglib2.0-0 come from apt too.  git lets pip fetch
+  # pynibs from the group's GitLab.
   script:
-    # The suite imports PyQt5, pynibs, simnibs and mujoco, which only the lab
-    # `pipeline` environment has.  On a shared runner those are absent; say so
-    # once and skip instead of failing a pipeline that cannot possibly pass.
-    # Run `scripts/run_tests.sh` locally or point a lab runner at this job.
-    - python3 -c "import PyQt5, pynibs, simnibs, mujoco" || { echo "lab Python environment not available on this runner -- suite skipped"; exit 0; }
+    - apt-get update -qq && apt-get install -y -qq git gfortran libmumps-dev libgl1 libglib2.0-0 libxkbcommon0 > /dev/null
+    - pip install -r requirements-ci.txt
+    # The SimNIBS wheel declares petsc4py as a build dependency; with
+    # isolation pip rebuilds it against numpy 2.x and fails.  The wheel from
+    # requirements-ci.txt is already installed, so build without isolation.
+    - pip install --no-build-isolation "simnibs @ https://github.com/simnibs/simnibs/releases/download/v4.5.0/simnibs-4.5.0-cp311-cp311-linux_x86_64.whl"
+    - pip install python-mumps
+    # The pinned 2024 mkl and the pip tbb wheel ship their libs without a
+    # loader path; numba and the SimNIBS/pynibs extensions need them.
+    - MKLLIB="$(dirname "$(find /usr/local/lib -name 'libmkl_intel_lp64.so.2' | head -1)")"
+    - TBBLIB="$(dirname "$(find /usr/local/lib -name 'libtbb.so.12*' | head -1)")"
+    - export LD_LIBRARY_PATH="$MKLLIB:$TBBLIB:${LD_LIBRARY_PATH:-}"
     - mkdir -p "$ROOT_FOLDER"
     - python3 -m pytest -m "not gui" -q --junitxml=report.xml
+  cache:
+    key: pip-ci
+    paths:
+      - .cache/pip
+  variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   artifacts:
     when: always
     expire_in: 1 week
     reports:
       junit: report.xml
   rules:
+    # Once a day: the nightly schedule.
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    # Startable by hand from the pipeline view.
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: manual
     - if: '$CI_COMMIT_BRANCH'
+      when: manual
 
 # GitLab Pages: publish the documentation site.  The `pages` job name and the
 # `public` artifact are what GitLab expects; the build needs no network.
@@ -103,33 +135,32 @@ pages:
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 
-# Optional: run on a machine with a display (the six-page snapshot test needs
-# OpenGL, so a headless runner is not enough).  Start it by hand from the
-# pipeline view.
+# The GUI tests build real Qt windows and need OpenGL and a display: run on
+# the lab workstation runner (the same `lab`-tagged shell runner as `test`),
+# once a day from the nightly schedule and by hand from the pipeline view.
 test:gui:
   stage: test
-  image: python:3.11
   when: manual
   allow_failure: true
   before_script: []
   script:
-    # Needs PyQt5, OpenGL and a display: start it on a lab workstation runner
-    # (or a purpose-built image), not on the shared alpine runner.
-    - python3 -c "import PyQt5" || { echo "PyQt5/display not available on this runner -- see the comment in .gitlab-ci.yml"; exit 1; }
+    - PYTHON=$(bash scripts/ci-python.sh)
+    - '$PYTHON -c "import PyQt5" || { echo "PyQt5/display not available on this runner"; exit 1; }'
     - mkdir -p "$ROOT_FOLDER"
-    - python3 -m pytest -m gui -q --junitxml=report-gui.xml
+    - '$PYTHON -m pytest -m gui -q --junitxml=report-gui.xml'
   artifacts:
     when: always
     expire_in: 1 week
     reports:
       junit: report-gui.xml
   rules:
+    # Once a day: the nightly schedule on the lab workstation.  `when: always`
+    # overrides the job-level `manual` so the schedule really runs it.
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: always
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: manual
       allow_failure: true
     - if: '$CI_COMMIT_BRANCH'
       when: manual
       allow_failure: true
-  # Uncomment and set the tag of a runner that has a display:
-  # tags:
-  #   - workstation

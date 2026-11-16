@@ -7,6 +7,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **The full test suite runs once a day in CI, on the shared runners.** The
+  `test` job installs the heavy stack itself (requirements-ci.txt + the
+  SimNIBS wheel; a Fortran compiler is added for MUMPS) and runs the
+  headless suite from the nightly pipeline schedule (cron 09:00 UTC) plus by
+  hand from any pipeline view.  Every push runs the cheap gates only
+  (syntax, docs, pages) - the old push `test` job reported a fake green: the
+  heavy imports were absent on the runner, so it skipped the whole suite and
+  still said success.  The GUI tests stay manual (the display-less shared
+  runners skip them).
+
 - **Contact colours cover both sides.** The colour-by-collision overlay on
   the Collision test page tints both bodies of a real self-collision (e.g.
   the coil handle against the shoulder) and the head mesh itself on a head
