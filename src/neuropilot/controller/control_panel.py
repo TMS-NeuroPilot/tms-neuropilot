@@ -1214,6 +1214,9 @@ class MainWindow(QtWidgets.QMainWindow):
             event.ignore()
             return
         self._prepare_close()
+        shutdown = getattr(self, "_shutdown_event", None)
+        if shutdown is not None:
+            shutdown.set()
         super().closeEvent(event)
 
     def _prepare_close(self):

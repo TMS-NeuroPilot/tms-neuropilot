@@ -81,10 +81,11 @@ async def main(enable_health_check_and_control_panel, simulation, manual=False,
 
     # Closing the last Qt window must also stop this coroutine. qasync keeps
     # the asyncio loop alive while main() is pending; without this event the
-    # process can outlive the GUI.
+    # process can outlive the GUI. Do not let Qt quit the event loop before
+    # the coroutine has cancelled the pipeline; main() calls app.quit() below.
     shutdown = asyncio.Event()
     if app is not None:
-        app.aboutToQuit.connect(shutdown.set)
+        app.setQuitOnLastWindowClosed(False)
 
     if simulation:
         from .sim_remote_connection import Remote
@@ -101,6 +102,7 @@ async def main(enable_health_check_and_control_panel, simulation, manual=False,
         # The control panel is shown by the PipelineController once it is
         # ready, not here.
         app.window2 = MainWindow(simulation=simulation, training=training)
+        app.window2._shutdown_event = shutdown
         # Otherwise the window becomes transparent frozen while the controller initializes
         await asyncio.sleep(0.1)
 
@@ -128,6 +130,8 @@ async def main(enable_health_check_and_control_panel, simulation, manual=False,
             await pipeline_task
         except asyncio.CancelledError:
             pass
+        if app is not None:
+            app.quit()
 
 
 
