@@ -33,11 +33,10 @@ conda activate pipeline
 pip install -e . --no-deps
 ```
 
-That is it — `neuropilot sim` starts the simulated stack. If `import simnibs`
-fails with missing `libmkl*.so.2`, see the [MKL sonames](#4-install-simnibs-for-the-online-e-field-mode-and-msh-meshes)
-note below. The numbered sections after this one walk the same steps in
-detail and explain what each package is for; they remain the reference when
-something in the quick path fails on your machine.
+That is it — `neuropilot sim` starts the simulated stack. The numbered
+sections after this one walk the same steps in detail and explain what each
+package is for; they remain the reference when something in the quick path
+fails on your machine.
 
 ## Manual installation
 
@@ -100,24 +99,6 @@ pip install simnibs-4.5.0-*.whl
 pip install petsc4py-*.whl          # SimNIBS' own wheel
 pip install "mkl==2024.2.0" tbb numba fmm3dpy samseg
 conda install -c conda-forge python-mumps
-```
-
-!!! warning "MKL sonames"
-    The `petsc4py` wheel links older MKL sonames (`libmkl*.so.2`). If the
-    simulation import fails with a missing `libmkl_*.so.2`, copy those files
-    from a working SimNIBS environment into `$CONDA_PREFIX/lib`; this is a
-    packaging quirk, not a NeuroPilot problem. The environment pins
-    `mkl==2024.2.0`, which provides the older `libmkl*.so.2` files. For an
-    existing environment, `scripts/install.sh` installs the pinned MKL when
-    the sonames are missing, and can copy them from `envs/simnibs` or from
-    `NEUROPILOT_SIMNIBS_ENV` as a fallback. A separate `simnibs` conda
-    environment (the official installer) also works; NeuroPilot only needs
-    `simnibs` importable in the same environment for the online solver.
-
-Check it:
-
-```bash
-python -c "import simnibs; print(simnibs.__version__)"
 ```
 
 ### 5. Install NeuroPilot in editable mode
@@ -187,8 +168,6 @@ Platform-specific notes:
   InVesalius, `tms-robot-control`) must be installable on the machine too;
   the simulation stack has no such requirement.
 - **SimNIBS.** Install it on Windows from the official installer/conda builds.
-  The "MKL sonames" note above is Linux-specific (`libmkl*.so.2`); SimsNIBS'
-  Windows wheels bundle their own runtimes.
 - **Audio.** The virtual stimulator's pulse alert uses `winsound` on Windows
   instead of `paplay`.
 - **Path handling.** MuJoCo scenes are generated with `/` separators inside
