@@ -49,6 +49,11 @@ class EMGComputer(System):
         # One SMB round trip every few seconds is enough to notice a share
         # that went away; the health loop runs at ~2 Hz.
         self.probe_interval_s = float(os.getenv("EMG_PROBE_INTERVAL_S", "5"))
+        # smbclient defaults to a 60 s initial connection timeout. The
+        # controller still constructs the systems before it shows the GUI, so
+        # an offline EMG PC would otherwise freeze startup for a full minute.
+        self.connect_timeout_s = max(
+            0.5, float(os.getenv("EMG_CONNECT_TIMEOUT_S", "3")))
         self._last_probe = 0.0
     
     def _publish_details(self):
@@ -66,7 +71,12 @@ class EMGComputer(System):
     def try_connect(self):
         self._publish_details()
         try:
-            smbclient.register_session(self.EMG_COMPUTER_IP, username=self.EMG_COMPUTER_USERNAME, password=self.EMG_COMPUTER_PASSWORD) # smbclient is a singleton, so no need for "self."
+            smbclient.register_session(
+                self.EMG_COMPUTER_IP,
+                username=self.EMG_COMPUTER_USERNAME,
+                password=self.EMG_COMPUTER_PASSWORD,
+                connection_timeout=self.connect_timeout_s,
+            )
             super().set_system_status(SystemStatus.OK)
         except (ValueError, SMBException, ConnectionRefusedError, OSError, TimeoutError) as e:
             print(f"Could not connect to EMG computer at {self.EMG_COMPUTER_IP}: {e}")

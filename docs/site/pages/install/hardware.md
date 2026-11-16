@@ -153,6 +153,14 @@ sudo usermod -aG dialout,lp "$USER"    # log out and back in afterwards
 ls -l /dev/ttyUSB0 /dev/parport0
 ```
 
+If the controller prints `Permission denied` for the serial device, the
+group change has not reached the process yet. Log out and back in for the GUI,
+or run `newgrp dialout` in the terminal that starts NeuroPilot. The controller
+prints this fix in the terminal when it sees the error. If `/dev/parport0` is
+missing, the controller continues with the serial port only; load the parallel
+driver with `sudo modprobe ppdev` and check the `lp` group only if you actually
+use the TTL line.
+
 Set the devices in **Config › Lab** (or `STIMULATOR_PORT` /
 `STIMULATOR_TTL_PORT` in `.env`). USB-serial adapters usually appear as
 `/dev/ttyUSB0`; the parallel port may be `/dev/parport0` or a different device
@@ -175,6 +183,7 @@ record EMG itself.
 | `EMG_COMPUTER_IP` | address of the EMG PC | `192.168.1.2` |
 | `EMG_COMPUTER_USERNAME` | SMB user | `neuro` |
 | `EMG_COMPUTER_PASSWORD` | SMB password | `<set in .env>` |
+| `EMG_CONNECT_TIMEOUT_S` | initial SMB connection timeout | `3` |
 
 The share name is fixed in the acquisition setup, not in NeuroPilot. Confirm
 that the control PC can list it, and that new files appear there when you tap

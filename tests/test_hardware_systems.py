@@ -105,6 +105,30 @@ def test_no_stimulator_sets_error_without_raising(stim, monkeypatch):
     assert stim.status is SystemStatus.ERROR
 
 
+def test_permission_denied_prints_dialout_help(stim, monkeypatch, capsys):
+    class Denied(FakeMagVenture):
+        def __init__(self, *args, **kwargs):
+            if kwargs.get("ttl_port"):
+                raise FileNotFoundError("/dev/parport0")
+            super().__init__(*args, **kwargs)
+
+        def connect(self):
+            raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr("magicpy.MagVenture", Denied)
+
+    async def scenario():
+        stim.try_connect()
+        await asyncio.sleep(0.05)
+    run(scenario())
+
+    output = capsys.readouterr().out
+    assert "sudo usermod -aG dialout" in output
+    assert "newgrp dialout" in output
+    assert "modprobe ppdev" in output
+    assert stim.status is SystemStatus.ERROR
+
+
 def test_check_system_without_a_device_is_an_error(stim):
     stim.stimulator = None
     run(stim.check_system())
@@ -174,6 +198,27 @@ def smb(monkeypatch, emg):
     monkeypatch.setattr("smbclient.path", fake.path, raising=False)
     monkeypatch.setattr("smbclient.open_file", fake.open_file, raising=False)
     return fake
+
+
+def test_connect_uses_a_short_smb_timeout(emg, monkeypatch):
+    calls = {}
+
+    def fake_register(server, **kwargs):
+        calls["server"] = server
+        calls.update(kwargs)
+
+    monkeypatch.setattr("smbclient.register_session", fake_register)
+    emg.try_connect()
+
+    assert calls["server"] == emg.EMG_COMPUTER_IP
+    assert calls["connection_timeout"] == emg.connect_timeout_s
+    assert emg.status is SystemStatus.OK
+
+
+def test_connect_timeout_can_be_configured(monkeypatch):
+    monkeypatch.setenv("EMG_CONNECT_TIMEOUT_S", "1.5")
+    system = EMGComputer(update_control_panel_func=lambda *a, **k: None)
+    assert system.connect_timeout_s == 1.5
 
 
 def test_probe_ok_when_the_share_answers(emg, smb):

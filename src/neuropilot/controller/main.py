@@ -99,11 +99,13 @@ async def main(enable_health_check_and_control_panel, simulation, manual=False,
 
     # Control panel (only when ENABLE_HEALTH_CHECK_AND_CONTROL_PANEL=true).
     if enable_health_check_and_control_panel:
-        # The control panel is shown by the PipelineController once it is
-        # ready, not here.
         app.window2 = MainWindow(simulation=simulation, training=training)
         app.window2._shutdown_event = shutdown
-        # Otherwise the window becomes transparent frozen while the controller initializes
+        # Paint the control panel before the synchronous hardware probes.
+        # Keep it disabled until the controller is attached so a click cannot
+        # reach a half-initialized controller.
+        app.window2.setEnabled(False)
+        app.window2.show()
         await asyncio.sleep(0.1)
 
     # The controller tracks whether health checks and the control panel are
@@ -115,6 +117,7 @@ async def main(enable_health_check_and_control_panel, simulation, manual=False,
     controller.register_remote_handlers()
     if enable_health_check_and_control_panel:
         app.window2.set_controller(controller)
+        app.window2.setEnabled(True)
 
     # With everything prepped we connect to the relay server.
     await remote.connect()

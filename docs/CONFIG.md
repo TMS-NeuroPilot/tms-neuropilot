@@ -16,7 +16,7 @@ study) and **Subject** (files, per subject session).
 | `ROBOT` | simulated robot model (`omron` …) | Lab |
 | `TMS_ROBOT_CONTROL_PATH` | checkout used by `neuropilot real --launch-relay` | Lab |
 | `STIMULATOR_PORT`, `STIMULATOR_TTL_PORT` | MagVenture serial + parallel port | Lab |
-| `EMG_COMPUTER_IP`, `EMG_COMPUTER_USERNAME`, `EMG_COMPUTER_PASSWORD` | CED 1401 / Signal SMB share | Lab |
+| `EMG_COMPUTER_IP`, `EMG_COMPUTER_USERNAME`, `EMG_COMPUTER_PASSWORD`, `EMG_CONNECT_TIMEOUT_S` | CED 1401 / Signal SMB share and its connect timeout | Lab |
 | `ONLINE_FEM_SOLVER`, `ONLINE_FEM_ANISOTROPY` | OnlineFEM solver + anisotropy | Lab |
 | `READINESS_TIMEOUT_S`, `PYGLFW_LIBRARY` | supervisor / MuJoCo on Wayland | Lab (bootstrap) |
 | `EMG_CHANNELS` | channel names/count (labels + results columns) | Study |
