@@ -256,6 +256,13 @@ Start it pointed at the relay:
 python app.py --remote-host http://localhost:5000
 ```
 
+After `scripts/install.sh --with-invesalius`, the equivalent `inv` command is
+also available in the `invesalius` environment:
+
+```bash
+inv --remote-host http://localhost:5000
+```
+
 Replace `localhost` with the relay host when the two programs run on different
 machines.
 
