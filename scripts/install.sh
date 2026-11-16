@@ -77,6 +77,10 @@ announce "activated conda env '$ENV_NAME'."
 # ── 2. NeuPilot in editable mode ────────────────────────────────────────
 announce "installing NeuroPilot in editable mode..."
 pip install -e . --no-deps
+if [ ! -e "$CONDA_PREFIX/lib/libmkl_intel_lp64.so.2" ]; then
+    announce "installing MKL 2024.2.0 for the petsc4py ABI..."
+    pip install "mkl==2024.2.0"
+fi
 announce "NeuroPilot installed; checking required imports..."
 
 # ── 3. Verify the heavy imports before anything else runs ──────────────

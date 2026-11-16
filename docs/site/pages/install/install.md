@@ -88,7 +88,7 @@ One known-good recipe, all inside `pipeline`:
 # official SimNIBS 4.5.0 wheel from the GitHub release
 pip install simnibs-4.5.0-*.whl
 pip install petsc4py-*.whl          # SimNIBS' own wheel
-pip install mkl tbb numba fmm3dpy samseg
+pip install "mkl==2024.2.0" tbb numba fmm3dpy samseg
 conda install -c conda-forge python-mumps
 ```
 
@@ -96,11 +96,13 @@ conda install -c conda-forge python-mumps
     The `petsc4py` wheel links older MKL sonames (`libmkl*.so.2`). If the
     simulation import fails with a missing `libmkl_*.so.2`, copy those files
     from a working SimNIBS environment into `$CONDA_PREFIX/lib`; this is a
-    packaging quirk, not a NeuroPilot problem. `scripts/install.sh` performs
-    this copy automatically from `envs/simnibs`, or from the environment in
-    `NEUROPILOT_SIMNIBS_ENV` when set. A separate `simnibs` conda environment
-    (the official installer) also works; NeuroPilot only needs `simnibs`
-    importable in the same environment for the online solver.
+    packaging quirk, not a NeuroPilot problem. The environment pins
+    `mkl==2024.2.0`, which provides the older `libmkl*.so.2` files. For an
+    existing environment, `scripts/install.sh` installs the pinned MKL when
+    the sonames are missing, and can copy them from `envs/simnibs` or from
+    `NEUROPILOT_SIMNIBS_ENV` as a fallback. A separate `simnibs` conda
+    environment (the official installer) also works; NeuroPilot only needs
+    `simnibs` importable in the same environment for the online solver.
 
 Check it:
 

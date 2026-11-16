@@ -44,7 +44,8 @@ dependencies:
       - gdist
       - magicpy
       - numba
-      - mkl
+      # petsc4py from SimNIBS links the older libmkl*.so.2 ABI.
+      - mkl==2024.2.0
       - tbb
       - fmm3dpy
       - samseg
