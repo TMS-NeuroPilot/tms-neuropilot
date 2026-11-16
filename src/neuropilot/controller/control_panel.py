@@ -2015,15 +2015,19 @@ class MainWindow(QtWidgets.QMainWindow):
         model_v.setContentsMargins(0, 6, 0, 0)
         model_v.setSpacing(8)
 
+        form = QtWidgets.QFormLayout()
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setHorizontalSpacing(8)
+        form.setVerticalSpacing(8)
+        form.setLabelAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        form.setFieldGrowthPolicy(
+            QtWidgets.QFormLayout.AllNonFixedFieldsGrow)
+        form.setRowWrapPolicy(QtWidgets.QFormLayout.DontWrapRows)
+
         def add_row(text, widget):
-            row = QtWidgets.QHBoxLayout()
-            row.setSpacing(8)
             cap = QtWidgets.QLabel(text)
             cap.setProperty("role", "cap")
-            cap.setFixedWidth(160)
-            row.addWidget(cap)
-            row.addWidget(widget, 1)
-            model_v.addLayout(row)
+            form.addRow(cap, widget)
 
         self.cfg_sim_noise = QtWidgets.QDoubleSpinBox()
         self.cfg_sim_noise.setRange(0.0, 10.0)
@@ -2048,6 +2052,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cfg_sim_scale.setDecimals(2)
         self.cfg_sim_scale.setSingleStep(0.1)
         add_row("E-field scale (dI/dt)", self.cfg_sim_scale)
+        model_v.addLayout(form)
 
         self.cfg_sim_trial = QtWidgets.QCheckBox("Trial-to-trial variability")
         self.cfg_sim_trial.setProperty("role", "cap")

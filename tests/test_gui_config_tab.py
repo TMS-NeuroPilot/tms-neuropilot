@@ -11,6 +11,8 @@ import os
 import pytest
 import yaml
 
+from PyQt5 import QtWidgets
+
 from neuropilot.controller.config_store import MANAGED_KEYS, ConfigStore
 
 
@@ -427,6 +429,41 @@ def test_simulation_page_is_right_of_the_subject_page(window):
     assert titles == ["Lab (hardware)", "Study (mapping)",
                       "Subject (files)", "Simulation"]
     assert window.cfg_tabs.widget(3) is window.cfg_tab_simulation
+
+
+def test_simulation_labels_expand_at_the_large_window_size(window, qapp):
+    window.resize(3072, 1728)
+    window.show()
+    for index in range(window.tabWidget.count()):
+        if window.tabWidget.tabText(index) == "Config":
+            window.tabWidget.setCurrentIndex(index)
+            break
+    for index in range(window.cfg_tabs.count()):
+        if window.cfg_tabs.tabText(index) == "Simulation":
+            window.cfg_tabs.setCurrentIndex(index)
+            break
+    qapp.processEvents()
+    qapp.processEvents()
+    labels = {label.text(): label
+              for label in window.cfg_tab_simulation.findChildren(
+                  QtWidgets.QLabel)}
+    for text in ("Noise sigma (mV)", "Motor threshold (V/m)",
+                 "Upper limit (V/m)", "E-field scale (dI/dt)"):
+        assert labels[text].width() >= labels[text].sizeHint().width()
+
+
+def test_stimulator_box_is_in_the_right_lab_column(window):
+    right = window.findChild(QtWidgets.QVBoxLayout, "cfg_lab_right")
+    left = window.findChild(QtWidgets.QVBoxLayout, "cfg_lab_left")
+    assert right is not None and left is not None
+    right_names = [right.itemAt(i).widget().objectName()
+                   for i in range(right.count())
+                   if right.itemAt(i).widget() is not None]
+    left_names = [left.itemAt(i).widget().objectName()
+                  for i in range(left.count())
+                  if left.itemAt(i).widget() is not None]
+    assert "groupBox_cfg_stim" in right_names
+    assert "groupBox_cfg_stim" not in left_names
 
 
 def test_simulation_reload_fills_from_env(window, tmp_path):
