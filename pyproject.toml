@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,7 +7,7 @@ name = "neuropilot"
 version = "0.1.0"
 description = "NeuroPilot — guided online TMS mapping with online field optimization"
 readme = "README.md"
-license = { text = "CC BY-NC-SA 4.0" }
+license = "CC-BY-NC-SA-4.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = [
