@@ -8,7 +8,7 @@ page that explains it.
 | Symptom | Cause | Fix |
 |---|---|---|
 | `neuropilot: command not found` | editable install missing in the active env | `pip install -e . --no-deps` |
-| `ModuleNotFoundError: PyQt5` / `pynibs` / `mujoco` | wrong interpreter | `conda activate pipeline`; check `which python` |
+| `ModuleNotFoundError: PyQt5` / `pynibs` / `mujoco` | wrong interpreter | `conda activate neuropilot`; check `which python` |
 | `TypeError` on a missing MEP key at import | `.env` missing and an old checkout | `cp .env.example .env` (current code has defaults; update if needed) |
 | import crashes on `ROOT_FOLDER` | `.env` points at the cluster path | `ROOT_FOLDER=/tmp/neuropilot_test neuropilot sim` |
 | `Address already in use` on 5000 | another relay or service | stop it, or set `RELAY_PORT` |
@@ -76,10 +76,10 @@ page that explains it.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `pytest: command not found` | pytest not in the env | `conda activate pipeline` / `pip install pytest` |
+| `pytest: command not found` | pytest not in the env | `conda activate neuropilot` / `pip install pytest` |
 | GUI tests skipped | no display | run with `DISPLAY`/`WAYLAND_DISPLAY`, or use `-m "not gui"` |
 | snapshot drift after a design change | baselines outdated | `UPDATE_GUI_BASELINES=1 pytest tests/test_gui_snapshots.py` |
-| CI: `pytest is not installed in …` | runner lacks the env | set `PYTHON` to the pipeline interpreter |
+| CI: `pytest is not installed in …` | runner lacks the env | set `PYTHON` to the neuropilot interpreter |
 | CI: `pages` fails on a link | a page references a missing asset | run `python docs/site/build.py --check` locally |
 | CI: `pages` fails on an orphan | a page is not in `nav.toml` | add it or delete it |
 

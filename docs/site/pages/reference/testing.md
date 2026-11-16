@@ -17,7 +17,7 @@ scripts/run_tests.sh            # headless, with the CI interpreter
 `scripts/ci-python.sh`, which finds the interpreter in this order:
 
 1. `$PYTHON`, if it is executable or on the PATH;
-2. the `pipeline` conda environment in the usual locations;
+2. the `neuropilot` conda environment in the usual locations;
 3. `python3`.
 
 ## Markers
@@ -86,7 +86,7 @@ NEUROPILOT_LAB_FILE: "$CI_PROJECT_DIR/.ci-data/lab.yaml"
 NEUROPILOT_ENV_FILE: "$CI_PROJECT_DIR/.ci-data/.env"
 ```
 
-`ci-python.sh` means the runner needs no configuration beyond the `pipeline`
+`ci-python.sh` means the runner needs no configuration beyond the `neuropilot`
 environment (or a `PYTHON` variable pointing at it).
 
 ## The documentation build

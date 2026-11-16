@@ -159,7 +159,7 @@ ROOT_FOLDER=/tmp/np RELAY_PORT=5100 neuropilot sim
 
 ```bash
 # install
-conda activate pipeline && pip install -e . --no-deps && cp .env.example .env
+conda activate neuropilot && pip install -e . --no-deps && cp .env.example .env
 
 # run
 neuropilot sim                     # everything, simulated

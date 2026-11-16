@@ -12,7 +12,7 @@ from every peer and that the settings below point at the right devices.
 
 | Role | What runs there | What NeuroPilot needs from it |
 |---|---|---|
-| **Control PC** | controller + relay | a display, the `pipeline` environment, a writable data folder |
+| **Control PC** | controller + relay | a display, the `neuropilot` environment, a writable data folder |
 | **Neuronavigation PC** | InVesalius (group fork) | `--remote-host` pointed at the relay; the coil tracked |
 | **Robot controller** | `tms-robot-control` | the driver for your arm; a working force sensor |
 | **Stimulator** | your stimulator + its driver (`magicpy` for MagVenture) | a serial port and a TTL line on the control PC |
@@ -65,7 +65,7 @@ smbclient -L //192.0.2.20 -U <user>
 ## 3. Control PC
 
 ```bash
-conda activate pipeline
+conda activate neuropilot
 cp .env.example .env
 ```
 

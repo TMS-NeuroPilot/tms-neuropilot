@@ -29,7 +29,7 @@ or by hand:
 
 ```bash
 conda env create -f environment.yml    # the whole suite in one spec
-conda activate pipeline
+conda activate neuropilot
 pip install -e . --no-deps
 ```
 
@@ -55,8 +55,8 @@ cloning if you want to use it.
 ### 2. Create the environment
 
 ```bash
-conda create -n pipeline python=3.11 -y
-conda activate pipeline
+conda create -n neuropilot python=3.11 -y
+conda activate neuropilot
 conda install -c conda-forge -y \
     pyqt qasync pyvista vtk h5py scipy numpy pyyaml requests \
     python-socketio aiohttp python-dotenv
@@ -91,7 +91,7 @@ python -c "import pynibs; print(pynibs.__file__)"
 The precomputed E-field mode needs no SimNIBS. The online mode and reading
 SimNIBS `.msh` head meshes do.
 
-One known-good recipe, all inside `pipeline`:
+One known-good recipe, all inside `neuropilot`:
 
 ```bash
 # SimNIBS' own petsc4py wheel, then the official SimNIBS 4.5.0 wheel
@@ -149,8 +149,8 @@ PyQt5, VTK, numpy, etc. for Windows; `mujoco`, `pybullet`, `ikpy` and
 `smbprotocol` have Windows wheels):
 
 ```bat
-conda create -n pipeline python=3.11 -y
-conda activate pipeline
+conda create -n neuropilot python=3.11 -y
+conda activate neuropilot
 conda install -c conda-forge -y ^
     pyqt qasync pyvista vtk h5py scipy numpy pyyaml requests ^
     python-socketio aiohttp python-dotenv
@@ -283,7 +283,7 @@ update.
   `.env` (bootstrap overrides). Both regenerate from defaults on the next start.
 - **Session data:** `~/.neuropilot/` holds the results and the last-session
   cache; move it aside rather than deleting it if you may need the data.
-- **Environment:** `conda env remove -n pipeline` and start again.
+- **Environment:** `conda env remove -n neuropilot` and start again.
 
 ## Next
 

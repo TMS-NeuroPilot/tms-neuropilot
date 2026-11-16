@@ -22,7 +22,7 @@ The library is at ``didt = 1e6 A/s`` (1 A/us), so both files show the field
 for that current rate; multiply by ``amplitude_percent * 1.4`` for V/m at a
 given stimulator amplitude.
 
-Requires the ``pipeline`` environment (pyvista/h5py).
+Requires the ``neuropilot`` environment (pyvista/h5py).
 """
 import argparse
 from pathlib import Path

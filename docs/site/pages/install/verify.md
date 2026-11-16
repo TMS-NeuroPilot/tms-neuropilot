@@ -6,7 +6,7 @@ where to look instead of "the app does not start".
 ## 1. Imports
 
 ```bash
-conda activate pipeline
+conda activate neuropilot
 ```
 
 Paste this into a Python session, or save it as `check_imports.py` and run it:
