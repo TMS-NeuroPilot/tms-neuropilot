@@ -136,15 +136,17 @@ async def run_stack(components, timeout=None):
                               f"after {config.READINESS_TIMEOUT_S}s", flush=True)
                 asyncio.create_task(_announce())
 
-        # Wait until every child has exited (normal shutdown) or one dies early.
+        # Wait until every child has exited, or one exits on its own. The
+        # controller is the user-facing component: closing its window must
+        # stop the relay and the virtual components, even with exit code 0.
         while True:
             codes = [c.process.returncode for c in components]
-            if all(code is not None for code in codes):
+            exited = [(c.name, code) for c, code in zip(components, codes)
+                      if code is not None]
+            if len(exited) == len(components):
                 break
-            dead = [(c.name, code) for c, code in zip(components, codes)
-                    if code is not None and code not in (0, -2, -15)]
-            if dead:
-                print(f"[neuropilot] component died: {dead} — shutting down stack",
+            if exited:
+                print(f"[neuropilot] component exited: {exited} — shutting down stack",
                       flush=True)
                 break
             await asyncio.sleep(0.5)
