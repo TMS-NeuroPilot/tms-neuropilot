@@ -19,12 +19,6 @@ scripts/install.sh --with-invesalius --with-robot-control
                                          # also clone the GitHub robot-control test stack
 ```
 
-`--with-invesalius` uses the GitHub `installer-three-prs` branch. For a full
-local test stack, add `--with-robot-control`, which clones the GitHub
-`tms-robot-control` `installer-omron-relay` branch and installs its
-requirements into the selected NeuroPilot environment. It does not create a
-second robot-control environment.
-
 or by hand:
 
 ```bash
@@ -215,9 +209,6 @@ InVesalius repository:
 https://github.com/invesalius/invesalius3
 ```
 
-The relay and tracker changes are being proposed upstream; use the branch from
-the relevant pull request until they are merged.
-
 ```bash
 git clone https://github.com/invesalius/invesalius3.git
 cd invesalius3
@@ -255,13 +246,6 @@ Start it pointed at the relay:
 
 ```bash
 python app.py --remote-host http://localhost:5000
-```
-
-After `scripts/install.sh --with-invesalius`, the equivalent `inv` command is
-also available in the `invesalius` environment:
-
-```bash
-inv --remote-host http://localhost:5000
 ```
 
 `neuropilot real`, `manual`, and `training` start a local InVesalius
