@@ -430,7 +430,7 @@ class CollisionTestTab(QtWidgets.QWidget):
             "tms-robot-control/.env.")
         for spin in (self.safe_height_spin, self.translation_spin,
                      self.rotation_spin):
-            spin.setFixedWidth(135)
+            spin.setFixedWidth(160)
             spin.setKeyboardTracking(False)
             spin.valueChanged.connect(self._limits_changed)
 
@@ -466,14 +466,16 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.stop_btn.setProperty("role", "transport")
         self.next_btn = QtWidgets.QPushButton("Next target")
         self.next_btn.setProperty("role", "transport")
-        for button in (self.prev_btn, self.stop_btn, self.next_btn):
-            button.setMaximumHeight(36)
         self.scan_btn.clicked.connect(self._scan_button_clicked)
         self.prev_btn.clicked.connect(lambda: self._jump_target(-1))
         self.stop_btn.clicked.connect(self._stop_scan)
         self.next_btn.clicked.connect(lambda: self._jump_target(1))
         scan_layout.addWidget(self.scan_btn, 0, QtCore.Qt.AlignHCenter)
         scan_actions = QtWidgets.QHBoxLayout()
+        # Qt's default layout margins offset the buttons downward and let
+        # them paint over the spacing below the row.
+        scan_actions.setContentsMargins(0, 0, 0, 0)
+        scan_actions.setSpacing(6)
         scan_actions.addStretch(1)
         scan_actions.addWidget(self.prev_btn)
         scan_actions.addWidget(self.stop_btn)

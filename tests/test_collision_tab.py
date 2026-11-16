@@ -245,8 +245,26 @@ def test_controls_fit_before_the_3d_view_at_the_design_size(window, qapp):
             >= tab.progress.geometry().bottom())
     assert (tab.speed_slider.geometry().top()
             >= tab.scan_status.geometry().bottom())
-    assert all(spin.width() >= 120 for spin in (
+    assert all(spin.width() >= 160 for spin in (
         tab.safe_height_spin, tab.translation_spin, tab.rotation_spin))
+
+
+def test_scaled_controls_keep_the_gap_and_readable_fields(window, qapp):
+    window.resize(3072, 1728)
+    window.show()
+    for index in range(window.tabWidget.count()):
+        if window.tabWidget.tabText(index) == "Collision test":
+            window.tabWidget.setCurrentIndex(index)
+            break
+    qapp.processEvents()
+    qapp.processEvents()
+    tab = window.collision_tab
+    assert (tab.progress.geometry().top()
+            - tab.prev_btn.geometry().bottom() >= 12)
+    for spin in (tab.safe_height_spin, tab.translation_spin,
+                 tab.rotation_spin):
+        assert spin.width() >= 160
+        assert spin.width() >= spin.sizeHint().width()
 
 
 def test_failed_enable_keeps_the_button_label(window, qapp, monkeypatch):
