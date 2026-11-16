@@ -688,6 +688,10 @@ class MeshWidget(QWidget):
         the figure-8 lobes lie along +/-x and the handle runs along **-y**
         (the casing of the B65 extends ~160 mm in that direction).  Using
         the normal here drew a spike out of the scalp instead of a handle.
+        The line is a short direction indicator, not the full handle: it
+        starts at the placement point (no standoff) and runs ~1/3 of the
+        original length (21 mm) so a dense mapping does not fill the scalp
+        with sticks.
         """
         import numpy as np
         from scipy.spatial.transform import Rotation
@@ -696,7 +700,7 @@ class MeshWidget(QWidget):
             rot = record.get("rotation") or [0.0, 0.0, 0.0]
             rotation = Rotation.from_euler("xyz", rot, degrees=True)
             handle = rotation.apply([0.0, -1.0, 0.0])
-            return pos + handle * 6.0, pos + handle * 70.0
+            return pos, pos + handle * 21.0
         except Exception:
             return None
 
