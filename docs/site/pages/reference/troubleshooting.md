@@ -12,6 +12,8 @@ page that explains it.
 | `TypeError` on a missing MEP key at import | `.env` missing and an old checkout | `cp .env.example .env` (current code has defaults; update if needed) |
 | import crashes on `ROOT_FOLDER` | `.env` points at the cluster path | `ROOT_FOLDER=/tmp/neuropilot_test neuropilot sim` |
 | `Address already in use` on 5000 | another relay or service | stop it, or set `RELAY_PORT` |
+| `Cannot connect to the stimulator ... Permission denied` | user not in `dialout` | `sudo usermod -aG dialout $USER`; log out/in, or `newgrp dialout` |
+| `Cannot open the TTL/parallel port` | no `/dev/parport0`, or no permission | serial-only fallback is normal; for TTL run `sudo modprobe ppdev` and check the `lp` group |
 | window never appears | no `DISPLAY`/`WAYLAND_DISPLAY` | run on a graphical session, or use `pytest -m "not gui"` |
 | MuJoCo viewer fails on Wayland | GLFW is X11-only | set `PYGLFW_LIBRARY` to the X11 `libglfw.so.3` |
 

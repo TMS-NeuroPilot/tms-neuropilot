@@ -70,6 +70,7 @@ cp .env.example .env
 | `EMG_COMPUTER_IP` | `192.168.1.2` | EMG acquisition PC address | yes |
 | `EMG_COMPUTER_USERNAME` | `neuro` | SMB user | yes |
 | `EMG_COMPUTER_PASSWORD` | `<set in .env>` | SMB password | yes |
+| `EMG_CONNECT_TIMEOUT_S` | `3` | initial SMB connection timeout; keeps an offline EMG PC from delaying startup | yes |
 
 ### MEP extraction
 

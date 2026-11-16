@@ -36,6 +36,21 @@ class Stimulator(System):
     PORT = os.getenv("STIMULATOR_PORT", STIMULATOR_PORT_DEFAULT)
     TTL_PORT = os.getenv("STIMULATOR_TTL_PORT", STIMULATOR_TTL_PORT_DEFAULT)
 
+    @staticmethod
+    def _print_permission_help(error, port):
+        """Explain the usual Linux serial-port permission failure once."""
+        text = str(error).lower()
+        if not (isinstance(error, PermissionError)
+                or "permission denied" in text
+                or "access is denied" in text):
+            return
+        print(f"Permission denied opening the stimulator port {port}.")
+        print("Add your user to the dialout group, then log out and back in:")
+        print("  sudo usermod -aG dialout $USER")
+        print("For the current terminal only, run:")
+        print("  newgrp dialout")
+        print(f"Check access with: ls -l {port}")
+
     def try_connect(self):
         """Open the serial port (and the TTL port if the PC has one).
 
@@ -51,18 +66,24 @@ class Stimulator(System):
             self.avail = True
         except FileNotFoundError:
             print("Cannot open the TTL/parallel port; trying the serial port only.")
+            print("The TTL port is optional. If you use it, check that the")
+            print("parallel device exists and is accessible:")
+            print(f"  sudo modprobe ppdev && ls -l {self.TTL_PORT}")
             try:
                 self.stimulator = mp.MagVenture(self.PORT)
                 self.stimulator.connect()
                 self.avail = True
             except Exception as e:
                 print(f"Cannot connect to the stimulator on {self.PORT}: {e}")
+                self._print_permission_help(e, self.PORT)
                 self.stimulator = None
         except serial.serialutil.SerialException as e:
             print(f"Cannot connect to serial port {self.PORT}: {e}")
+            self._print_permission_help(e, self.PORT)
             self.stimulator = None
         except Exception as e:                  # magicpy raises a mixed bag
             print(f"Stimulator initialisation failed: {e}")
+            self._print_permission_help(e, self.PORT)
             self.stimulator = None
 
         self.set_details({"Port": self.PORT, "TTL port": self.TTL_PORT,
