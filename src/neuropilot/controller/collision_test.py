@@ -35,6 +35,8 @@ from ..sim_robot.utils.transforms import (
 NEAR_MISS_M = sim_config.COLLISION_DISTANCE_THRESHOLD_M
 PENETRATION_M = sim_config.PENTRATION_TOLERANCE
 SELF_PENETRATION_M = sim_config.SELF_PENETRATION_TOLERANCE
+# Dark red: the colour of an actual contact (head or self-collision).
+CONTACT_COLOUR = [0.45, 0.0, 0.0, 1.0]
 SCAN_STEPS = sim_config.PATH_INTERPOLATION_STEPS
 
 # New setups start with the arm raised.  The branch is stored separately from
@@ -349,23 +351,41 @@ class CollisionTestSession:
         }
 
     def update_contact_colors(self) -> None:
-        """Tint robot bodies by their closest distance to the head.
+        """Tint robot bodies and the head by their collision state.
 
         Green marks the outer edge of the near band, orange is halfway and
-        red is close to contact.  Actual contact is dark red.  Bodies outside
-        the band get their original MJCF colour back.
+        red is close to contact.  Actual contact is dark red: a head
+        contact tints the head mesh itself, and a real self-collision
+        (e.g. the coil handle against the shoulder) tints both involved
+        bodies.  Bodies outside the band get their original MJCF colour
+        back.
         """
         world = self._require_ready()
         world.restore_robot_colors()
-        distances = world.get_robot_head_body_distances(NEAR_MISS_M)
+        world.restore_head_color()
         colors = {}
-        for body_id, distance_m in distances.items():
+        for body_id, distance_m in world.get_robot_head_body_distances(
+                NEAR_MISS_M).items():
             distance_mm = float(distance_m) * 1000.0
             if distance_mm <= 0.0:
-                colors[body_id] = [0.45, 0.0, 0.0, 1.0]
+                colors[body_id] = CONTACT_COLOUR
             elif distance_mm <= NEAR_MISS_M * 1000.0:
                 colors[body_id] = _clearance_rgba(distance_mm)
+        # A real self-collision tints both involved bodies.  The distance
+        # filter is the same as in collision_state(), so adjacent-link
+        # overlaps do not colour the arm.
+        for contact in world.get_self_collision_contacts():
+            if contact.get("dist", 0.0) > SELF_PENETRATION_M:
+                continue
+            for geom_id in (contact.get("geom1"), contact.get("geom2")):
+                body_id = world.body_of_geom(geom_id)
+                if body_id is not None:
+                    colors[body_id] = CONTACT_COLOUR
         world.set_robot_body_colors(colors)
+        # An actual head contact tints the head mesh itself.
+        if any(contact.get("dist", 0.0) <= PENETRATION_M
+               for contact in world.get_robot_head_contacts()):
+            world.set_head_color(CONTACT_COLOUR)
 
     def clear_contact_colors(self) -> None:
         """Restore the MJCF colours after the colour overlay is disabled."""

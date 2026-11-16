@@ -7,6 +7,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Contact colours cover both sides.** The colour-by-collision overlay on
+  the Collision test page tints both bodies of a real self-collision (e.g.
+  the coil handle against the shoulder) and the head mesh itself on a head
+  contact — previously only robot-body-to-head clearance was coloured, so a
+  detected self-collision showed no colour and the head never tinted. The
+  overlay is always on; the "Color by collision" checkbox is removed.
+
 - **Cobot pose and movement limits.** The collision tab's start-pose card is
   now **Cobot pose setting**. The shoulder/arm/wrist branch and the safe Z,
   translation and rotation limits are stored in the project and lab collision

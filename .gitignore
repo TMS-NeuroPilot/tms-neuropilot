@@ -11,5 +11,6 @@ public/
 src/neuropilot/sim_robot/assets/mjcf/_head_override.xml
 src/neuropilot/sim_robot/assets/mjcf/_collision_scene.xml
 src/neuropilot/sim_robot/assets/mjcf/_collision_scene*.xml
+src/neuropilot/sim_robot/assets/mjcf/_test_*.xml
 src/neuropilot/sim_robot/assets/mjcf/_collision_scene_head_override.xml
 src/neuropilot/sim_robot/assets/mjcf/_*_head_override.xml

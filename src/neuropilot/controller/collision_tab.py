@@ -523,14 +523,6 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.collision_label = QtWidgets.QLabel("Current pose: clear.")
         self.collision_label.setProperty("role", "cap")
         self.collision_label.setWordWrap(True)
-        self.contact_colors_chk = QtWidgets.QCheckBox("Color by collision")
-        self.contact_colors_chk.setProperty("role", "cap")
-        self.contact_colors_chk.setToolTip(
-            "Tint robot links by their closest distance to the head: "
-            "green at the near edge, orange halfway, red near contact, "
-            "dark red on contact.")
-        self.contact_colors_chk.toggled.connect(
-            self._toggle_contact_colors)
         self.speed_slider.valueChanged.connect(self._speed_changed)
         control_speed = getattr(self.window, "spinBox2", None)
         if control_speed is not None:
@@ -541,7 +533,6 @@ class CollisionTestTab(QtWidgets.QWidget):
         collision_row = QtWidgets.QHBoxLayout()
         collision_row.setSpacing(8)
         collision_row.addWidget(self.collision_label, 1)
-        collision_row.addWidget(self.contact_colors_chk, 0)
         scan_layout.addLayout(collision_row)
         left.addWidget(scan)
         left.addStretch(1)
@@ -840,7 +831,7 @@ class CollisionTestTab(QtWidgets.QWidget):
                        self.scan_btn, self.prev_btn, self.stop_btn,
                        self.next_btn, self.step_combo, self.safe_height_spin,
                        self.translation_spin, self.rotation_spin,
-                       self.contact_colors_chk, self.speed_slider):
+                       self.speed_slider):
             widget.setEnabled(enabled)
         self.save_project_btn.setEnabled(enabled)
         self.save_lab_btn.setEnabled(enabled)
@@ -1818,16 +1809,6 @@ class CollisionTestTab(QtWidgets.QWidget):
             if index >= 0:
                 choice.setCurrentIndex(index)
 
-    def _toggle_contact_colors(self, enabled):
-        if self.session is None:
-            return
-        if enabled:
-            self.session.update_contact_colors()
-        else:
-            self.session.clear_contact_colors()
-        if self.view is not None:
-            self.view.refresh()
-
     def _update_collision(self):
         if self.session is None:
             return
@@ -1874,10 +1855,11 @@ class CollisionTestTab(QtWidgets.QWidget):
         else:
             self.collision_label.setText("Current pose: clear.")
             self.collision_label.setStyleSheet("")
-        if self.contact_colors_chk.isChecked():
-            self.session.update_contact_colors()
-            if self.view is not None:
-                self.view.refresh()
+        # The colour overlay is always on: it shows the clearance and both
+        # sides of a contact without a checkbox to remember.
+        self.session.update_contact_colors()
+        if self.view is not None:
+            self.view.refresh()
 
     def _scan_context(self):
         """Pulse context for a problem found while scanning."""
