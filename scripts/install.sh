@@ -1,33 +1,71 @@
 #!/usr/bin/env bash
 # One-command NeuroPilot installation.
 #
-#   scripts/install.sh                     # conda env + NeuPilot
-#   scripts/install.sh --with-invesalius   # also clone + install InVesalius
+#   scripts/install.sh                         # conda env 'neuropilot'
+#   scripts/install.sh --env-name my-env      # custom conda env name
+#   scripts/install.sh --with-invesalius      # also clone + install InVesalius
 #
 # Prerequisite: conda (miniforge or miniconda) on the PATH.
 # The environment spec is environment.yml in the repository root; the
 # long-form recipe with the reasoning is docs/site/pages/install/install.md.
 set -euo pipefail
 
+usage() {
+    echo "usage: scripts/install.sh [--env-name NAME] [--with-invesalius]"
+}
+
 WITH_INVESALIUS=0
-for arg in "$@"; do
-  case "$arg" in
-    --with-invesalius) WITH_INVESALIUS=1 ;;
-    *) echo "usage: scripts/install.sh [--with-invesalius]"; exit 1 ;;
-  esac
+ENV_NAME="neuropilot"
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --with-invesalius)
+            WITH_INVESALIUS=1
+            shift
+            ;;
+        --env-name)
+            if [ "$#" -lt 2 ] || [ -z "${2:-}" ]; then
+                echo "error: --env-name needs a value" >&2
+                usage >&2
+                exit 1
+            fi
+            ENV_NAME="$2"
+            shift 2
+            ;;
+        --env-name=*)
+            ENV_NAME="${1#*=}"
+            if [ -z "$ENV_NAME" ]; then
+                echo "error: --env-name needs a value" >&2
+                usage >&2
+                exit 1
+            fi
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            usage >&2
+            exit 1
+            ;;
+    esac
 done
+if [[ "$ENV_NAME" == *[[:space:]]* ]]; then
+    echo "error: the conda environment name cannot contain whitespace" >&2
+    exit 1
+fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 # ── 1. Conda environment from the one-file spec ────────────────────────
-if conda env list | grep -qE '^pipeline\s'; then
-    echo "[install] conda env 'pipeline' already exists -- skipping create"
+if conda env list | awk -v name="$ENV_NAME" '$1 == name { found=1 } END { exit !found }'; then
+    echo "[install] conda env '$ENV_NAME' already exists -- skipping create"
 else
-    conda env create -f environment.yml
+    conda env create -f environment.yml -n "$ENV_NAME"
 fi
 source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate pipeline
+conda activate "$ENV_NAME"
 
 # ── 2. NeuPilot in editable mode ────────────────────────────────────────
 pip install -e . --no-deps
@@ -63,8 +101,8 @@ if [ "$WITH_INVESALIUS" -eq 1 ]; then
         pypubsub gdcm pyacvd
     pip install "python-socketio[client]" pypolaris
     pip install -e "$INV_DIR" --no-deps
-    conda activate pipeline
+    conda activate "$ENV_NAME"
     echo "[install] InVesalius installed in the 'invesalius' env ($INV_DIR)"
 fi
 
-echo "[install] done. Start with:  conda activate pipeline && neuropilot sim"
+echo "[install] done. Start with:  conda activate $ENV_NAME && neuropilot sim"
