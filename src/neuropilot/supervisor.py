@@ -10,6 +10,7 @@ terminal, and terminates everything on exit.
 import asyncio
 import os
 import re
+import shutil
 import signal
 import sys
 import time
@@ -57,6 +58,7 @@ def _label(name):
 
 
 def _log(name, message):
+    _LIVE.finish()
     print(f"{_label(name)} {message}", flush=True)
 
 
@@ -92,6 +94,115 @@ def _drop_output_line(source, text):
     if source == "invesalius" and not text.strip():
         return True
     return False
+
+
+_FORWARD_RE = re.compile(
+    r"^\[[^\]]+\]\[SIM RELAY\] "
+    r"(?P<label>Forwarding .+?): (?P<payload>\{.*\})$"
+)
+_TOPIC_RE = re.compile(r"['\"]topic['\"]:\s*['\"]([^'\"]+)['\"]")
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _relay_forward_key(text):
+    match = _FORWARD_RE.match(text)
+    if match is None:
+        return None
+    topic = _TOPIC_RE.search(match.group("payload"))
+    if topic is None:
+        return None
+    return match.group("label"), topic.group(1)
+
+
+def _with_count(text, count):
+    if count <= 1:
+        return text
+    marker = ": {"
+    index = text.find(marker)
+    if index >= 0:
+        return f"{text[:index]} x{count}{text[index:]}"
+    return f"{text} x{count}"
+
+
+def _fit_line(line, width=None):
+    if width is None:
+        width = shutil.get_terminal_size((120, 24)).columns
+    prefix, separator, message = line.partition(" ")
+    visible_prefix = len(_ANSI_RE.sub("", prefix))
+    available = max(20, width - visible_prefix - 1)
+    if len(_ANSI_RE.sub("", message)) <= available:
+        return line
+    return f"{prefix}{separator}{message[:available - 1]}…"
+
+
+class _LiveOutput:
+    """Coalesce repeated relay-forwarding lines.
+
+    On a TTY the first line is written in place and later repeats overwrite it.
+    Redirected output is held and emitted once when the burst ends.
+    """
+
+    def __init__(self, stream=None, is_tty=None):
+        self._stream = stream
+        self._is_tty = is_tty
+        self.key = None
+        self.name = "relay"
+        self.text = ""
+        self.count = 0
+        self.visible = False
+
+    @property
+    def stream(self):
+        return self._stream if self._stream is not None else sys.stdout
+
+    def _tty(self):
+        if self._is_tty is not None:
+            return self._is_tty
+        try:
+            return self.stream.isatty()
+        except Exception:
+            return False
+
+    def _write(self, text):
+        self.stream.write(text)
+        self.stream.flush()
+
+    def _line(self, name):
+        return _fit_line(f"{_label(name)} "
+                         f"{_with_count(self.text, self.count)}")
+
+    def feed(self, name, key, text):
+        if self.key == key:
+            self.count += 1
+            self.text = text
+            if self._tty():
+                self._write("\r\033[2K" + self._line(name))
+            return
+        self.finish()
+        self.name = name
+        self.key = key
+        self.text = text
+        self.count = 1
+        if self._tty():
+            self._write(self._line(name))
+            self.visible = True
+
+    def finish(self):
+        if self.key is None:
+            return
+        if self._tty():
+            if self.visible:
+                self._write("\n")
+        else:
+            self._write(self._line(self.name) + "\n")
+        self.key = None
+        self.text = ""
+        self.count = 0
+        self.visible = False
+
+
+# The relay's current burst is shared by every pump and supervisor log call.
+_LIVE = _LiveOutput()
 
 
 def _pid_alive(pid):
@@ -205,16 +316,24 @@ async def _wait_port_open(host, port, timeout, abort=None):
 async def _pump(component):
     """Read the child's stdout line by line, prefix and forward it."""
     assert component.process.stdout is not None
-    while True:
-        line = await component.process.stdout.readline()
-        if not line:
-            break
-        text = line.decode(errors="replace").rstrip("\n")
-        if _drop_output_line(component.name, text):
-            continue
-        print(f"{_label(component.name)} {text}", flush=True)
-        if component.wait_ready == "line" and READY_LINE in text:
-            component.ready.set()
+    try:
+        while True:
+            line = await component.process.stdout.readline()
+            if not line:
+                break
+            text = line.decode(errors="replace").rstrip("\n")
+            if _drop_output_line(component.name, text):
+                continue
+            key = _relay_forward_key(text)
+            if key is not None:
+                _LIVE.feed(component.name, key, text)
+            else:
+                _LIVE.finish()
+                print(f"{_label(component.name)} {text}", flush=True)
+            if component.wait_ready == "line" and READY_LINE in text:
+                component.ready.set()
+    finally:
+        _LIVE.finish()
 
 
 async def _start(component):

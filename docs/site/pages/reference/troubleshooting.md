@@ -79,6 +79,9 @@ page that explains it.
 The supervisor colors only the role label inside square brackets, for example
 `[controller]`, `[invesalius]` and `[relay]`. Set `NO_COLOR` to disable this,
 or `FORCE_COLOR=1` to keep the colors when output is redirected to a file.
+Repeated simulated-relay forwarding lines are coalesced; on a terminal the
+latest line is updated in place, while redirected output emits one summary when
+the burst ends.
 
 ## Tests and CI
 
