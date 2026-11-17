@@ -905,8 +905,19 @@ class MeshWidget(QWidget):
                                 render_points_as_spheres=True,
                                 name="best_element_pt")
 
+    def _selected_result_channel(self):
+        """Channel index of the currently displayed ``Score <ADC>`` array."""
+        data_key = self.scalar_selector.currentData()
+        if not isinstance(data_key, str) or not data_key.startswith("Score "):
+            return None
+        channel = data_key[len("Score "):]
+        try:
+            return int(channel.split()[-1])
+        except (ValueError, IndexError):
+            return None
+
     def _draw_emg_sources(self):
-        """Draw the configured source of each EMG channel as a sphere.
+        """Draw the source of the channel whose result is currently shown.
 
         The sphere sits a few millimetres above the surface so an opaque ROI
         does not swallow it; the channel label floats just outside it with the
@@ -914,7 +925,15 @@ class MeshWidget(QWidget):
         """
         if self.current_mesh is not self.mesh_roi or not self.emg_sources:
             return
+        channel_index = self._selected_result_channel()
+        if channel_index is None or not (0 <= channel_index < len(self.emg_sources)):
+            return
+        element = self.emg_sources[channel_index]
+        if element is None:
+            return
         centres = self.mesh_roi.cell_centers().points
+        if element < 0 or element >= len(centres):
+            return
         try:
             normals = self.mesh_roi.face_normals
         except Exception:
@@ -923,39 +942,36 @@ class MeshWidget(QWidget):
         span = max(bounds[1] - bounds[0], bounds[3] - bounds[2],
                    bounds[5] - bounds[4])
         radius = max(1.5, span * 0.02)
-        for channel_index, element in enumerate(self.emg_sources):
-            if element is None or element < 0 or element >= len(centres):
-                continue
-            point = np.asarray(centres[element], dtype=float)
-            direction = np.zeros(3)
-            if normals is not None and element < len(normals):
-                normal = np.asarray(normals[element], dtype=float)
-                length = float(np.linalg.norm(normal))
-                if length > 1e-9:
-                    direction = normal / length
-            point = point + direction * 3.0
-            colour = _EMG_SOURCE_COLORS[
-                channel_index % len(_EMG_SOURCE_COLORS)]
-            sphere_name = f"emg_source_{channel_index}"
-            label_name = f"emg_source_label_{channel_index}"
-            sphere = pv.Sphere(radius=radius, center=point,
-                               theta_resolution=20, phi_resolution=20)
-            self.plotter.add_mesh(sphere, color=colour, smooth_shading=True,
-                                  pickable=False, reset_camera=False,
-                                  name=sphere_name)
-            # Float the label above the sphere so its coloured background does
-            # not hide the marker itself.
-            label_point = (point + direction * (radius + 6.0)).reshape(1, 3)
-            channel = f"ADC {channel_index}"
-            self.plotter.add_point_labels(
-                label_point,
-                [self.channel_display_names.get(channel, channel)],
-                font_size=14, bold=True, text_color=colour, shadow=True,
-                shape=None, show_points=False, always_visible=True,
-                name=label_name)
-            # add_point_labels stores its 2-D actor under "<name>-labels".
-            self._emg_source_actors.extend((sphere_name,
-                                            f"{label_name}-labels"))
+        point = np.asarray(centres[element], dtype=float)
+        direction = np.zeros(3)
+        if normals is not None and element < len(normals):
+            normal = np.asarray(normals[element], dtype=float)
+            length = float(np.linalg.norm(normal))
+            if length > 1e-9:
+                direction = normal / length
+        point = point + direction * 3.0
+        colour = _EMG_SOURCE_COLORS[
+            channel_index % len(_EMG_SOURCE_COLORS)]
+        sphere_name = f"emg_source_{channel_index}"
+        label_name = f"emg_source_label_{channel_index}"
+        sphere = pv.Sphere(radius=radius, center=point,
+                           theta_resolution=20, phi_resolution=20)
+        self.plotter.add_mesh(sphere, color=colour, smooth_shading=True,
+                              pickable=False, reset_camera=False,
+                              name=sphere_name)
+        # Float the label above the sphere so its coloured background does
+        # not hide the marker itself.
+        label_point = (point + direction * (radius + 6.0)).reshape(1, 3)
+        channel = f"ADC {channel_index}"
+        self.plotter.add_point_labels(
+            label_point,
+            [self.channel_display_names.get(channel, channel)],
+            font_size=14, bold=True, text_color=colour, shadow=True,
+            shape=None, show_points=False, always_visible=True,
+            name=label_name)
+        # add_point_labels stores its 2-D actor under "<name>-labels".
+        self._emg_source_actors.extend((sphere_name,
+                                        f"{label_name}-labels"))
 
     def mark_best_element(self, channel_key=None):
         """Outline the highest-R2 element of ``channel_key`` (default: the

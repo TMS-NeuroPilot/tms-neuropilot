@@ -262,17 +262,28 @@ def test_emg_sources_reach_the_cortical_view(window, qapp, roi_hdf5):
     view.load_hdf5_mesh(str(roi_hdf5), mesh_type="roi")
     window.set_emg_channels(["FDI", "APB"])
     window.set_emg_sources([0, 2])
+    view.apply_scores({"ADC 0": np.array([0.1, 0.4, 0.2, 0.3]),
+                       "ADC 1": np.array([0.2, 0.1, 0.5, 0.3])})
     qapp.processEvents()
     assert view.emg_sources == [0, 2]
     assert "emg_source_0" in view.plotter.actors
+    assert "emg_source_1" not in view.plotter.actors
+
+    _select = view.scalar_selector.findData("Score ADC 1")
+    view.scalar_selector.setCurrentIndex(_select)
+    qapp.processEvents()
+    assert "emg_source_0" not in view.plotter.actors
     assert "emg_source_1" in view.plotter.actors
 
 
 def test_removing_the_emg_config_clears_the_sources(window, qapp, roi_hdf5):
     view = window.widget_3d_viewer
     view.load_hdf5_mesh(str(roi_hdf5), mesh_type="roi")
+    window.set_emg_channels(["FDI"])
     window.set_emg_sources([0])
+    view.apply_scores({"ADC 0": np.array([0.1, 0.4, 0.2, 0.3])})
     qapp.processEvents()
+    assert "emg_source_0" in view.plotter.actors
     window.emg_config_label.setText("")
     window.paste_emg_config()
     qapp.processEvents()

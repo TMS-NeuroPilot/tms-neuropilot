@@ -165,15 +165,24 @@ def test_result_selector_shows_channel_names(view, qapp, roi_hdf5):
     assert labels == ["No results", "FDI", "APB"]
 
 
-def test_emg_sources_are_drawn_on_the_roi(view, qapp, roi_hdf5):
+def _select_result(view, key):
+    index = view.scalar_selector.findData(key)
+    assert index >= 0
+    view.scalar_selector.setCurrentIndex(index)
+
+
+def test_emg_sources_are_drawn_on_the_selected_result(view, qapp, roi_hdf5):
     view.load_hdf5_mesh(str(roi_hdf5), mesh_type="roi")
     view.set_channel_display_names(["FDI", "APB"])
     view.set_emg_sources([0, 2])
+    view.apply_scores({"ADC 0": np.array([0.1, 0.4, 0.2, 0.3]),
+                       "ADC 1": np.array([0.2, 0.1, 0.5, 0.3])})
+    _select_result(view, "Score ADC 1")
     qapp.processEvents()
     actors = view.plotter.actors
-    assert "emg_source_0" in actors
+    assert "emg_source_0" not in actors
     assert "emg_source_1" in actors
-    assert "emg_source_label_0-labels" in actors
+    assert "emg_source_label_0-labels" not in actors
     assert "emg_source_label_1-labels" in actors
 
     centres = view.mesh_roi.cell_centers().points
@@ -184,9 +193,23 @@ def test_emg_sources_are_drawn_on_the_roi(view, qapp, roi_hdf5):
     np.testing.assert_allclose(point, expected, atol=1e-6)
 
 
+def test_no_result_hides_the_source_spheres(view, qapp, roi_hdf5):
+    view.load_hdf5_mesh(str(roi_hdf5), mesh_type="roi")
+    view.set_channel_display_names(["FDI", "APB"])
+    view.set_emg_sources([0, 2])
+    view.apply_scores({"ADC 0": np.array([0.1, 0.4, 0.2, 0.3]),
+                       "ADC 1": np.array([0.2, 0.1, 0.5, 0.3])})
+    view.scalar_selector.setCurrentIndex(0)
+    qapp.processEvents()
+    assert not any(name.startswith("emg_source")
+                   for name in view.plotter.actors)
+
+
 def test_emg_sources_follow_the_roi_view(view, qapp, roi_hdf5):
     view.load_hdf5_mesh(str(roi_hdf5), mesh_type="roi")
+    view.set_channel_display_names(["FDI"])
     view.set_emg_sources([0])
+    view.apply_scores({"ADC 0": np.array([0.1, 0.4, 0.2, 0.3])})
     qapp.processEvents()
     assert "emg_source_0" in view.plotter.actors
 
@@ -201,8 +224,11 @@ def test_emg_sources_follow_the_roi_view(view, qapp, roi_hdf5):
 
 def test_clearing_emg_sources_removes_the_spheres(view, qapp, roi_hdf5):
     view.load_hdf5_mesh(str(roi_hdf5), mesh_type="roi")
+    view.set_channel_display_names(["FDI"])
     view.set_emg_sources([0, 1])
+    view.apply_scores({"ADC 0": np.array([0.1, 0.4, 0.2, 0.3])})
     qapp.processEvents()
+    assert "emg_source_0" in view.plotter.actors
     view.set_emg_sources([])
     qapp.processEvents()
     assert view.emg_sources == []
