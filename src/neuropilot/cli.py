@@ -14,7 +14,7 @@ import argparse
 import asyncio
 import sys
 
-from . import config, supervisor
+from . import config, startup, supervisor
 
 
 def _run(components):
@@ -35,17 +35,45 @@ def _resolve_invesalius(*, no_invesalius=False, override=None, gui=False):
     try:
         from .invesalius_launcher import resolve
 
-        return resolve(
+        spec = resolve(
             config.RELAY_HOST,
             config.RELAY_PORT,
             interactive=gui or sys.stdin.isatty(),
             gui=gui,
             override=override,
         )
+        if spec is not None and getattr(spec, "external", False):
+            return None
+        return spec
     except Exception as exc:                 # pragma: no cover - defensive
         print(f"[invesalius] discovery failed: {type(exc).__name__}: {exc}",
               file=sys.stderr, flush=True)
         return None
+
+
+def _prepare_relay(*, gui=False):
+    """Ensure the relay is running or can be started.
+
+    Returns ``True`` when the controller should manage it, ``False`` when an
+    existing relay is reused, and ``None`` after a GUI/terminal error.
+    """
+    try:
+        manage = startup.prepare_relay(gui=gui)
+    except Exception as exc:                 # pragma: no cover - defensive
+        startup.show_error(
+            "NeuroPilot startup error",
+            f"Relay startup failed: {type(exc).__name__}: {exc}",
+            gui=gui,
+        )
+        return None
+    if manage is None:
+        startup.show_error(
+            "NeuroPilot startup error",
+            startup.relay_unavailable_message(),
+            gui=gui,
+        )
+        return None
+    return manage
 
 
 def _add_invesalius_options(parser):
@@ -98,21 +126,18 @@ def main(argv=None):
 
     real = sub.add_parser("real", help="real-hardware mode")
     real.add_argument("--launch-relay", action="store_true",
-                      help="also start the production relay from "
-                           "TMS_ROBOT_CONTROL_PATH (default: expect one running)")
+                      help="compatibility flag; a configured relay is started automatically")
     _add_invesalius_options(real)
 
     manual = sub.add_parser("manual", help="manual mode: real hardware, no robot")
     manual.add_argument("--launch-relay", action="store_true",
-                        help="also start the production relay from "
-                             "TMS_ROBOT_CONTROL_PATH (default: expect one running)")
+                        help="compatibility flag; a configured relay is started automatically")
     _add_invesalius_options(manual)
 
     training = sub.add_parser(
         "training", help="training mode: real TMS, virtual EMG, no robot")
     training.add_argument("--launch-relay", action="store_true",
-                          help="also start the production relay from "
-                               "TMS_ROBOT_CONTROL_PATH (default: expect one running)")
+                          help="compatibility flag; a configured relay is started automatically")
     _add_invesalius_options(training)
 
     args = parser.parse_args(argv)
@@ -131,70 +156,42 @@ def main(argv=None):
     if args.command == "controller":
         if args.sim:
             _run(supervisor.sim_stack(["controller"]))
-        elif args.real:
-            spec = _resolve_invesalius(
-                no_invesalius=args.no_invesalius,
-                override=args.invesalius,
-            )
-            _run(supervisor.real_controller(invesalius=spec))
-        elif args.manual:
-            spec = _resolve_invesalius(
-                no_invesalius=args.no_invesalius,
-                override=args.invesalius,
-            )
-            _run(supervisor.manual_stack(with_relay=False,
-                                         invesalius=spec))
-        elif args.training:
-            spec = _resolve_invesalius(
-                no_invesalius=args.no_invesalius,
-                override=args.invesalius,
-            )
-            _run(supervisor.training_stack(with_relay=False,
-                                           invesalius=spec))
-        else:
+            return 0
+        if not (args.real or args.manual or args.training):
             _run(supervisor.controller_with_dialog())
-        return 0
-
-    if args.command in ("manual", "training"):
-        stack = (supervisor.manual_stack if args.command == "manual"
-                 else supervisor.training_stack)
+            return 0
+        manage = _prepare_relay(gui=startup.gui_available())
+        if manage is None:
+            return 1
         spec = _resolve_invesalius(
             no_invesalius=args.no_invesalius,
             override=args.invesalius,
         )
-        if args.launch_relay:
-            if not config.TMS_ROBOT_CONTROL_PATH:
-                print("TMS_ROBOT_CONTROL_PATH is not set — cannot launch the "
-                      "production relay. Set it in .env or pass it via the "
-                      "environment.")
-                return 1
-            _run(stack(with_relay=True, invesalius=spec))
+        if args.real:
+            _run(supervisor.real_controller(with_relay=manage,
+                                            invesalius=spec))
+        elif args.manual:
+            _run(supervisor.manual_stack(with_relay=manage,
+                                         invesalius=spec))
         else:
-            print("[neuropilot] expecting a relay on "
-                  f"{config.RELAY_HOST}:{config.RELAY_PORT} (start "
-                  "tms-robot-control's relay_server.py manually or use "
-                  "--launch-relay)")
-            _run(stack(with_relay=False, invesalius=spec))
+            _run(supervisor.training_stack(with_relay=manage,
+                                           invesalius=spec))
         return 0
 
-    if args.command == "real":
+    if args.command in ("manual", "training", "real"):
+        stack = {
+            "manual": supervisor.manual_stack,
+            "training": supervisor.training_stack,
+            "real": supervisor.real_stack,
+        }[args.command]
+        manage = _prepare_relay(gui=startup.gui_available())
+        if manage is None:
+            return 1
         spec = _resolve_invesalius(
             no_invesalius=args.no_invesalius,
             override=args.invesalius,
         )
-        if args.launch_relay:
-            if not config.TMS_ROBOT_CONTROL_PATH:
-                print("TMS_ROBOT_CONTROL_PATH is not set — cannot launch the "
-                      "production relay. Set it in .env or pass it via the "
-                      "environment.")
-                return 1
-            _run(supervisor.real_stack(with_relay=True, invesalius=spec))
-        else:
-            print("[neuropilot] expecting a relay on "
-                  f"{config.RELAY_HOST}:{config.RELAY_PORT} (start "
-                  "tms-robot-control's relay_server.py manually or use "
-                  "--launch-relay)")
-            _run(supervisor.real_stack(with_relay=False, invesalius=spec))
+        _run(stack(with_relay=manage, invesalius=spec))
         return 0
 
     # No command: GUI mode selector.
@@ -205,15 +202,18 @@ def main(argv=None):
     if mode == "simulation":
         _run(supervisor.sim_stack())
     else:
+        manage = _prepare_relay(gui=True)
+        if manage is None:
+            return 1
         spec = _resolve_invesalius(gui=True)
         if mode == "manual":
-            _run(supervisor.manual_stack(with_relay=False,
+            _run(supervisor.manual_stack(with_relay=manage,
                                          invesalius=spec))
         elif mode == "training":
-            _run(supervisor.training_stack(with_relay=False,
+            _run(supervisor.training_stack(with_relay=manage,
                                            invesalius=spec))
         else:
-            _run(supervisor.real_stack(with_relay=False,
+            _run(supervisor.real_stack(with_relay=manage,
                                        invesalius=spec))
     return 0
 

@@ -22,22 +22,22 @@ for the first time while a subject is in the chair.
 
 ## One hour before
 
-- [ ] Production relay running: `python relay_server.py 5000`, or use `neuropilot real --launch-relay`, or press **Start relay** on Connections. Skip this line when the controller starts it.
-- [ ] InVesalius running with `--remote-host http://localhost:5000`.
+- [ ] Production relay available. `neuropilot real` starts it automatically when `TMS_ROBOT_CONTROL_PATH` is configured and no relay is running; otherwise it asks for the checkout.
+- [ ] InVesalius available. It starts automatically by default; press **Is started** if it runs on another machine, or use `--no-invesalius`.
 - [ ] Robot driver running: `python main_loop.py`.
-- [ ] Controller running: `neuropilot real` (or `neuropilot real --launch-relay`, which also starts the relay).
+- [ ] Controller running: `neuropilot real` (or `neuropilot real --launch-relay`, kept for compatibility).
 - [ ] **Connections** page: relay, stimulator, EMG and robot all green.
 - [ ] **Project** page: the project loads without an error dialog.
 - [ ] **Cortical results**: the mesh is displayed and the coil model is loaded.
 - [ ] Stimulator armed and the amplitude shows the value you expect.
 - [ ] The robot's force sensor shows a reading (touch it once if the robot side says `Awaiting valid pressure data`).
 
-!!! note "Only the simulator is one command"
+!!! note "One command, with explicit hardware"
     `neuropilot sim` starts all four simulated peers. In real mode NeuroPilot
-    starts the controller, and with `--launch-relay` the production relay. The
-    Relay card can also start or restart a relay that NeuroPilot owns.
-    InVesalius and `main_loop.py` are separate applications and must be started
-    as above.
+    starts the controller, the production relay when it is configured, and a
+    local InVesalius. The Relay card can also start or restart a relay that
+    NeuroPilot owns. `main_loop.py` remains a separate application and must be
+    started as above.
 
 ## Five minutes before
 

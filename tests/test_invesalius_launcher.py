@@ -230,6 +230,7 @@ def test_cli_real_no_invesalius_skips_discovery(monkeypatch):
     from neuropilot import cli
 
     seen = {}
+    monkeypatch.setattr(cli, "_prepare_relay", lambda **kwargs: False)
     monkeypatch.setattr(
         cli, "_resolve_invesalius",
         lambda **kwargs: seen.update(kwargs) or None)
@@ -244,6 +245,7 @@ def test_cli_real_passes_an_invesalius_override(monkeypatch, tmp_path):
     from neuropilot import cli
 
     seen = {}
+    monkeypatch.setattr(cli, "_prepare_relay", lambda **kwargs: False)
     monkeypatch.setattr(
         cli, "_resolve_invesalius",
         lambda **kwargs: seen.update(kwargs) or None)
@@ -252,6 +254,27 @@ def test_cli_real_passes_an_invesalius_override(monkeypatch, tmp_path):
     path = str(tmp_path / "invesalius")
     assert cli.main(["real", "--invesalius", path]) == 0
     assert seen["override"] == path
+
+
+def test_cli_real_manages_a_configured_relay(monkeypatch):
+    from neuropilot import cli
+
+    seen = {}
+    monkeypatch.setattr(cli, "_prepare_relay", lambda **kwargs: True)
+    monkeypatch.setattr(cli, "_resolve_invesalius", lambda **kwargs: None)
+    monkeypatch.setattr(cli, "_run", lambda components: seen.update(
+        components=components))
+    assert cli.main(["real", "--no-invesalius"]) == 0
+    assert seen["components"][0].args == ["--real", "--manage-relay"]
+
+
+def test_cli_real_aborts_when_relay_setup_fails(monkeypatch):
+    from neuropilot import cli
+
+    monkeypatch.setattr(cli, "_prepare_relay", lambda **kwargs: None)
+    monkeypatch.setattr(cli, "_run",
+                        lambda components: pytest.fail("must not start"))
+    assert cli.main(["real", "--no-invesalius"]) == 1
 
 
 def test_cli_sim_never_resolves_invesalius(monkeypatch):

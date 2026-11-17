@@ -83,9 +83,9 @@ The relay is `relay_server.py` from `tms-robot-control`; with
 TMS_ROBOT_CONTROL_PATH=/opt/tms-robot-control
 ```
 
-`neuropilot real --launch-relay` starts and manages it for you; the Relay
-card on Connections can start or restart it. For a dry run without hardware,
-`neuropilot relay` starts the simulated relay instead.
+`neuropilot real` starts and manages it automatically when the checkout is
+configured; the Relay card on Connections can start or restart it. For a dry
+run without hardware, `neuropilot relay` starts the simulated relay instead.
 
 ## 4. Neuronavigation PC
 
@@ -139,8 +139,10 @@ In InVesalius, press *Connect to robot* only after `main_loop.py` is running.
 !!! danger "Safety: order matters"
     Start the relay, then InVesalius, then the robot driver, then the
     controller — and press *Connect to robot* in InVesalius only after the
-    driver is running. Connecting to a robot whose driver is not running leaves
-    it uninitialised and the first target will not move it.
+    driver is running. NeuroPilot can start the relay and InVesalius for you,
+    but `main_loop.py` must already be running before you connect in
+    InVesalius. Connecting to a robot whose driver is not running leaves it
+    uninitialised and the first target will not move it.
 
 ## 6. Stimulator
 

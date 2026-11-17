@@ -38,6 +38,7 @@ class RelaySystem(System):
         self.DESCRIPTION = "Simulated" if simulation else "Production"
         self.process = None
         self.owned = False
+        self.failure_reason = ""
         self.log_handle = None
         self.log_path = Path(config.ROOT_FOLDER) / "relay.log"
         self._remote = self.host not in ("127.0.0.1", "localhost", "::1")
@@ -76,21 +77,39 @@ class RelaySystem(System):
 
     def try_connect(self):
         """Check the port; start the relay only when NeuroPilot manages it."""
+        self.failure_reason = ""
         self._publish_details()
         if self._port_open():
             self._set_status(SystemStatus.OK)
             return
         if self.simulation:
+            self.failure_reason = "Simulated relay is not running"
             self._set_status(SystemStatus.ERROR, "Relay not running (supervisor)")
             return
         if self.manage and not self._remote:
             if self._start():
                 self._set_status(SystemStatus.OK)
                 return
+            if not self.failure_reason:
+                self.failure_reason = (
+                    f"Relay did not start; see {self.log_path}")
             self._set_status(SystemStatus.ERROR, "Relay did not start")
             return
-        message = ("Relay not running" if not self._remote
-                   else "Relay not running (remote host)")
+        path = (config.TMS_ROBOT_CONTROL_PATH or "").strip()
+        if self._remote:
+            self.failure_reason = (
+                f"Relay {self.host}:{self.port} is not reachable")
+            message = "Relay not running (remote host)"
+        elif not path:
+            self.failure_reason = (
+                f"Relay {self.host}:{self.port} is not running and "
+                "TMS_ROBOT_CONTROL_PATH is not configured")
+            message = "Relay not running"
+        else:
+            self.failure_reason = (
+                f"Relay {self.host}:{self.port} is not running; "
+                f"start it or use --launch-relay")
+            message = "Relay not running"
         self._set_status(SystemStatus.ERROR, message)
 
     async def check_system(self):
@@ -111,6 +130,7 @@ class RelaySystem(System):
     # ── process control ────────────────────────────────────────────
     def _start(self):
         """Start the production relay; return True once its port is open."""
+        self.failure_reason = ""
         if self.simulation:
             return False
         if self._port_open():
@@ -118,9 +138,18 @@ class RelaySystem(System):
             self._publish_details()
             return True
         if self._remote:
+            self.failure_reason = (
+                f"Relay {self.host}:{self.port} is configured as a remote "
+                "host and is not reachable")
             return False
         script = self._relay_script()
         if script is None:
+            raw = (config.TMS_ROBOT_CONTROL_PATH or "").strip()
+            if raw:
+                self.failure_reason = (
+                    f"relay_server.py was not found under {raw}")
+            else:
+                self.failure_reason = "TMS_ROBOT_CONTROL_PATH is not configured"
             return False
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -141,6 +170,8 @@ class RelaySystem(System):
             self._publish_details()
         except OSError as e:
             print(f"[RELAY] could not start {script}: {e}")
+            self.failure_reason = (
+                f"Could not start {script}: {e}; see {self.log_path}")
             self._close_log()
             return False
 
@@ -148,12 +179,17 @@ class RelaySystem(System):
         while time.monotonic() < deadline:
             if self.process.poll() is not None:
                 print(f"[RELAY] relay_server.py exited with {self.process.returncode}")
+                self.failure_reason = (
+                    f"relay_server.py exited with code {self.process.returncode}; "
+                    f"see {self.log_path}")
                 self._close_log()
                 return False
             if self._port_open():
                 return True
             time.sleep(0.1)
         print("[RELAY] relay did not open its port in time")
+        self.failure_reason = (
+            f"relay_server.py did not open port {self.port}; see {self.log_path}")
         self._stop()
         return False
 

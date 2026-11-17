@@ -251,6 +251,8 @@ def controller_with_dialog():
 
 def invesalius_component(spec):
     """Build the optional InVesalius child from a launcher spec."""
+    if getattr(spec, "external", False):
+        raise ValueError("external InVesalius must not be launched")
     host = config.RELAY_HOST
     if host in ("", "0.0.0.0", "::"):
         host = "127.0.0.1"
@@ -299,5 +301,5 @@ def training_stack(with_relay=False, invesalius=None):
     ], invesalius)
 
 
-def real_controller(invesalius=None):
-    return real_stack(with_relay=False, invesalius=invesalius)
+def real_controller(with_relay=False, invesalius=None):
+    return real_stack(with_relay=with_relay, invesalius=invesalius)

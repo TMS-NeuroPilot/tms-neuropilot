@@ -129,7 +129,7 @@ What you will eventually edit:
 | `STIMULATOR_PORT`, `STIMULATOR_TTL_PORT` | the real stimulator is on different devices |
 | `EMG_COMPUTER_IP`, `EMG_COMPUTER_USERNAME`, `EMG_COMPUTER_PASSWORD` | the EMG PC has a different address or share account |
 | `ONLINE_FEM_SOLVER`, `ONLINE_FEM_ANISOTROPY` | the solver should use `amg` or anisotropic conductivity |
-| `TMS_ROBOT_CONTROL_PATH` | `neuropilot real --launch-relay` should start the production relay |
+| `TMS_ROBOT_CONTROL_PATH` | real/manual/training should start the production relay automatically |
 
 `.env` is read **once, at import time**, by `neuropilot.config`; restart the
 controller after editing it. See the [`.env` reference](config/env.md) for all
@@ -249,10 +249,11 @@ Start it pointed at the relay:
 python app.py --remote-host http://localhost:5000
 ```
 
-`neuropilot real`, `manual`, and `training` start a local InVesalius
-automatically by default. Discovery checks the conda environments and stores
-the selected environment, checkout, and launcher in `~/.neuropilot/lab.yaml`.
-Use `--no-invesalius` to suppress the automatic start.
+`neuropilot real`, `manual`, and `training` start the production relay and a
+local InVesalius automatically by default. Discovery checks the conda
+environments and stores the selected environment, checkout, and launcher in
+`~/.neuropilot/lab.yaml`. Use `--no-invesalius` to suppress the local InVesalius
+start, or choose **Is started** when it runs on another machine.
 
 Replace `localhost` with the relay host when the two programs run on different
 machines.

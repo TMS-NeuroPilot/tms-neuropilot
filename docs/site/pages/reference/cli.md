@@ -48,9 +48,9 @@ neuropilot controller             # asks for the mode in a dialog
 `--sim`, `--real`, `--manual` and `--training` are mutually exclusive.
 
 For `--real`, `--manual`, and `--training`, the controller also starts a local
-InVesalius by default. Use `--no-invesalius` to suppress that, or
-`--invesalius PATH` to provide an environment, wrapper, or checkout for this
-run.
+InVesalius by default and starts the relay when `TMS_ROBOT_CONTROL_PATH` is
+configured. Use `--no-invesalius` to suppress InVesalius, or `--invesalius
+PATH` to provide an environment, wrapper, or checkout for this run.
 
 ## `neuropilot real`
 
@@ -63,15 +63,17 @@ neuropilot real --launch-relay
 
 | Flag | Meaning |
 |---|---|
-| `--launch-relay` | let the controller start and own the production relay from `TMS_ROBOT_CONTROL_PATH` |
+| `--launch-relay` | compatibility flag; a configured relay is started automatically |
 | `--no-invesalius` | do not start InVesalius automatically |
 | `--invesalius PATH` | use this environment, wrapper, or checkout for this run |
 
-Without the flag the controller **expects** a relay on `RELAY_HOST:RELAY_PORT`
-and prints a reminder. With the flag but no `TMS_ROBOT_CONTROL_PATH` it exits 1
-with an explanation.
+If no relay is running, the controller starts one when
+`TMS_ROBOT_CONTROL_PATH` points to a `tms-robot-control` checkout. If the path
+is not configured, a dialog asks for it and the selection is saved. If the
+relay cannot be started, the GUI and terminal show the reason and the stack
+exits. An already-running relay is reused.
 
-The same InVesalius flags are available on `manual` and `training`.
+The same relay and InVesalius flags are available on `manual` and `training`.
 
 ## `neuropilot manual`
 

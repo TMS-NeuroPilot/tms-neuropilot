@@ -11,9 +11,11 @@ environment list.  A candidate is valid when one of these works:
   ``pip show InVesalius``.
 
 The selected environment, checkout and launcher are stored in
-``~/.neuropilot/lab.yaml``.  Discovery failures are warnings, never startup
-errors: the controller can still run while the user starts InVesalius
-manually.
+``~/.neuropilot/lab.yaml`` unless the key is pinned in the repository
+``.env``.  The picker also has an **Is started** option for an InVesalius
+instance on another machine; it stores ``INVESALIUS_LAUNCH=external``.
+Discovery failures are warnings, never startup errors: the controller can
+still run while the user starts InVesalius manually.
 """
 
 from __future__ import annotations
@@ -47,6 +49,7 @@ class LaunchSpec:
     launcher: Path | None = None
     python: Path | None = None
     source: str = ""
+    external: bool = False
 
     @property
     def label(self) -> str:
@@ -58,6 +61,8 @@ class LaunchSpec:
 
     def argv(self, remote_host: str, remote_port: int) -> list[str]:
         """Return the smallest reliable launch command for this install."""
+        if self.external:
+            raise ValueError("external InVesalius has no local launch command")
         host = remote_host
         if ":" in host and not host.startswith("["):
             host = f"[{host}]"
@@ -328,7 +333,22 @@ def discover() -> tuple[list[LaunchSpec], list[str]]:
     return _dedupe(candidates), errors
 
 
+def _external_spec() -> LaunchSpec:
+    """Persist external mode and return a non-launchable sentinel."""
+    try:
+        from .startup import save_settings
+        save_settings((("INVESALIUS_LAUNCH", "external"),))
+    except Exception as exc:                 # pragma: no cover - defensive
+        print(f"[invesalius] could not save external mode: {exc}",
+              flush=True)
+    os.environ["INVESALIUS_LAUNCH"] = "external"
+    print("[invesalius] using an externally started InVesalius",
+          flush=True)
+    return LaunchSpec(source="external", external=True)
+
+
 def _choice(labels: Sequence[str], gui: bool) -> int | None:
+    choices = list(labels) + ["Is started (external)"]
     if gui:
         try:
             from PyQt5 import QtWidgets
@@ -336,19 +356,20 @@ def _choice(labels: Sequence[str], gui: bool) -> int | None:
                 item, ok = QtWidgets.QInputDialog.getItem(
                     None, "Select InVesalius",
                     "Multiple InVesalius environments were found:",
-                    list(labels), 0, False)
+                    choices, 0, False)
                 if not ok:
                     return None
-                return list(labels).index(item)
+                return choices.index(item)
         except Exception:
             pass
     if not sys.stdin.isatty():
         return None
     print("[invesalius] multiple environments found:")
-    for index, label in enumerate(labels, 1):
+    for index, label in enumerate(choices, 1):
         print(f"  {index}. {label}")
     try:
-        answer = input("Select InVesalius [1-%d, blank to skip]: " % len(labels))
+        answer = input("Select InVesalius [1-%d, blank to skip]: "
+                       % len(choices))
     except EOFError:
         return None
     answer = answer.strip()
@@ -358,23 +379,57 @@ def _choice(labels: Sequence[str], gui: bool) -> int | None:
         index = int(answer) - 1
     except ValueError:
         return None
-    return index if 0 <= index < len(labels) else None
+    return index if 0 <= index < len(choices) else None
 
 
 def _ask_path(gui: bool) -> LaunchSpec | None:
     if gui:
         try:
             from PyQt5 import QtWidgets
-            if QtWidgets.QApplication.instance() is not None:
-                folder = QtWidgets.QFileDialog.getExistingDirectory(
-                    None, "Select the InVesalius conda environment")
+            if QtWidgets.QApplication.instance() is None:
+                if not (os.environ.get("DISPLAY")
+                        or os.environ.get("WAYLAND_DISPLAY")
+                        or sys.platform.startswith("win")
+                        or sys.platform == "darwin"):
+                    raise RuntimeError("no display")
+                QtWidgets.QApplication([])
+            app = QtWidgets.QApplication.instance()
+            if app is not None:
+                box = QtWidgets.QMessageBox()
+                box.setWindowTitle("InVesalius")
+                box.setIcon(QtWidgets.QMessageBox.Question)
+                box.setText("InVesalius was not found.")
+                box.setInformativeText(
+                    "Select a local environment or launcher, or choose "
+                    "'Is started' when InVesalius is already running on "
+                    "another machine.")
+                box.setMinimumSize(760, 300)
+                box.layout().setSizeConstraint(
+                    QtWidgets.QLayout.SetMinimumSize)
+                select_button = box.addButton(
+                    "Select environment…", QtWidgets.QMessageBox.ActionRole)
+                external_button = box.addButton(
+                    "Is started", QtWidgets.QMessageBox.AcceptRole)
+                box.addButton("Cancel", QtWidgets.QMessageBox.RejectRole)
+                box.exec_()
+                if box.clickedButton() is external_button:
+                    return _external_spec()
+                if box.clickedButton() is not select_button:
+                    return None
+
+                from .startup import choose_directory, choose_file
+
+                folder = choose_directory(
+                    "Select InVesalius conda environment",
+                    Path.home(), gui=True)
                 if folder:
                     spec = _from_path(folder)
                     if spec is not None and validate(spec)[0]:
                         return spec
-                file_name, _ = QtWidgets.QFileDialog.getOpenFileName(
-                    None, "Select the InVesalius inv launcher", "",
-                    "inv (inv inv.exe);;All files (*)")
+                file_name = choose_file(
+                    "Select InVesalius inv launcher",
+                    "inv (inv inv.exe);;All files (*)",
+                    Path.home(), gui=True)
                 if file_name:
                     spec = _from_path(file_name)
                     if spec is not None and validate(spec)[0]:
@@ -386,17 +441,21 @@ def _ask_path(gui: bool) -> LaunchSpec | None:
         return None
     try:
         value = input(
-            "InVesalius conda env or inv launcher path (blank to skip): ").strip()
+            "InVesalius conda env or inv launcher path "
+            "(blank to cancel, 'external' if already started): ").strip()
     except EOFError:
         return None
+    if value.lower() in ("external", "started", "is started"):
+        return _external_spec()
     return _from_path(value) if value else None
 
 
 def _save(spec: LaunchSpec) -> None:
     try:
         from .lab_profile import LabProfile
-        profile = LabProfile()
-        current = profile.read()
+        from .startup import save_settings
+
+        current = LabProfile().read()
         values = {
             "INVESALIUS_ENV": str(spec.env) if spec.env is not None else "",
             "INVESALIUS_CHECKOUT": (str(spec.checkout)
@@ -406,9 +465,8 @@ def _save(spec: LaunchSpec) -> None:
         }
         if not current.get("INVESALIUS_LAUNCH"):
             values["INVESALIUS_LAUNCH"] = "auto"
-        profile.write(values)
-        print(f"[invesalius] saved launcher configuration to {profile.path}",
-              flush=True)
+        if save_settings(values.items()):
+            print("[invesalius] saved launcher configuration", flush=True)
     except Exception as exc:                 # pragma: no cover - defensive
         print(f"[invesalius] could not save launcher configuration: "
               f"{type(exc).__name__}: {exc}", flush=True)
@@ -476,6 +534,8 @@ def resolve(remote_host: str, remote_port: int, *, interactive: bool = True,
             print("[invesalius] no environment selected; continuing without "
                   "auto-start", flush=True)
             return None
+        if index == -1:
+            return _external_spec()
         selected = candidates[index]
     elif len(candidates) == 1:
         selected = candidates[0]
@@ -489,6 +549,8 @@ def resolve(remote_host: str, remote_port: int, *, interactive: bool = True,
                   "manually with --remote-host.", flush=True)
             return None
 
+    if selected.external:
+        return selected
     ok, detail = validate(selected)
     if not ok:
         print(f"[invesalius] selected launcher is invalid: {detail}", flush=True)

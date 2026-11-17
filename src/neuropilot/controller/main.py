@@ -25,6 +25,7 @@ No callback may block — see the asyncio notes in the repository docs.
 import asyncio
 import logging
 import numpy as np
+from .. import config, startup
 from .pipeline_controller import PipelineController
 import sys
 from .control_panel import MainWindow
@@ -119,8 +120,30 @@ async def main(enable_health_check_and_control_panel, simulation, manual=False,
         app.window2.set_controller(controller)
         app.window2.setEnabled(True)
 
+    if not simulation and controller.relay.is_error_state():
+        message = controller.relay.failure_reason or \
+            startup.relay_unavailable_message()
+        await startup.show_error_async(
+            "NeuroPilot startup error", message,
+            gui=enable_health_check_and_control_panel)
+        if app is not None:
+            app.quit()
+        return 1
+
     # With everything prepped we connect to the relay server.
-    await remote.connect()
+    try:
+        await remote.connect()
+    except Exception as exc:
+        message = (
+            f"Could not connect to the relay at "
+            f"http://{config.RELAY_HOST}:{config.RELAY_PORT}.\n\n{exc}"
+        )
+        await startup.show_error_async(
+            "NeuroPilot startup error", message,
+            gui=enable_health_check_and_control_panel)
+        if app is not None:
+            app.quit()
+        return 1
 
     # Run the algorithm and health checks (if enabled). create_task runs it
     # in parallel to this coroutine instead of in sequence.
@@ -135,6 +158,7 @@ async def main(enable_health_check_and_control_panel, simulation, manual=False,
             pass
         if app is not None:
             app.quit()
+    return 0
 
 
 
@@ -220,15 +244,18 @@ def run(argv=None):
     enable_health_check_and_control_panel = os.getenv('ENABLE_HEALTH_CHECK_AND_CONTROL_PANEL', 'false').lower() == 'true'
     try:
         if enable_health_check_and_control_panel:
-            qasync.run(main(enable_health_check_and_control_panel, is_simulation,
-                            is_manual, is_training, manage_relay))
+            result = qasync.run(main(enable_health_check_and_control_panel,
+                                     is_simulation, is_manual, is_training,
+                                     manage_relay))
         else:
-            asyncio.run(main(enable_health_check_and_control_panel, is_simulation,
-                             is_manual, is_training, manage_relay))
+            result = asyncio.run(main(enable_health_check_and_control_panel,
+                                      is_simulation, is_manual, is_training,
+                                      manage_relay))
     except asyncio.exceptions.CancelledError:
         print("KeyboardInterrupt: application exiting")
         cleanup()
-    return 0
+        return 130
+    return result if isinstance(result, int) else 0
 
 
 if __name__ == "__main__":

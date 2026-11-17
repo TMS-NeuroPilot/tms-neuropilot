@@ -239,6 +239,6 @@ if [ "$WITH_ROBOT_CONTROL" -eq 1 ]; then
     echo "[install] robot-control:  conda activate $ENV_NAME && cd $ROBOT_DIR && python main_loop.py"
 fi
 if [ "$WITH_INVESALIUS" -eq 1 ]; then
-    echo "[install] InVesalius:     installed; real/manual/training start it automatically"
+    echo "[install] InVesalius:     installed; real/manual/training start it and the relay automatically"
     echo "[install] manual start:   conda activate invesalius && cd $INV_DIR && python app.py --remote-host http://localhost:5000"
 fi

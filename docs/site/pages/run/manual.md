@@ -34,7 +34,8 @@ The controller sets `manual = True`, which:
 
 ## The workflow
 
-1. Start the relay, InVesalius and the stimulator as in real mode.
+1. Make the relay and InVesalius available as in real mode; `neuropilot manual`
+   starts them automatically when configured.
 2. Start the controller: `neuropilot manual`.
 3. Load the project.
 4. On **Control**, choose an E-field mode. Both work; precomputed still needs

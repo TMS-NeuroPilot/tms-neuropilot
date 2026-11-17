@@ -74,25 +74,23 @@ The controller connects to the relay and expects the other roles to be
 running. Start order on the lab PC:
 
 ```bash
-python relay_server.py 5000                  # 1. production relay
-python main_loop.py                          # 2. robot driver
-neuropilot real                              # 3. controller + InVesalius
+python main_loop.py                          # 1. robot driver
+neuropilot real                              # 2. controller + relay + InVesalius
 ```
 
-`neuropilot real` starts a local InVesalius automatically after the relay is
-reachable. It uses the conda environment discovered from `CONDA_EXE`, or the
-values stored in `~/.neuropilot/lab.yaml`. `--no-invesalius` disables this;
-start it manually with `inv --remote-host http://localhost:5000` (or
-`python app.py --remote-host ...`) when needed.
+`neuropilot real` starts the production relay automatically when
+`TMS_ROBOT_CONTROL_PATH` is configured and no relay is already running. If the
+path is missing, it asks for the `tms-robot-control` checkout and saves it. It
+then starts a local InVesalius after the relay is reachable. InVesalius uses the
+conda environment discovered from `CONDA_EXE`, or the values stored in
+`~/.neuropilot/lab.yaml`.
 
-Or let the controller start the production relay for you:
+If InVesalius is already running elsewhere, use the **Is started** button in
+the picker. NeuroPilot then skips the local launch and expects that instance to
+connect to the same relay. `--no-invesalius` disables local startup as well.
 
-```bash
-neuropilot real --launch-relay
-```
-
-which requires `TMS_ROBOT_CONTROL_PATH` to point at a `tms-robot-control`
-checkout. `main_loop.py` is never started by NeuroPilot.
+`main_loop.py` is never started by NeuroPilot. `--launch-relay` remains
+accepted for compatibility; a configured relay is now automatic.
 
 !!! danger "Safety: real stimulation"
     Real mode fires a stimulator at a person. Do not start it without ethics
@@ -125,17 +123,17 @@ coil, InVesalius tracks it, the controller waits for *Coil at target*, and the
 stimulator fires. The MEP trace is generated from the E-field at the configured
 channel sources instead of being recorded.
 
-Start the production relay, then the controller. InVesalius starts
-automatically by default:
+Start the controller; it starts the production relay when configured and then
+InVesalius:
 
 ```bash
-python relay_server.py 5000
 neuropilot training
 ```
 
-Use `--no-invesalius` if you want to start InVesalius yourself. No robot driver
-and no EMG PC are needed. `--launch-relay` starts the production relay from
-`TMS_ROBOT_CONTROL_PATH` as in real mode.
+Use `--no-invesalius` if you want to start InVesalius yourself, or choose
+**Is started** when it runs on another machine. No robot driver and no EMG PC
+are needed. `--launch-relay` remains accepted for compatibility, but a
+configured relay is started automatically.
 
 The channel sources are project data. The [Config › Simulation](gui/config.md)
 page shows the configured channel names and the sources file; edit the mapping
@@ -154,7 +152,10 @@ neuropilot
 ```
 
 opens the mode selector. The chosen mode is what the controller starts in; it
-is a launcher, not a setting.
+is a launcher, not a setting. For real, manual and training, the selector also
+checks the relay and prompts for the `tms-robot-control` path if needed. The
+InVesalius picker offers **Select environment**, **Is started** for an external
+instance, and **Cancel**.
 
 <figure>
   <img src="assets/screenshots/mode-selector.png" alt="The NeuroPilot mode selector with Simulation, Real Hardware, Manual and Training buttons.">

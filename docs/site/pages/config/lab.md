@@ -43,7 +43,7 @@ Values are stored as strings; the GUI converts them when it reads them.
 | `NEUROPILOT_UI_SCALE` | empty | forced GUI scale |
 | `UI_THEME` | `Workstation Light` | colour theme |
 | `ROBOT` | `omron` | simulated robot key |
-| `TMS_ROBOT_CONTROL_PATH` | empty | `tms-robot-control` checkout |
+| `TMS_ROBOT_CONTROL_PATH` | empty | `tms-robot-control` checkout; used to start the relay automatically |
 | `INVESALIUS_LAUNCH` | `auto` | auto-start policy: `auto`, `local`, or `off`/`external` (case-insensitive) |
 | `INVESALIUS_ENV` | empty | conda environment that contains InVesalius |
 | `INVESALIUS_CHECKOUT` | empty | InVesalius source checkout containing `app.py` |
@@ -72,6 +72,15 @@ list; `CONDA_EXE` (or a `conda` executable on `PATH`) provides the conda
 binary. The installer wrapper in the environment is preferred; when it is
 missing or broken, NeuroPilot uses the environment's Python together with
 `INVESALIUS_CHECKOUT/app.py`. Closing InVesalius does not stop the controller.
+
+The picker also has an **Is started** option. It sets
+`INVESALIUS_LAUNCH: external`, skips local startup, and expects an InVesalius
+instance on another machine to connect to the same relay.
+
+When a real/manual/training session starts without a relay, NeuroPilot starts
+one from `TMS_ROBOT_CONTROL_PATH`. If that path is missing, a directory picker
+asks for the `tms-robot-control` checkout. A value already pinned in `.env` is
+updated there; otherwise it is written to this lab profile.
 
 ## Cobot pose and movement limits
 
