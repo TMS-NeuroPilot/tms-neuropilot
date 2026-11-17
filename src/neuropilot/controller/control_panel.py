@@ -2817,6 +2817,13 @@ class MainWindow(QtWidgets.QMainWindow):
         virtual_emg = simulated or training
         mode = ("Training" if training else
                 ("Manual" if manual else ("Simulated" if simulated else "Real")))
+        mode_title = {
+            "Simulated": "Simulation",
+            "Training": "Training",
+            "Manual": "Manual",
+            "Real": "Real",
+        }[mode]
+        self.setWindowTitle(f"NeuroPilot ({mode_title} mode)")
         badge = getattr(self, "cfg_mode_badge", None)
         if badge is None:
             return
