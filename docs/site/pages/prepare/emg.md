@@ -107,7 +107,9 @@ controller starts:
 `VIRTUAL_MEP_TRIAL_VARIABILITY` turns the model's trial-to-trial variability on
 or off; turning it off gives an ideal, repeatable curve. `VIRTUAL_MEP_MT` and
 `VIRTUAL_MEP_UPPER_LIMIT` set the field values where the recruitment curve
-starts and saturates. All five keys are in the
+starts and saturates. At or below the motor threshold the TVS model keeps a
+small non-zero baseline (a few µV), so a reported MEP near 0.01 mV is not a
+failed calculation. All five keys are in the
 [`.env` reference](config/env.md). The same values are editable on
 [Config › Simulation](gui/config.md).
 

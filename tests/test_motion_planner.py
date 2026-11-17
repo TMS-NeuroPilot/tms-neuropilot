@@ -92,6 +92,58 @@ def test_self_collision_uses_the_shared_mesh_overlap_tolerance():
     assert checker.check_self_collision() is True
 
 
+def test_proximity_warning_is_logged_once_per_episode(monkeypatch):
+    from neuropilot.sim_robot import collision_checker
+
+    class FakeWorld:
+        distance = 0.0065
+
+        def get_robot_head_closest_distance(self, distance_threshold=None):
+            return self.distance
+
+    world = FakeWorld()
+    checker = CollisionChecker(world)
+    warnings = []
+    monkeypatch.setattr(collision_checker.log, "warning",
+                        lambda message: warnings.append(message))
+
+    assert checker.check() is False
+    assert checker.check() is False
+    assert len(warnings) == 1
+
+    world.distance = None                 # robot moved clear
+    assert checker.check() is False
+    world.distance = 0.0065
+    assert checker.check() is False
+    assert len(warnings) == 2
+
+
+def test_self_collision_warning_is_logged_once_per_episode(monkeypatch):
+    from neuropilot.sim_robot import collision_checker
+
+    class FakeWorld:
+        contacts = [{"dist": -0.010}]
+
+        def get_self_collision_contacts(self):
+            return self.contacts
+
+    world = FakeWorld()
+    checker = CollisionChecker(world)
+    warnings = []
+    monkeypatch.setattr(collision_checker.log, "warning",
+                        lambda message: warnings.append(message))
+
+    assert checker.check_self_collision() is True
+    assert checker.check_self_collision() is True
+    assert len(warnings) == 1
+
+    world.contacts = []
+    assert checker.check_self_collision() is False
+    world.contacts = [{"dist": -0.010}]
+    assert checker.check_self_collision() is True
+    assert len(warnings) == 2
+
+
 def test_thresholds_choose_direct_or_safe_height(planner):
     mp, state, _world, _ik = planner
     assert not mp._needs_safe_height(

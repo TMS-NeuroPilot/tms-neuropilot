@@ -11,6 +11,12 @@ class CollisionChecker:
     def __init__(self, world: MuJoCoWorld):
         self.world = world
         self._distance_threshold_m = config.COLLISION_DISTANCE_THRESHOLD_M
+        # The planner checks at 20 Hz; a persistent proximity warning would
+        # otherwise repeat an identical line at every tick. Log only when the
+        # distance changes meaningfully, and reset after the robot is clear.
+        self._last_proximity_mm = None
+        self._last_collision_mm = None
+        self._self_collision_logged = False
 
     def check(self) -> bool:
         """
@@ -26,25 +32,41 @@ class CollisionChecker:
 
         if distance is None:
             # No points found within threshold — safe
+            self._last_proximity_mm = None
+            self._last_collision_mm = None
             return False
 
+        distance_mm = distance * 1000.0
         if distance <= config.PENTRATION_TOLERANCE:
-            log.warning(f"Collision detected: penetration depth {distance * 1000:.2f} mm")
+            if (self._last_collision_mm is None
+                    or abs(distance_mm - self._last_collision_mm) >= 0.1):
+                log.warning(f"Collision detected: penetration depth "
+                            f"{distance_mm:.2f} mm")
+                self._last_collision_mm = distance_mm
+            self._last_proximity_mm = None
             return True
 
         if distance <= self._distance_threshold_m:
-            log.warning(f"Proximity warning: {distance * 1000:.2f} mm to head")
+            if (self._last_proximity_mm is None
+                    or abs(distance_mm - self._last_proximity_mm) >= 0.1):
+                log.warning(f"Proximity warning: {distance_mm:.2f} mm to head")
+                self._last_proximity_mm = distance_mm
+            self._last_collision_mm = None
             return False
 
+        self._last_proximity_mm = None
+        self._last_collision_mm = None
         return False
 
     def check_self_collision(self) -> bool:
         contacts = self.world.get_self_collision_contacts()
-        if any(contact.get("dist", 0.0) <= config.SELF_PENETRATION_TOLERANCE
-               for contact in contacts):
+        collision = any(
+            contact.get("dist", 0.0) <= config.SELF_PENETRATION_TOLERANCE
+            for contact in contacts)
+        if collision and not self._self_collision_logged:
             log.warning("Self-collision detected")
-            return True
-        return False
+        self._self_collision_logged = collision
+        return collision
 
     def get_closest_distance_mm(self) -> Optional[float]:
         """

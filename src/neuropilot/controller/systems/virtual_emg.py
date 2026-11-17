@@ -98,10 +98,9 @@ class VirtualEMG(System):
             self.recovery_queue.popleft()
         super().set_system_status(SystemStatus.OK)
 
-    def set_current_state(self, coil_placement_idx,stimuator_amplitude):
+    def set_current_state(self, coil_placement_idx, stimuator_amplitude):
         self.current_coil_placement_idx = coil_placement_idx
         self.stimulator_amplitude = stimuator_amplitude
-        print("HEREEEEEEEEEE", f"Current coil placement index: {self.current_coil_placement_idx}")
 
     def get_latest_emg_df(self, idx=None, e_field_for_mep=None, after=None):
         """Synthesise the sweep for the current coil placement.
@@ -118,10 +117,10 @@ class VirtualEMG(System):
                              "set them in the project window.")
 
         vpps = {}
-        for name, elem_idx in zip(self.data_channel_names, self.channel_elements):
+        for channel_index, (name, elem_idx) in enumerate(
+                zip(self.data_channel_names, self.channel_elements)):
             # Get E-field at this element for current placement
             if e_field_for_mep is not None:
-                print(f"Shape of e_field_for_mep: {e_field_for_mep}")
                 e_field = e_field_for_mep[elem_idx]
             else:
                 e_field = (
@@ -129,26 +128,26 @@ class VirtualEMG(System):
                     * self.efield_scale
                     * self.stimulator_amplitude
                 )
-            print("this is the e_field",e_field)
 
             # Normalize to [0,1] (0 = motor threshold)
             e_normalized = scale_e_for_dvs(
                 e_field, mt=self.mt, upper_limit=self.upper_limit)
-            e_normalized = np.clip(e_normalized, 0,1)
-            print("this is the e_normalized", e_normalized)
+            e_normalized = np.clip(e_normalized, 0, 1)
 
-            # Generate MEP using TVS model
-            mep_mV = get_virtual_mep_tvs(
+            # Generate MEP using TVS model. The model returns mV; at
+            # sub-threshold fields it has a small non-zero floor, which is
+            # still a valid simulated response (not a failed calculation).
+            mep_mv = float(np.asarray(get_virtual_mep_tvs(
                 np.array([e_normalized]),
                 trial_variability=self.trial_variability,
-            )
-
-            print("this is the mep_mV", mep_mV)
-
-            # Convert mV to V and cap
-            #vpps[name] = max(mep_mV[0] / 1000, 0.0)
-            vpps[name] = max(mep_mV[0] , 0.0)
-            print(vpps[name])
+            )).reshape(-1)[0])
+            vpp = max(mep_mv, 0.0)
+            vpps[name] = vpp
+            label = (self.display_names[channel_index]
+                     if channel_index < len(self.display_names) else name)
+            print(f"Virtual EMG {label}: E={float(e_field):.2f} V/m, "
+                  f"x={float(e_normalized):.2f}, MEP={vpp:.2f} mV",
+                  flush=True)
 
         return self._generate_polyphasic_emg(vpps)
 

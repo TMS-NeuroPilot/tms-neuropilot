@@ -1,5 +1,7 @@
 """Virtual EMG channels: names from .env, sources from the project."""
 
+import re
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -172,3 +174,18 @@ def test_disabling_noise_and_trial_variability_is_deterministic(monkeypatch):
     first = emg.get_latest_emg_df(e_field_for_mep=field)["ADC 0"].to_numpy()
     second = emg.get_latest_emg_df(e_field_for_mep=field)["ADC 0"].to_numpy()
     np.testing.assert_allclose(first, second)
+
+
+def test_emg_generation_logs_one_rounded_line_per_channel(emg, capsys):
+    emg.set_e_matrix(np.zeros((1, 3)))
+    emg.set_channel_elements([0, 1, 2])
+    emg.get_latest_emg_df(e_field_for_mep=np.full(3, 90.0))
+    output = capsys.readouterr().out
+    assert "HEREEEEEEEEEE" not in output
+    assert "this is the " not in output
+    lines = [line for line in output.splitlines()
+             if line.startswith("Virtual EMG ")]
+    assert len(lines) == emg.channel_count
+    assert all(re.search(
+        r"E=\d+\.\d{2} V/m, x=\d+\.\d{2}, MEP=\d+\.\d{2} mV", line)
+        for line in lines)

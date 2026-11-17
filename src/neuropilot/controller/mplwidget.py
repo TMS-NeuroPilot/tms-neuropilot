@@ -291,7 +291,9 @@ class MplGraphWidget(QWidget):
         self.ax.cla()
         self._style_figure()
         self.lines = {}
-        print(f"in update_as_trend: {history_dict}")
+        rounded = {name: [round(float(value), 2) for value in values]
+                   for name, values in history_dict.items()}
+        print(f"in update_as_trend: {rounded}")
         for name, values in history_dict.items():
             if name in self.channel_keys:
                 current_x = np.array(target_indices[:len(values)])
