@@ -284,3 +284,31 @@ def test_cli_sim_never_resolves_invesalius(monkeypatch):
                         lambda **kwargs: pytest.fail("sim resolved InVesalius"))
     monkeypatch.setattr(cli, "_run", lambda components: None)
     assert cli.main(["sim"]) == 0
+
+
+def test_supervisor_colors_only_the_bracket_label(monkeypatch):
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    assert supervisor._label("controller") == "[\033[32mcontroller\033[0m]"
+    assert supervisor._label("invesalius") == "[\033[35minvesalius\033[0m]"
+
+
+def test_supervisor_honours_no_color(monkeypatch):
+    monkeypatch.setenv("NO_COLOR", "1")
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    assert supervisor._label("controller") == "[controller]"
+
+
+def test_invesalius_start_line_shows_the_checkout(tmp_path, capsys):
+    invesalius = _executable(tmp_path / "invesalius", "exit 0")
+    controller = _executable(tmp_path / "controller", "sleep 0.2; exit 0")
+    components = [
+        supervisor.Component("controller", None, [], wait_ready=None,
+                              executable=str(controller)),
+        supervisor.Component("invesalius", None, [], wait_ready=None,
+                              executable=str(invesalius),
+                              cwd=str(tmp_path), shutdown_on_exit=False),
+    ]
+    asyncio.run(supervisor.run_stack(components))
+    out = capsys.readouterr().out
+    assert f"[invesalius] start InVesalius from {tmp_path}" in out

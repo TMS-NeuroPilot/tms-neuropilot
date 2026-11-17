@@ -74,6 +74,12 @@ page that explains it.
 | study **Apply to session** refuses | a mapping is running | finish it first |
 | `lab profile ignored (expected a mapping)` | malformed YAML | fix or delete the file |
 
+## Log colors
+
+The supervisor colors only the role label inside square brackets, for example
+`[controller]`, `[invesalius]` and `[relay]`. Set `NO_COLOR` to disable this,
+or `FORCE_COLOR=1` to keep the colors when output is redirected to a file.
+
 ## Tests and CI
 
 | Symptom | Cause | Fix |

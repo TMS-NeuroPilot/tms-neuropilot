@@ -23,6 +23,38 @@ COMPONENTS = {
 
 READY_LINE = "Connected"  # printed by sim_nav and sim_robot once registered
 
+# Only the label inside the square brackets is coloured.  The rest of each log
+# line is left in the terminal's normal colour so user output and tracebacks
+# stay readable.
+_LOG_COLORS = {
+    "neuropilot": "1;36",   # bright cyan
+    "controller": "32",     # green
+    "invesalius": "35",     # magenta
+    "relay": "36",          # cyan
+    "nav": "33",            # yellow
+    "robot": "34",          # blue
+}
+
+
+def _color_enabled():
+    if "NO_COLOR" in os.environ:
+        return False
+    forced = os.environ.get("FORCE_COLOR")
+    if forced is not None:
+        return forced.lower() not in ("0", "false", "no")
+    return sys.stdout.isatty()
+
+
+def _label(name):
+    if not _color_enabled():
+        return f"[{name}]"
+    color = _LOG_COLORS.get(name, "37")
+    return f"[\033[{color}m{name}\033[0m]"
+
+
+def _log(name, message):
+    print(f"{_label(name)} {message}", flush=True)
+
 
 class Component:
     def __init__(self, name, module, args, wait_ready, log_prefix=None, cwd=None,
@@ -80,7 +112,7 @@ async def _pump(component):
         if not line:
             break
         text = line.decode(errors="replace").rstrip("\n")
-        print(f"{component.prefix} {text}", flush=True)
+        print(f"{_label(component.name)} {text}", flush=True)
         if component.wait_ready == "line" and READY_LINE in text:
             component.ready.set()
 
@@ -99,7 +131,8 @@ async def _start(component):
         env=_child_env(),
         cwd=cwd,
     )
-    print(f"[neuropilot] started {component.name} (pid {component.process.pid})", flush=True)
+    _log("neuropilot", f"started {component.name} "
+                        f"(pid {component.process.pid})")
     pump = asyncio.create_task(_pump(component))
     return pump
 
@@ -151,17 +184,22 @@ async def run_stack(components, timeout=None):
                         reason = (f"relay {config.RELAY_HOST}:"
                                   f"{config.RELAY_PORT} is not reachable "
                                   f"after {config.READINESS_TIMEOUT_S:.0f}s")
-                    print(f"[neuropilot] {component.name} not started: {reason}",
-                          flush=True)
+                    _log("neuropilot",
+                         f"{component.name} not started: {reason}")
                     component.skipped = True
                     continue
+
+            if component.name == "invesalius":
+                source = (component.cwd or component.executable
+                          or "configured launcher")
+                _log("invesalius", f"start InVesalius from {source}")
 
             try:
                 pumps.append(await _start(component))
                 started.append(component)
             except OSError as exc:
-                print(f"[neuropilot] could not start {component.name}: {exc}",
-                      flush=True)
+                _log("neuropilot",
+                     f"could not start {component.name}: {exc}")
                 component.skipped = True
                 if component.shutdown_on_exit:
                     startup_failed = True
@@ -172,11 +210,13 @@ async def run_stack(components, timeout=None):
                 ok = await _wait_port_open(config.RELAY_HOST, config.RELAY_PORT,
                                            config.READINESS_TIMEOUT_S)
                 if ok:
-                    print(f"[neuropilot] {component.name} ready on "
-                          f"{config.RELAY_HOST}:{config.RELAY_PORT}", flush=True)
+                    _log("neuropilot",
+                         f"{component.name} ready on "
+                         f"{config.RELAY_HOST}:{config.RELAY_PORT}")
                 else:
-                    print(f"[neuropilot] WARNING: {component.name} port not open "
-                          f"after {config.READINESS_TIMEOUT_S}s — continuing", flush=True)
+                    _log("neuropilot",
+                         f"WARNING: {component.name} port not open after "
+                         f"{config.READINESS_TIMEOUT_S}s — continuing")
             elif component.wait_ready == "line":
                 # Non-blocking: the clients reconnect on their own, so start
                 # the next component immediately; log readiness when seen.
@@ -184,10 +224,11 @@ async def run_stack(components, timeout=None):
                     try:
                         await asyncio.wait_for(component.ready.wait(),
                                                timeout=config.READINESS_TIMEOUT_S)
-                        print(f"[neuropilot] {component.name} ready", flush=True)
+                        _log("neuropilot", f"{component.name} ready")
                     except asyncio.TimeoutError:
-                        print(f"[neuropilot] WARNING: {component.name} not ready "
-                              f"after {config.READINESS_TIMEOUT_S}s", flush=True)
+                        _log("neuropilot",
+                             f"WARNING: {component.name} not ready after "
+                             f"{config.READINESS_TIMEOUT_S}s")
                 asyncio.create_task(_announce())
 
         # Wait until every child has exited, or a critical child exits.  The
@@ -202,8 +243,8 @@ async def run_stack(components, timeout=None):
                     and c.process.returncode is not None
                 ]
                 if critical:
-                    print(f"[neuropilot] component exited: {critical} — "
-                          "shutting down stack", flush=True)
+                    _log("neuropilot",
+                         f"component exited: {critical} — shutting down stack")
                     break
 
                 for component in components:
@@ -211,9 +252,10 @@ async def run_stack(components, timeout=None):
                             and component.process is not None
                             and component.process.returncode is not None
                             and component.name not in reported_optional):
-                        print(f"[neuropilot] {component.name} exited with code "
-                              f"{component.process.returncode}; keeping the "
-                              "stack alive", flush=True)
+                        _log("neuropilot",
+                             f"{component.name} exited with code "
+                             f"{component.process.returncode}; keeping the "
+                             "stack alive")
                         reported_optional.add(component.name)
 
                 if all(
@@ -227,7 +269,7 @@ async def run_stack(components, timeout=None):
     finally:
         for component in components:
             await _stop(component)
-        print("[neuropilot] all components stopped", flush=True)
+        _log("neuropilot", "all components stopped")
 
 
 def sim_stack(selected=None):
