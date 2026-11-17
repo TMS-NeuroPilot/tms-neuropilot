@@ -19,6 +19,16 @@ It was translated so that `x` is centred, the case/handle centre is at
 t = [-82.1777, 440.2253, 510.7684]  # mm
 ```
 
+A correction rotates the result by 180° around `Y` and translates it by
+`(0, -40, +111) mm`. The equivalent source-to-robot transform is:
+
+```text
+R = [[ 0, -1,  0],
+     [ 0,  0, -1],
+     [ 1,  0,  0]]
+t = [82.1777, 400.2253, -399.7684]  # mm
+```
+
 Two derivatives are kept:
 
 - `coil_holder_b35_case_v2.4_fixed.stl` — transformed detailed mesh for
