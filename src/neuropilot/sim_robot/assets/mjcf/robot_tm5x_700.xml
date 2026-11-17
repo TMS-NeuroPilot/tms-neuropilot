@@ -90,8 +90,8 @@
                     <geom name="g_coil_vis" type="mesh" mesh="vis_coil" material="mat_coil" euler="0 0 -1.5708" contype="0" conaffinity="0"/>
                     <geom name="g_coil_col" type="mesh" mesh="col_coil" rgba="0 0 0 0" euler="0 0 -1.5708" contype="1" conaffinity="1"/>
 
-                    <site name="coil_tcp_site" pos="0 0 0.1" xyaxes="1 0 0 0 1 0"/>
-                    <!-- TCP height 0.1 matches the B65 case v2.4 tool frame. -->
+                    <site name="coil_tcp_site" pos="0 0 0.111" xyaxes="1 0 0 0 1 0"/>
+                    <!-- TCP height 0.111 matches the B65 case v2.4 thickness. -->
                   </body>
 
                 </body>

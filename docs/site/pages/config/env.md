@@ -77,6 +77,7 @@ linear values from the original model:
 | Key | Default | Meaning | Restart |
 |---|---|---|---|
 | `ROBOT` | `omron` | simulated robot model (key from `sim_robot/robots.py`) | yes |
+| `COIL_HOLDER` | `b65` | coil case used by the virtual twin: `b65` or `b35` | yes |
 | `TMS_ROBOT_CONTROL_PATH` | empty | `tms-robot-control` checkout; the relay is started automatically from it in real/manual/training when needed | yes |
 | `INVESALIUS_LAUNCH` | `auto` | auto-start InVesalius in real/manual/training mode (`auto`, `local`, `off`, `external`) | yes |
 | `INVESALIUS_ENV` | empty | conda environment containing InVesalius | yes |

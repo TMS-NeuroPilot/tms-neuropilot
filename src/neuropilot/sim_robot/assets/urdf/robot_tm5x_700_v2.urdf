@@ -340,11 +340,9 @@
   <joint name="coil_tcp_fixed_joint" type="fixed">
     <parent link="flange"/>
     <child link="coil_tcp"/>
-    <!-- TCP height 0.1 matches the MJCF coil_tcp_site for the
-         coil_holder_fs_w_mcf_b65 holder configuration (the previous
-         0.1108 belonged to the removed B65 coil-case geometry and made
-         the ikpy chain end sit 10.8 mm off the MuJoCo site). -->
-    <origin xyz="0.0 0.0 0.1" rpy="0 0 0"/>
+    <!-- TCP height 0.111 matches the MJCF coil_tcp_site for the B65 case
+         v2.4 thickness. -->
+    <origin xyz="0.0 0.0 0.111" rpy="0 0 0"/>
   </joint>
   <!--LinkDescription-->
 </robot>

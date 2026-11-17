@@ -49,7 +49,7 @@
                     <inertial mass="1.909" pos="0 0 0" diaginertia="0.004 0.004 0.004" />
                     <geom name="g_coil_vis" type="mesh" mesh="coil_holder_vis" material="mat_coil" euler="0 0 -1.5708" contype="0" conaffinity="0" />
                     <geom name="g_coil_col" type="mesh" mesh="coil_holder_col" rgba="0 0 0 0" euler="0 0 -1.5708" contype="1" conaffinity="1" />
-                    <site name="coil_tcp_site" pos="0 0 0.1" xyaxes="1 0 0 0 1 0" />
+                    <site name="coil_tcp_site" pos="0 0 0.111" xyaxes="1 0 0 0 1 0" />
                   </body>
                 </body>
               </body>

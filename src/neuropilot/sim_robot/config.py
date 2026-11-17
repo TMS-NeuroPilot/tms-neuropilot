@@ -41,6 +41,13 @@ if not ROBOT_KNOWN:
           f"the simulator will refuse to build a scene.")
 ROBOT_SPEC = ROBOTS.get(ROBOT, ROBOTS[DEFAULT_ROBOT])
 
+# Coil holder/case variant.  B65 is the current default; B35 is available for
+# setups that use the smaller single-channel case.
+COIL_HOLDER = os.getenv("COIL_HOLDER", "b65").strip().lower()
+if COIL_HOLDER not in {"b65", "b35"}:
+    print(f"[WARN] Unknown COIL_HOLDER='{COIL_HOLDER}'; using b65.")
+    COIL_HOLDER = "b65"
+
 # Kept for the GUI (it lists the selectable geometries) and for older code.
 ROBOT_MJCF = {key: spec.mjcf for key, spec in ROBOTS.items()}
 

@@ -328,7 +328,7 @@
   <joint name="coil_tcp_fixed_joint" type="fixed">
     <parent link="elfin_end_link"/>
     <child link="coil_tcp"/>
-    <!-- B65 holder: stimulation point 0.1 m along the end-link Z axis. -->
-    <origin xyz="0 0 0.1" rpy="0 0 0"/>
+    <!-- B65 case v2.4: stimulation point 0.111 m along the end-link Z axis. -->
+    <origin xyz="0 0 0.111" rpy="0 0 0"/>
   </joint>
 </robot>

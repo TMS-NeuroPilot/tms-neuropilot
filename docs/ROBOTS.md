@@ -50,13 +50,13 @@ robot has 6 joints, a 5 kg payload capacity, an operational range of up to
 80 cm, and a repeatability accuracy of ±0.05 mm.").
 
 All four models use the same detailed B65 case v2.4 visual mesh and its
-watertight collision derivative, and place `coil_tcp_site` 0.1 m along the tool
-Z axis.  The URDF carries a matching fixed `coil_tcp` link, so the ikpy tip and
-the MuJoCo site are the same physical point.  The UR5 and Dobot
-meshes/URDFs are third-party assets; see
-`src/neuropilot/sim_robot/assets/THIRD_PARTY_LICENSES.md`.  The transform and
-remeshing of the detailed case are recorded in
-`src/neuropilot/sim_robot/assets/meshes/coil/README_b65_case_v2.4.md`.
+watertight collision derivative by default, and place `coil_tcp_site` 0.111 m
+along the tool Z axis.  The URDF carries a matching fixed `coil_tcp` link, so
+the ikpy tip and the MuJoCo site are the same physical point.  A prepared B35
+case is available with `COIL_HOLDER=b35`; the transform and remeshing of both
+cases are recorded in `src/neuropilot/sim_robot/assets/meshes/coil/`.  The UR5
+and Dobot meshes/URDFs are third-party assets; see
+`src/neuropilot/sim_robot/assets/THIRD_PARTY_LICENSES.md`.
 
 ---
 

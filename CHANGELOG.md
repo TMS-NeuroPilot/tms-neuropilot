@@ -430,6 +430,8 @@ First release of the merged suite.
   (`coil_holder_b65_case_v2.4_fixed.stl` for display and
   `..._collision.stl` for the watertight collision body), with the matching
   TCP height.  The previous simplified holder is retained for rollback.
+- A prepared B35 case v2.4 is available with `COIL_HOLDER=b35`; B65 remains
+  the default.
 - Renamed for clarity: `onlineFEM.py` → `OnlineFEMManager.py`,
   `control_panel_window2.py` → `control_panel.py`.
 

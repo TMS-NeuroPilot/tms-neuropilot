@@ -243,6 +243,41 @@ class MuJoCoWorld:
         # A collision-test scene gets its own override so it cannot replace
         # the live simulated robot's phantom.
         scene_stem = os.path.splitext(self.scene_name)[0]
+
+        # Coil-holder override: B65 is the default; B35 uses the same robot
+        # MJCF with only the visual/collision coil mesh files replaced.
+        coil_override_name = f"{scene_stem}_coil_override.xml"
+        coil_replacements = {
+            "coil/coil_holder_b65_case_v2.4_fixed.stl":
+                "coil/coil_holder_b35_case_v2.4_fixed.stl",
+            "coil/coil_holder_b65_case_v2.4_collision.stl":
+                "coil/coil_holder_b35_case_v2.4_collision.stl",
+        }
+        if config.COIL_HOLDER == "b35":
+            coil_fn = os.path.join(composed_dir, coil_override_name)
+            with open(os.path.join(PROJECT_ROOT, robot_mjcf),
+                      encoding="utf-8") as f:
+                coil_xml = f.read()
+            for old, new in coil_replacements.items():
+                if coil_xml.count(old) != 1:
+                    raise ValueError(
+                        f"{robot_mjcf} has {coil_xml.count(old)} {old!r} "
+                        "references; expected exactly one.")
+                coil_xml = coil_xml.replace(old, new)
+            with open(coil_fn, "w", encoding="utf-8") as f:
+                f.write(coil_xml)
+            robot_include = _include_for(coil_override_name)
+        elif os.path.isfile(os.path.join(composed_dir, coil_override_name)):
+            # Do not leave a B35 override behind when returning to the default.
+            try:
+                os.remove(os.path.join(composed_dir, coil_override_name))
+            except OSError as e:
+                log.warning(f"Could not remove stale coil override: {e}")
+            robot_include = _include_for(robot_mjcf)
+        else:
+            robot_include = _include_for(robot_mjcf)
+        # A collision-test scene gets its own override so it cannot replace
+        # the live simulated robot's phantom.
         override_name = ("_head_override.xml" if scene_stem == "_generated_scene"
                          else f"{scene_stem}_head_override.xml")
         override_fn = os.path.join(composed_dir, override_name)
@@ -275,7 +310,7 @@ class MuJoCoWorld:
             except OSError as e:
                 log.warning(f"Could not remove stale head override: {e}")
         xml = f"""<mujoco model="{config.MODEL_NAME}">
-  <include file="{_include_for(robot_mjcf)}"/>
+  <include file="{robot_include}"/>
   {head_include}
 
   <option gravity="{gravity}" timestep="{config.SIM_TIMESTEP}"
