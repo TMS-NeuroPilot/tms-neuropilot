@@ -1,5 +1,6 @@
 """The MEP trend plot: excluded pulses and short channel histories."""
 
+import re
 
 import numpy as np
 import pytest
@@ -66,6 +67,41 @@ def test_unknown_channel_is_not_plotted(trend, qapp):
 def test_channel_names_can_be_reset(trend, qapp):
     trend.set_channels(["FDI", "APB"])
     qapp.processEvents()          # must not raise
+
+
+def test_save_button_creates_the_folder_only_on_click(trend, qapp,
+                                                      tmp_path, monkeypatch):
+    root = tmp_path / "data"
+    monkeypatch.setenv("ROOT_FOLDER", str(root))
+    monkeypatch.setenv("P2P_PLOTS_FOLDER_PATH", "p2p_plots")
+    assert not (root / "p2p_plots").exists()
+    assert trend.save_button.text() == "Save to .png"
+
+    trend.save_button.click()
+    qapp.processEvents()
+    files = list((root / "p2p_plots").glob("mep_trend_*.png"))
+    assert len(files) == 1
+    assert re.fullmatch(r"mep_trend_\d{8}_\d{6}", files[0].stem)
+
+
+def test_emg_save_button_uses_the_emg_folder(qapp, tmp_path, monkeypatch):
+    from neuropilot.controller.mplwidget import EmgNavGraphWidget
+
+    root = tmp_path / "data"
+    monkeypatch.setenv("ROOT_FOLDER", str(root))
+    monkeypatch.setenv("EMG_PLOTS_FOLDER_PATH", "emg_plots")
+    widget = EmgNavGraphWidget()
+    try:
+        assert not (root / "emg_plots").exists()
+        widget.save_button.click()
+        qapp.processEvents()
+        files = list((root / "emg_plots").glob("emg_signal_*.png"))
+        assert len(files) == 1
+        assert re.fullmatch(r"emg_signal_\d{8}_\d{6}", files[0].stem)
+    finally:
+        widget.close()
+        widget.deleteLater()
+        qapp.processEvents()
 
 
 pytestmark = pytest.mark.gui

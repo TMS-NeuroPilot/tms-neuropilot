@@ -1,3 +1,7 @@
+import os
+from datetime import datetime
+from pathlib import Path
+
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
                              QCheckBox, QLabel, QFrame, QPushButton)
 from PyQt5.QtCore import Qt, pyqtSignal
@@ -12,6 +16,10 @@ plt.style.use('seaborn-v0_8-whitegrid')
 
 
 class MplGraphWidget(QWidget):
+    SAVE_FOLDER_ENV = "P2P_PLOTS_FOLDER_PATH"
+    SAVE_FOLDER_DEFAULT = "p2p_plots"
+    SAVE_PREFIX = "mep_trend"
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -41,7 +49,22 @@ class MplGraphWidget(QWidget):
                 padding: 4px;
                 spacing: 8px; /* Space between box and text */
             }
-            
+            QPushButton {
+                background-color: #ffffff;
+                color: #1B1F24;
+                border: 1px solid #D9DDE3;
+                border-radius: 4px;
+                padding: 5px 8px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                border-color: #D97706;
+                color: #B45309;
+            }
+            QPushButton:pressed {
+                background-color: #FEF3E2;
+                border-color: #D97706;
+            }
         """)
 
         self.sidebar_layout = QVBoxLayout(self.control_panel)
@@ -100,6 +123,13 @@ class MplGraphWidget(QWidget):
             self.sidebar_layout.addWidget(cb)
             self.checkboxes[name] = cb
 
+        self.save_button = QPushButton("Save to .png")
+        self.save_button.setCursor(Qt.PointingHandCursor)
+        self.save_button.setToolTip(
+            "Save the currently visible plot with a timestamped filename.")
+        self.save_button.clicked.connect(self.save_png)
+        self.sidebar_layout.addWidget(self.save_button)
+
         # Add stretch to push everything up
         self.sidebar_layout.addStretch()
 
@@ -156,6 +186,30 @@ class MplGraphWidget(QWidget):
             print(f"[WARN] No axis labels defined in MplGraphWidget for title: {title}")
 
 
+    def _save_folder(self):
+        root = Path(os.getenv(
+            "ROOT_FOLDER", str(Path.home() / ".neuropilot"))).expanduser()
+        sub = Path(os.getenv(
+            self.SAVE_FOLDER_ENV, self.SAVE_FOLDER_DEFAULT)).expanduser()
+        return sub if sub.is_absolute() else root / sub
+
+    def save_png(self):
+        """Write the currently visible plot to a timestamped PNG.
+
+        The results folder is created only on the first save, not when the
+        controller or this widget is constructed.
+        """
+        folder = self._save_folder()
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = folder / f"{self.SAVE_PREFIX}_{stamp}.png"
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+            self.figure.savefig(path, dpi=300, bbox_inches="tight")
+        except OSError as e:
+            print(f"[WARN] could not save plot {path}: {e}")
+            return
+        print(f"Saved plot: {path}", flush=True)
+
     def update_visibility(self):
         """Called when ANY checkbox is clicked."""
         for name, line in self.lines.items():
@@ -188,6 +242,22 @@ class MplGraphWidget(QWidget):
                 font-size: 12px;
                 padding: 4px;
                 spacing: 8px;
+            }}
+            QPushButton {{
+                background-color: {theme['card']};
+                color: {theme['ink']};
+                border: 1px solid {theme['edge']};
+                border-radius: 4px;
+                padding: 5px 8px;
+                font-size: 12px;
+            }}
+            QPushButton:hover {{
+                border-color: {theme['accent']};
+                color: {theme['accent_dark']};
+            }}
+            QPushButton:pressed {{
+                background-color: {theme['accent_soft']};
+                border-color: {theme['accent']};
             }}
         """)
         self.title_label.setStyleSheet(
@@ -328,6 +398,10 @@ class MplGraphWidget(QWidget):
 
 
 class EmgNavGraphWidget(MplGraphWidget):
+    SAVE_FOLDER_ENV = "EMG_PLOTS_FOLDER_PATH"
+    SAVE_FOLDER_DEFAULT = "emg_plots"
+    SAVE_PREFIX = "emg_signal"
+
     prev_clicked = pyqtSignal()
     next_clicked = pyqtSignal()
     inclusion_toggled = pyqtSignal(bool)

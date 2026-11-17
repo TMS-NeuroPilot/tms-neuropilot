@@ -139,8 +139,9 @@ Consequences for a simulated or training session:
 | `EMG_PLOTS_FOLDER_PATH` | `emg_plots` | relative to `ROOT_FOLDER` |
 | `P2P_PLOTS_FOLDER_PATH` | `p2p_plots` | relative to `ROOT_FOLDER` |
 
-One plot per pulse in the first folder, one peak-to-peak trend plot in the
-second. Both are diagnostic: the CSV is the data, the plots are for the
+The MEP page writes a timestamped PNG to the second folder for the MEP trend,
+and to the first folder for the EMG signal, when its **Save to .png** button is
+clicked. Both are diagnostic: the CSV is the data, the plots are for the
 operator.
 
 ## Checks before a session

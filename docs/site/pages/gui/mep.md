@@ -62,9 +62,15 @@ See [EMG channels and MEP windows](prepare/emg.md) for the window parameters.
 ## What is stored
 
 Every pulse is appended to the results CSV with its amplitude per channel and
-its pre-activation values. Excluded pulses carry the exclusion flag. The plots
-themselves are written to `EMG_PLOTS_FOLDER_PATH` and
-`P2P_PLOTS_FOLDER_PATH` under `ROOT_FOLDER`.
+its pre-activation values. Excluded pulses carry the exclusion flag.
+
+Each plot has a **Save to .png** button in its left pane. It saves the currently
+visible plot with a timestamped filename under `ROOT_FOLDER`:
+
+- MEP trend → `P2P_PLOTS_FOLDER_PATH` (`p2p_plots` by default)
+- EMG signal → `EMG_PLOTS_FOLDER_PATH` (`emg_plots` by default)
+
+The folders are created only when the corresponding button is clicked.
 
 ## A note on pynibs
 

@@ -297,12 +297,6 @@ EMG_PLOTS_FOLDER_PATH = os.path.join(
     root_folder, os.getenv('EMG_PLOTS_FOLDER_PATH', 'emg_plots'))
 P2P_PLOTS_FOLDER_PATH = os.path.join(
     root_folder, os.getenv('P2P_PLOTS_FOLDER_PATH', 'p2p_plots'))
-for _folder in (EMG_PLOTS_FOLDER_PATH, P2P_PLOTS_FOLDER_PATH):
-    try:
-        os.makedirs(_folder, exist_ok=True)
-    except OSError as _e:
-        # e.g. cluster ROOT_FOLDER without /data on a local machine; plot saving will fail later
-        print(f"Warning: could not create results folder {_folder!r}: {_e}")
 
 class Step(Enum):
     INIT = auto()
@@ -1911,6 +1905,7 @@ class PipelineController:
         plt.tight_layout()
 
         # Save the plot
+        os.makedirs(EMG_PLOTS_FOLDER_PATH, exist_ok=True)
         files = list(os.listdir(EMG_PLOTS_FOLDER_PATH))
         filename = f"emg_plot_{len(files)}.png"
         filepath = os.path.join(EMG_PLOTS_FOLDER_PATH,filename)

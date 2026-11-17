@@ -45,10 +45,12 @@ is an analysis property, so the raw record stays complete.
 
 | Folder | Content |
 |---|---|
-| `<ROOT_FOLDER>/emg_plots` | one figure per pulse: the filtered sweep |
-| `<ROOT_FOLDER>/p2p_plots` | the peak-to-peak trend |
+| `<ROOT_FOLDER>/emg_plots` | saved EMG-signal plots (Save to .png) |
+| `<ROOT_FOLDER>/p2p_plots` | saved MEP-trend plots (Save to .png) |
 
 Folder names come from `EMG_PLOTS_FOLDER_PATH` and `P2P_PLOTS_FOLDER_PATH`.
+The folders are created when their first plot is saved, not when the controller
+starts.
 
 ## The cortical export
 
