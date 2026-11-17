@@ -1165,6 +1165,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 label.setToolTip(error)
             if self.emg_config_label.text().strip() == path:
                 self.emg_config_label.setToolTip(error)
+                self.clear_emg_sources()
             return
         if kind == "efield":
             if self.controller:
@@ -4367,6 +4368,12 @@ class MainWindow(QtWidgets.QMainWindow):
             # Keep the back-reference in sync: the entry point passes the
             # panel at construction, alternate launchers attach it here.
             controller.control_panel = self
+            # The channel names come from EMG_CHANNELS, not from a later
+            # source config; seed the result selector even before one loads.
+            names = list(getattr(getattr(controller, "emg_computer", None),
+                                 "display_names", []) or [])
+            if names:
+                self.set_emg_channels(names)
         self._apply_config_mode()
         if self.controller:
             self.slider1_spinbox1(20)
@@ -4494,6 +4501,7 @@ class MainWindow(QtWidgets.QMainWindow):
         file_path = self.emg_config_label.text().strip()
         if not file_path:
             self._cancel_load("emg")
+            self.clear_emg_sources()
             return
         if not os.path.isfile(file_path):
             # Same behaviour as the mesh/ROI/coil fields: do not keep a path
@@ -4501,6 +4509,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self._reject_path(self.emg_config_label,
                               f"EMG config not found: {file_path}")
             self._cancel_load("emg")
+            self.clear_emg_sources()
             return
         # Reading the YAML is cheap, but xyz sources are projected onto the
         # ROI; keep that file read off the GUI thread as well.
@@ -4519,6 +4528,18 @@ class MainWindow(QtWidgets.QMainWindow):
             widget.set_channel_display_names(names)
         self._emg_display_names = list(names)
         self._rebuild_placement_metric_combo()
+
+    def set_emg_sources(self, elements):
+        """Show the configured simulated-EMG sources on the ROI surface."""
+        widget = getattr(self, "widget_3d_viewer", None)
+        if widget is not None:
+            widget.set_emg_sources(elements)
+
+    def clear_emg_sources(self):
+        """Remove the source spheres when the EMG config is removed."""
+        widget = getattr(self, "widget_3d_viewer", None)
+        if widget is not None:
+            widget.clear_emg_sources()
 
     def paste_coil_path(self):
         file_path = self.coilspathlineedit.text().strip()

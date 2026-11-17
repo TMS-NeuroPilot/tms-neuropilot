@@ -279,6 +279,23 @@ def test_emg_config_projects_xyz_to_the_nearest_element(controller, tmp_path,
     assert controller.emg_computer.channel_elements == [2] * n
 
 
+def test_emg_config_updates_the_source_overlay(controller):
+    calls = {}
+
+    class Panel:
+        def set_emg_channels(self, names):
+            calls["names"] = list(names)
+
+        def set_emg_sources(self, elements):
+            calls["elements"] = list(elements)
+
+    controller.control_panel = Panel()
+    elements = list(range(len(controller.emg_computer.display_names)))
+    assert controller.apply_emg_config_elements(elements)
+    assert calls["elements"] == elements
+    assert calls["names"] == controller.emg_computer.display_names
+
+
 # ── results file naming ────────────────────────────────────────────────
 
 @pytest.mark.parametrize("path,stamp,expected", [

@@ -125,8 +125,8 @@ def test_legend_values_follow_the_metric(view):
 
     assert MeshWidget._format_legend_value(0.00653, "MEP FDI (mV)") == "0.00653"
     assert MeshWidget._format_legend_value(0.0117, "MEP FDI (mV)") == "0.0117"
-    assert MeshWidget._format_legend_value(0.0, "FDI mapping result (R2)") == "0.00"
-    assert MeshWidget._format_legend_value(1.0, "FDI mapping result (R2)") == "1.00"
+    assert MeshWidget._format_legend_value(0.0, "FDI (R²)") == "0.00"
+    assert MeshWidget._format_legend_value(1.0, "FDI (R²)") == "1.00"
 
 
 def test_scene_clear_restores_the_lightkit(view):
@@ -151,6 +151,63 @@ def test_placement_metric_and_options_are_accepted(view, qapp):
     view.set_placement_metric("aim")
     view.set_placement_options(show=True, handles=True, path=True)
     qapp.processEvents()          # no exception is the assertion
+
+
+def test_result_selector_shows_channel_names(view, qapp, roi_hdf5):
+    view.load_hdf5_mesh(str(roi_hdf5), mesh_type="roi")
+    view.set_channel_display_names(["FDI", "APB"])
+    view.apply_scores({"ADC 0": np.array([0.1, 0.4, 0.2, 0.3]),
+                       "ADC 1": np.array([0.2, 0.1, 0.5, 0.3])})
+    qapp.processEvents()
+    labels = [view.scalar_selector.itemText(i)
+              for i in range(view.scalar_selector.count())]
+    assert view._colour_caption.text() == "Show results:"
+    assert labels == ["No results", "FDI", "APB"]
+
+
+def test_emg_sources_are_drawn_on_the_roi(view, qapp, roi_hdf5):
+    view.load_hdf5_mesh(str(roi_hdf5), mesh_type="roi")
+    view.set_channel_display_names(["FDI", "APB"])
+    view.set_emg_sources([0, 2])
+    qapp.processEvents()
+    actors = view.plotter.actors
+    assert "emg_source_0" in actors
+    assert "emg_source_1" in actors
+    assert "emg_source_label_0-labels" in actors
+    assert "emg_source_label_1-labels" in actors
+
+    centres = view.mesh_roi.cell_centers().points
+    normals = view.mesh_roi.face_normals
+    normal = normals[2] / np.linalg.norm(normals[2])
+    expected = centres[2] + normal * 3.0
+    point = actors["emg_source_1"].center
+    np.testing.assert_allclose(point, expected, atol=1e-6)
+
+
+def test_emg_sources_follow_the_roi_view(view, qapp, roi_hdf5):
+    view.load_hdf5_mesh(str(roi_hdf5), mesh_type="roi")
+    view.set_emg_sources([0])
+    qapp.processEvents()
+    assert "emg_source_0" in view.plotter.actors
+
+    view.radio_head.setChecked(True)
+    qapp.processEvents()
+    assert "emg_source_0" not in view.plotter.actors
+
+    view.radio_roi.setChecked(True)
+    qapp.processEvents()
+    assert "emg_source_0" in view.plotter.actors
+
+
+def test_clearing_emg_sources_removes_the_spheres(view, qapp, roi_hdf5):
+    view.load_hdf5_mesh(str(roi_hdf5), mesh_type="roi")
+    view.set_emg_sources([0, 1])
+    qapp.processEvents()
+    view.set_emg_sources([])
+    qapp.processEvents()
+    assert view.emg_sources == []
+    assert not any(name.startswith("emg_source")
+                   for name in view.plotter.actors)
 
 
 pytestmark = pytest.mark.gui

@@ -25,10 +25,14 @@ documents the viewport, the four cards next to it and the export.
 | **F** | reset the camera to the home view |
 
 The surface selector above the viewport switches between the head mesh and the
-ROI. The scalar selector offers **No color** and the computed `Score <channel>`
-arrays on the ROI. Tissue labels are not offered as a result; the head is shown
-in plain colour. **Show edges** overlays the triangle wireframe; it is on by
-default.
+ROI. **Show results** offers **No results** and one entry per EMG channel
+(**FDI**, **APB**, …) for the computed R² maps on the ROI. Tissue labels are
+not offered as a result; the head is shown in plain colour. **Show edges**
+overlays the triangle wireframe; it is on by default.
+
+In simulation and training, a loaded EMG source config also marks each channel's
+source as a labelled sphere on the ROI surface. The sphere colour matches the
+channel label; it is independent of the R² colour map.
 
 !!! note "No map is drawn before three pulses"
     The readout says *"No R² map yet — needs at least three pulses."* until the

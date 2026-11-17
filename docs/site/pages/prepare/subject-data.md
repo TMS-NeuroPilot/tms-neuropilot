@@ -101,6 +101,9 @@ column index in the E-field row. It must be `< n_elements`. `xyz` is projected
 onto the nearest ROI triangle centre; the projection distance is printed, which
 makes it a safe alternative when you know the anatomy but not the index.
 
+In simulation and training, the loaded sources are also drawn as labelled
+spheres on the [Cortical results page](gui/cortical.md) ROI surface.
+
 See [EMG channels and MEP windows](prepare/emg.md) for the full format.
 
 ## 5. Results file

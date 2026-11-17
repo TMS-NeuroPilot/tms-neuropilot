@@ -12,6 +12,11 @@ import numpy as np
 # Same home view for head and ROI meshes.
 HOME_VIEW_DIRECTION = np.array([-0.75, -0.30, 0.58])
 
+# Stable channel colours for the EMG source spheres.  They are deliberately
+# darker than the turbo R² map so the white labels stay readable on top.
+_EMG_SOURCE_COLORS = ("#D97706", "#2563EB", "#059669",
+                      "#7C3AED", "#DB2777", "#0891B2")
+
 
 class LoadCancelled(Exception):
     """Raised when a worker is stopped before it builds a VTK object."""
@@ -257,7 +262,7 @@ class MeshWidget(QWidget):
         self.controls_layout = QHBoxLayout(self.controls_frame)
         self.controls_layout.setContentsMargins(10, 5, 10, 5)
 
-        lbl = QLabel("Mesh colour:")
+        lbl = QLabel("Show results:")
         lbl.setStyleSheet("font-weight: 600; color: #6B7280; font-size: 12px;")
         self._colour_caption = lbl
         self.controls_layout.addWidget(lbl)
@@ -326,7 +331,7 @@ class MeshWidget(QWidget):
                         border: none;
                     }
                 """)
-        self.scalar_selector.addItem("No color")
+        self.scalar_selector.addItem("No results")
         self.scalar_selector.currentIndexChanged.connect(self.update_scalars)
         self.controls_layout.addWidget(self.scalar_selector)
 
@@ -384,6 +389,10 @@ class MeshWidget(QWidget):
         self.placements = []            # realized coil placements (dicts)
         self.channel_keys = []          # data keys in display order
         self._scores = {}               # channel key -> R2 per ROI element
+        # One ROI element per EMG channel, in channel order (None = no
+        # source configured).  Only the simulated/training EMG sets this.
+        self.emg_sources = []
+        self._emg_source_actors = []
         self._placement_metric = ("mep", None)   # ("mep"|"trial"|"aim", key)
         self._show_placements = True
         self._show_coil_handles = True
@@ -515,11 +524,11 @@ class MeshWidget(QWidget):
                     mesh_label = f"{name}<br><span style='font-size:11px; color:#6B7280'>MEP size [mV]</span>"
         else:
             text = self.scalar_selector.currentText() if self.scalar_selector.count() else ""
-            if text and text != "No color":
-                if " mapping result" in text:
-                    name, rest = text.split(" mapping result", 1)
-                    mesh_label = (f"{name}<br><span style='font-size:11px; color:#6B7280'>"
-                                  f"mapping result{rest}</span>")
+            if text and text != "No results":
+                data_key = self.scalar_selector.currentData()
+                if isinstance(data_key, str) and data_key.startswith("Score "):
+                    mesh_label = (f"{text}<br><span style='font-size:11px; "
+                                  "color:#6B7280'>R² map</span>")
                 else:
                     mesh_label = text
         self._label_map.setText(mesh_label)
@@ -606,16 +615,21 @@ class MeshWidget(QWidget):
         return values, title
 
     def _refresh_overlays(self):
-        """Redraw placement spheres/handles/path and the best-element mark."""
+        """Redraw placement spheres/handles/path, source spheres and marks."""
         for name in ("placements", "coil_handles", "placement_path",
                      "best_element", "best_element_pt"):
             self.plotter.remove_actor(name)
+        for name in self._emg_source_actors:
+            self.plotter.remove_actor(name)
+        self._emg_source_actors = []
 
         on_head = self.current_mesh is self.mesh_head
         if on_head and self.placements and self._show_placements:
             self._draw_placements()
-        if self.current_mesh is self.mesh_roi and self._best_element is not None:
-            self._draw_best_element()
+        if self.current_mesh is self.mesh_roi:
+            if self._best_element is not None:
+                self._draw_best_element()
+            self._draw_emg_sources()
         self._update_overlay_labels()
         self.plotter.render()
 
@@ -891,6 +905,58 @@ class MeshWidget(QWidget):
                                 render_points_as_spheres=True,
                                 name="best_element_pt")
 
+    def _draw_emg_sources(self):
+        """Draw the configured source of each EMG channel as a sphere.
+
+        The sphere sits a few millimetres above the surface so an opaque ROI
+        does not swallow it; the channel label floats just outside it with the
+        matching colour.
+        """
+        if self.current_mesh is not self.mesh_roi or not self.emg_sources:
+            return
+        centres = self.mesh_roi.cell_centers().points
+        try:
+            normals = self.mesh_roi.face_normals
+        except Exception:
+            normals = None
+        bounds = self.mesh_roi.bounds
+        span = max(bounds[1] - bounds[0], bounds[3] - bounds[2],
+                   bounds[5] - bounds[4])
+        radius = max(1.5, span * 0.02)
+        for channel_index, element in enumerate(self.emg_sources):
+            if element is None or element < 0 or element >= len(centres):
+                continue
+            point = np.asarray(centres[element], dtype=float)
+            direction = np.zeros(3)
+            if normals is not None and element < len(normals):
+                normal = np.asarray(normals[element], dtype=float)
+                length = float(np.linalg.norm(normal))
+                if length > 1e-9:
+                    direction = normal / length
+            point = point + direction * 3.0
+            colour = _EMG_SOURCE_COLORS[
+                channel_index % len(_EMG_SOURCE_COLORS)]
+            sphere_name = f"emg_source_{channel_index}"
+            label_name = f"emg_source_label_{channel_index}"
+            sphere = pv.Sphere(radius=radius, center=point,
+                               theta_resolution=20, phi_resolution=20)
+            self.plotter.add_mesh(sphere, color=colour, smooth_shading=True,
+                                  pickable=False, reset_camera=False,
+                                  name=sphere_name)
+            # Float the label above the sphere so its coloured background does
+            # not hide the marker itself.
+            label_point = (point + direction * (radius + 6.0)).reshape(1, 3)
+            channel = f"ADC {channel_index}"
+            self.plotter.add_point_labels(
+                label_point,
+                [self.channel_display_names.get(channel, channel)],
+                font_size=14, bold=True, text_color=colour, shadow=True,
+                shape=None, show_points=False, always_visible=True,
+                name=label_name)
+            # add_point_labels stores its 2-D actor under "<name>-labels".
+            self._emg_source_actors.extend((sphere_name,
+                                            f"{label_name}-labels"))
+
     def mark_best_element(self, channel_key=None):
         """Outline the highest-R2 element of ``channel_key`` (default: the
         first channel with scores).  Returns the element index or None."""
@@ -937,19 +1003,45 @@ class MeshWidget(QWidget):
 
     def set_channel_display_names(self, names):
         """Map the ADC data keys to the configured EMG channel names so the
-        results dropdown reads 'FDI mapping result [R2]' instead of 'Score
-        ADC 0'."""
+        results dropdown reads 'FDI' instead of 'Score ADC 0'."""
         names = list(names or [])
         self.channel_display_names = {f"ADC {i}": name
                                       for i, name in enumerate(names)}
         self.refresh_dropdown()
+        if self.emg_sources:
+            self._refresh_overlays()
 
     def _display_name(self, data_key):
         """Human label for a mesh data array (results use the channel name)."""
         if data_key.startswith("Score "):
             channel = data_key[len("Score "):]
-            return f"{self.channel_display_names.get(channel, channel)} mapping result [R2]"
+            return self.channel_display_names.get(channel, channel)
         return data_key
+
+    def _result_sort_key(self, data_key):
+        """Order R² maps by channel index, then any other arrays by name."""
+        if data_key.startswith("Score "):
+            channel = data_key[len("Score "):]
+            try:
+                index = int(channel.split()[-1])
+            except (ValueError, IndexError):
+                index = 10 ** 6
+            return 0, index, self._display_name(data_key).lower()
+        return 1, 0, self._display_name(data_key).lower()
+
+    def set_emg_sources(self, elements):
+        """Show one sphere per configured EMG source on the ROI surface.
+
+        ``elements`` is the positional channel -> ROI element list produced by
+        the EMG source config.  It only exists for the simulated/training EMG;
+        real and manual modes leave it empty.
+        """
+        elements = [] if elements is None else list(elements)
+        self.emg_sources = [None if e is None else int(e) for e in elements]
+        self._refresh_overlays()
+
+    def clear_emg_sources(self):
+        self.set_emg_sources([])
 
     def mark_cells(self, cell_indices, colors, labels=None):
         """Add callout arrows pointing at cells + connecting line between first two."""
@@ -1016,8 +1108,8 @@ class MeshWidget(QWidget):
             if index_by_text >= 0:
                 self.scalar_selector.setCurrentIndex(index_by_text)
             else:
-                # If the exact array isn't found, check if "Solid Color" exists as fallback
-                fallback_index = self.scalar_selector.findText("No color")
+                # If the exact array isn't found, fall back to no overlay.
+                fallback_index = self.scalar_selector.findText("No results")
                 if fallback_index >= 0:
                     self.scalar_selector.setCurrentIndex(fallback_index)
 
@@ -1184,10 +1276,10 @@ class MeshWidget(QWidget):
 
         Tissue tags are deliberately not offered: the viewer shows the
         anatomy in plain colour and only overlays computed results (the
-        'Score <channel>' arrays) or nothing ('No color')."""
+        'Score <channel>' arrays) or nothing ('No results')."""
         self.scalar_selector.blockSignals(True)
         self.scalar_selector.clear()
-        self.scalar_selector.addItem("No color")
+        self.scalar_selector.addItem("No results")
 
         if self.current_mesh:
             keys = []
@@ -1199,7 +1291,7 @@ class MeshWidget(QWidget):
                     if name in ("Tissue Type", "Normals"):
                         continue
                     keys.append(name)
-            for raw_name in sorted(set(keys), key=lambda n: self._display_name(n).lower()):
+            for raw_name in sorted(set(keys), key=self._result_sort_key):
                 self.scalar_selector.addItem(self._display_name(raw_name), raw_name)
 
         self.scalar_selector.blockSignals(False)
@@ -1287,8 +1379,10 @@ class MeshWidget(QWidget):
                                   show_edges=show_lines, edge_color="black",
                                   clim=[0.0, 1.0], show_scalar_bar=False,
                                   name="main_mesh")
-            self._add_scalar_bar(self.scalar_selector.currentText(),
-                                 clim=(0.0, 1.0))
+            title = self.scalar_selector.currentText()
+            if isinstance(array_name, str) and array_name.startswith("Score "):
+                title = f"{title} (R²)"
+            self._add_scalar_bar(title, clim=(0.0, 1.0))
 
         # Only re-home the camera when the *mesh* changed: a colour switch or
         # a fresh R² map must not rotate the view under the user.

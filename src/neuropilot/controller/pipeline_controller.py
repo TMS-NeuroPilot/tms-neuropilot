@@ -913,6 +913,9 @@ class PipelineController:
             publish = getattr(self.control_panel, "set_emg_channels", None)
             if publish is not None:
                 publish(self.emg_computer.display_names)
+            sources = getattr(self.control_panel, "set_emg_sources", None)
+            if sources is not None:
+                sources(elements)
         return True
 
     def set_emg_config(self, path: str):

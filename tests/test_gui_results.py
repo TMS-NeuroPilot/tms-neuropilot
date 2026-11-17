@@ -257,4 +257,27 @@ def test_screenshot_cancelled_changes_nothing(window, monkeypatch):
     assert window.selection_info.toPlainText() == before
 
 
+def test_emg_sources_reach_the_cortical_view(window, qapp, roi_hdf5):
+    view = window.widget_3d_viewer
+    view.load_hdf5_mesh(str(roi_hdf5), mesh_type="roi")
+    window.set_emg_channels(["FDI", "APB"])
+    window.set_emg_sources([0, 2])
+    qapp.processEvents()
+    assert view.emg_sources == [0, 2]
+    assert "emg_source_0" in view.plotter.actors
+    assert "emg_source_1" in view.plotter.actors
+
+
+def test_removing_the_emg_config_clears_the_sources(window, qapp, roi_hdf5):
+    view = window.widget_3d_viewer
+    view.load_hdf5_mesh(str(roi_hdf5), mesh_type="roi")
+    window.set_emg_sources([0])
+    qapp.processEvents()
+    window.emg_config_label.setText("")
+    window.paste_emg_config()
+    qapp.processEvents()
+    assert view.emg_sources == []
+    assert "emg_source_0" not in view.plotter.actors
+
+
 pytestmark = pytest.mark.gui
