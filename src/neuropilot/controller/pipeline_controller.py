@@ -1645,7 +1645,13 @@ class PipelineController:
             print(f"target pos, angles:\n {self.target_at_stim}")
 
 
-            print(f"realized_target: {self.realized_target}")
+            rounded_target = self.realized_target
+            if isinstance(rounded_target, dict) and "markers" in rounded_target:
+                rounded_target = dict(rounded_target)
+                rounded_target["markers"] = [
+                    [round(float(value), 2) for value in marker]
+                    for marker in rounded_target["markers"]]
+            print(f"realized_target: {rounded_target}")
             marker = self.realized_target['markers']
             print(f"marker pos, angles:\n {marker}")
             self.realized_targets['idx'].append(self.current_target_order_idx)
@@ -2092,7 +2098,7 @@ class PipelineController:
 
                 # Push *incremental* update for this channel.  This runs on a
                 # worker thread, so it is delivered through a Qt signal.
-                print(f"Channel {ch_name} ready. Updating mesh coloring.")
+                print(f"Channel {ch_name} ready. Update mapping results.")
                 self._deliver_scores({ch_name: scores})
 
     def _check_library_consistency(self):
