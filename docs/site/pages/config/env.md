@@ -39,11 +39,38 @@ cp .env.example .env
 
 | Key | Default | Meaning | Restart |
 |---|---|---|---|
+| `VIRTUAL_MEP_MODEL` | `dvs` | response model: `dvs` or `tvs` | yes |
 | `VIRTUAL_MEP_NOISE_MV` | `0.001` | white-noise sigma added to the trace, mV | yes |
 | `VIRTUAL_MEP_TRIAL_VARIABILITY` | `true` | trial-to-trial variability of the MEP model | yes |
 | `VIRTUAL_MEP_MT` | `60` | field at or below which no MEP is produced, V/m | yes |
-| `VIRTUAL_MEP_UPPER_LIMIT` | `100` | field mapped to 100 % of the recruitment curve, V/m | yes |
+| `VIRTUAL_MEP_UPPER_LIMIT` | `100` | TVS normalisation field (100 % MSO), V/m | yes |
 | `VIRTUAL_MEP_EFIELD_SCALE` | `1.4` | scale applied to the precomputed E-field row | yes |
+
+DVS parameters (`dvs` only):
+
+| Key | Default | Meaning |
+|---|---|---|
+| `VIRTUAL_MEP_DVS_X0` | `75` | sigmoid midpoint, V/m |
+| `VIRTUAL_MEP_DVS_R` | `0.10` | sigmoid slope per V/m |
+| `VIRTUAL_MEP_DVS_SIGMA_X` | `5` | input-side field noise, V/m |
+| `VIRTUAL_MEP_DVS_AMP` | `1` | upper plateau, mV |
+| `VIRTUAL_MEP_DVS_Y0` | `0.01` | lower offset, mV |
+| `VIRTUAL_MEP_DVS_SIGMA_Y` | `0.10` | output-side noise, log10 units |
+
+TVS coefficients (`tvs` only). `p1`/`p2` are log10 terms; `p3`–`p7` are the
+linear values from the original model:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `VIRTUAL_MEP_TVS_P1` | `-5.0818` | additive output floor, log10 V |
+| `VIRTUAL_MEP_TVS_P2` | `-2.4677` | saturation term, log10 V |
+| `VIRTUAL_MEP_TVS_P3` | `4430` | half-saturation coefficient |
+| `VIRTUAL_MEP_TVS_P4` | `2.67` | Hill exponent |
+| `VIRTUAL_MEP_TVS_P5` | `46.3` | threshold, % MSO |
+| `VIRTUAL_MEP_TVS_P6` | `0.1086` | multiplicative output SD, log10 |
+| `VIRTUAL_MEP_TVS_P7` | `4.88` | additive input SD, % MSO |
+| `VIRTUAL_MEP_TVS_P8` | `1.4739e-6` | additive output GEV scale, V |
+| `VIRTUAL_MEP_TVS_P9` | `0.39316` | additive output GEV shape |
 
 ### Robot
 

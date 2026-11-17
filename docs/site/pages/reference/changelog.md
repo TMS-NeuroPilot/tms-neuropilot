@@ -26,6 +26,10 @@ suite is used.
 - The MSO is snapshotted when each pulse fires. Precomputed, online and
   interpolated E-fields all use that snapshot, so moving the slider afterwards
   cannot rescale an already recorded pulse.
+- The virtual EMG can use **DVS** (default, parameters in V/m) or **TVS**
+  (nine coefficients, normalised to the MSO field). Both read the E-field at
+  the configured MEP source element; the Config › Simulation page shows only
+  the selected model's parameters.
 
 ### GUI
 

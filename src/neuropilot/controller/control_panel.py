@@ -1614,12 +1614,28 @@ class MainWindow(QtWidgets.QMainWindow):
             "TMS_PULSE_TIME": os.getenv("TMS_PULSE_TIME", "5"),
             "START_MEP": os.getenv("START_MEP", "10"),
             "END_MEP": os.getenv("END_MEP", "100"),
+            "VIRTUAL_MEP_MODEL": os.getenv("VIRTUAL_MEP_MODEL", "dvs"),
             "VIRTUAL_MEP_NOISE_MV": os.getenv("VIRTUAL_MEP_NOISE_MV", "0.001"),
             "VIRTUAL_MEP_TRIAL_VARIABILITY": os.getenv(
                 "VIRTUAL_MEP_TRIAL_VARIABILITY", "true"),
             "VIRTUAL_MEP_MT": os.getenv("VIRTUAL_MEP_MT", "60"),
             "VIRTUAL_MEP_UPPER_LIMIT": os.getenv("VIRTUAL_MEP_UPPER_LIMIT", "100"),
             "VIRTUAL_MEP_EFIELD_SCALE": os.getenv("VIRTUAL_MEP_EFIELD_SCALE", "1.4"),
+            "VIRTUAL_MEP_DVS_X0": os.getenv("VIRTUAL_MEP_DVS_X0", "75"),
+            "VIRTUAL_MEP_DVS_R": os.getenv("VIRTUAL_MEP_DVS_R", "0.10"),
+            "VIRTUAL_MEP_DVS_SIGMA_X": os.getenv("VIRTUAL_MEP_DVS_SIGMA_X", "5"),
+            "VIRTUAL_MEP_DVS_AMP": os.getenv("VIRTUAL_MEP_DVS_AMP", "1"),
+            "VIRTUAL_MEP_DVS_Y0": os.getenv("VIRTUAL_MEP_DVS_Y0", "0.01"),
+            "VIRTUAL_MEP_DVS_SIGMA_Y": os.getenv("VIRTUAL_MEP_DVS_SIGMA_Y", "0.10"),
+            "VIRTUAL_MEP_TVS_P1": os.getenv("VIRTUAL_MEP_TVS_P1", "-5.0818"),
+            "VIRTUAL_MEP_TVS_P2": os.getenv("VIRTUAL_MEP_TVS_P2", "-2.4677"),
+            "VIRTUAL_MEP_TVS_P3": os.getenv("VIRTUAL_MEP_TVS_P3", "4430"),
+            "VIRTUAL_MEP_TVS_P4": os.getenv("VIRTUAL_MEP_TVS_P4", "2.67"),
+            "VIRTUAL_MEP_TVS_P5": os.getenv("VIRTUAL_MEP_TVS_P5", "46.3"),
+            "VIRTUAL_MEP_TVS_P6": os.getenv("VIRTUAL_MEP_TVS_P6", "0.1086"),
+            "VIRTUAL_MEP_TVS_P7": os.getenv("VIRTUAL_MEP_TVS_P7", "4.88"),
+            "VIRTUAL_MEP_TVS_P8": os.getenv("VIRTUAL_MEP_TVS_P8", "1.4739e-6"),
+            "VIRTUAL_MEP_TVS_P9": os.getenv("VIRTUAL_MEP_TVS_P9", "0.39316"),
             "ONLINE_FEM_SOLVER": os.getenv("ONLINE_FEM_SOLVER", "pardiso"),
             "ONLINE_FEM_ANISOTROPY": os.getenv("ONLINE_FEM_ANISOTROPY", "scalar"),
         }
@@ -2037,6 +2053,11 @@ class MainWindow(QtWidgets.QMainWindow):
             cap.setProperty("role", "cap")
             form.addRow(cap, widget)
 
+        self.cfg_sim_model = QtWidgets.QComboBox()
+        self.cfg_sim_model.addItem("DVS (E-field, V/m)", "dvs")
+        self.cfg_sim_model.addItem("TVS (population curve, MSO)", "tvs")
+        add_row("Model", self.cfg_sim_model)
+
         self.cfg_sim_noise = QtWidgets.QDoubleSpinBox()
         self.cfg_sim_noise.setRange(0.0, 10.0)
         self.cfg_sim_noise.setDecimals(4)
@@ -2061,6 +2082,92 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cfg_sim_scale.setSingleStep(0.1)
         add_row("E-field scale (dI/dt)", self.cfg_sim_scale)
         model_v.addLayout(form)
+
+        def make_param_group(title):
+            group = QtWidgets.QGroupBox(title)
+            group.setProperty("card", True)
+            group_form = QtWidgets.QFormLayout(group)
+            group_form.setContentsMargins(0, 6, 0, 0)
+            group_form.setHorizontalSpacing(8)
+            group_form.setVerticalSpacing(8)
+            group_form.setLabelAlignment(
+                QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+            group_form.setFieldGrowthPolicy(
+                QtWidgets.QFormLayout.AllNonFixedFieldsGrow)
+            group_form.setRowWrapPolicy(QtWidgets.QFormLayout.DontWrapRows)
+            return group, group_form
+
+        def add_param(group_form, text, attr, minimum, maximum,
+                      decimals, step, tooltip=""):
+            spin = QtWidgets.QDoubleSpinBox()
+            spin.setRange(minimum, maximum)
+            spin.setDecimals(decimals)
+            spin.setSingleStep(step)
+            if tooltip:
+                spin.setToolTip(tooltip)
+            setattr(self, attr, spin)
+            cap = QtWidgets.QLabel(text)
+            cap.setProperty("role", "cap")
+            if tooltip:
+                cap.setToolTip(tooltip)
+            group_form.addRow(cap, spin)
+
+        self.cfg_sim_dvs_group, dvs_form = make_param_group(
+            "DVS parameters (E-field domain)")
+        add_param(dvs_form, "x0 (V/m)", "cfg_sim_dvs_x0",
+                  0.1, 300.0, 2, 1.0,
+                  "Midpoint of the DVS recruitment curve, in V/m.")
+        add_param(dvs_form, "Slope r (per V/m)", "cfg_sim_dvs_r",
+                  0.0001, 100.0, 4, 0.01,
+                  "DVS sigmoid steepness per V/m.")
+        add_param(dvs_form, "Input sigma_x (V/m)", "cfg_sim_dvs_sigma_x",
+                  0.0, 100.0, 2, 0.1,
+                  "Standard deviation of the input-side E-field variability.")
+        add_param(dvs_form, "Saturation amp (mV)", "cfg_sim_dvs_amp",
+                  0.001, 100.0, 3, 0.1,
+                  "Upper plateau of the DVS curve, in mV.")
+        add_param(dvs_form, "Offset y0 (mV)", "cfg_sim_dvs_y0",
+                  0.000001, 10.0, 6, 0.001,
+                  "Lower offset of the DVS curve, in mV.")
+        add_param(dvs_form, "Output sigma_y (log10)", "cfg_sim_dvs_sigma_y",
+                  0.0, 2.0, 3, 0.01,
+                  "Output-side DVS variability in log10 units.")
+        model_v.addWidget(self.cfg_sim_dvs_group)
+
+        self.cfg_sim_tvs_group, tvs_form = make_param_group(
+            "TVS parameters (original nine coefficients)")
+        add_param(tvs_form, "p1 additive floor (log10 V)", "cfg_sim_tvs_p1",
+                  -20.0, 0.0, 4, 0.01,
+                  "GEV location is 10^p1 V; it sets the low-amplitude floor.")
+        add_param(tvs_form, "p2 saturation (log10 V)", "cfg_sim_tvs_p2",
+                  -10.0, 10.0, 4, 0.1,
+                  "Saturation term; the model applies the fixed -7 offset.")
+        add_param(tvs_form, "p3 half-saturation", "cfg_sim_tvs_p3",
+                  0.001, 10000000.0, 3, 1.0,
+                  "Linear half-saturation coefficient.")
+        add_param(tvs_form, "p4 Hill exponent", "cfg_sim_tvs_p4",
+                  0.001, 20.0, 4, 0.1,
+                  "Linear Hill exponent / steepness.")
+        add_param(tvs_form, "p5 threshold (% MSO)", "cfg_sim_tvs_p5",
+                  0.1, 100.0, 2, 1.0,
+                  "Linear input threshold in percent MSO.")
+        add_param(tvs_form, "p6 y-mult SD (log10)", "cfg_sim_tvs_p6",
+                  0.0, 10.0, 4, 0.01,
+                  "Multiplicative output-side trial variability.")
+        add_param(tvs_form, "p7 x-add SD (% MSO)", "cfg_sim_tvs_p7",
+                  0.0, 100.0, 3, 0.1,
+                  "Additive input-side trial variability in percent MSO.")
+        add_param(tvs_form, "p8 y-add GEV scale (V)", "cfg_sim_tvs_p8",
+                  0.000000001, 0.001, 9, 0.000001,
+                  "Scale of the additive output-side GEV noise.")
+        add_param(tvs_form, "p9 y-add GEV shape", "cfg_sim_tvs_p9",
+                  -1.0, 1.0, 4, 0.01,
+                  "Shape parameter of the additive output-side GEV noise.")
+        model_v.addWidget(self.cfg_sim_tvs_group)
+
+        self.cfg_sim_model.currentIndexChanged.connect(
+            self._update_sim_model_fields)
+        self._update_sim_model_fields()
 
         self.cfg_sim_trial = QtWidgets.QCheckBox("Trial-to-trial variability")
         self.cfg_sim_trial.setProperty("role", "cap")
@@ -2134,6 +2241,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.cfg_tabs.addTab(page, "Simulation")
         self.cfg_tab_simulation = page
+
+    def _update_sim_model_fields(self, *_):
+        model = (self.cfg_sim_model.currentData()
+                 if hasattr(self, "cfg_sim_model") else "dvs")
+        if hasattr(self, "cfg_sim_dvs_group"):
+            self.cfg_sim_dvs_group.setVisible(model == "dvs")
+        if hasattr(self, "cfg_sim_tvs_group"):
+            self.cfg_sim_tvs_group.setVisible(model == "tvs")
+        if hasattr(self, "cfg_sim_sources"):
+            self._refresh_simulation_summary()
 
     def _lab_fields(self):
         """(key, widget, kind) for every hardware setting on the Lab page."""
@@ -2330,11 +2447,33 @@ class MainWindow(QtWidgets.QMainWindow):
         self._set_int(self.cfg_mep_end,
                       env.get("END_MEP", self._config_defaults["END_MEP"]), 100)
 
+        model = str(env.get(
+            "VIRTUAL_MEP_MODEL",
+            self._config_defaults.get("VIRTUAL_MEP_MODEL", "dvs"))).lower()
+        model_index = self.cfg_sim_model.findData(model)
+        self.cfg_sim_model.setCurrentIndex(max(0, model_index))
+        self._update_sim_model_fields()
+
         for key, widget, fallback in (
             ("VIRTUAL_MEP_NOISE_MV", self.cfg_sim_noise, 0.001),
             ("VIRTUAL_MEP_MT", self.cfg_sim_mt, 60.0),
             ("VIRTUAL_MEP_UPPER_LIMIT", self.cfg_sim_upper, 100.0),
             ("VIRTUAL_MEP_EFIELD_SCALE", self.cfg_sim_scale, 1.4),
+            ("VIRTUAL_MEP_DVS_X0", self.cfg_sim_dvs_x0, 75.0),
+            ("VIRTUAL_MEP_DVS_R", self.cfg_sim_dvs_r, 0.10),
+            ("VIRTUAL_MEP_DVS_SIGMA_X", self.cfg_sim_dvs_sigma_x, 5.0),
+            ("VIRTUAL_MEP_DVS_AMP", self.cfg_sim_dvs_amp, 1.0),
+            ("VIRTUAL_MEP_DVS_Y0", self.cfg_sim_dvs_y0, 0.01),
+            ("VIRTUAL_MEP_DVS_SIGMA_Y", self.cfg_sim_dvs_sigma_y, 0.10),
+            ("VIRTUAL_MEP_TVS_P1", self.cfg_sim_tvs_p1, -5.0818),
+            ("VIRTUAL_MEP_TVS_P2", self.cfg_sim_tvs_p2, -2.4677),
+            ("VIRTUAL_MEP_TVS_P3", self.cfg_sim_tvs_p3, 4430.0),
+            ("VIRTUAL_MEP_TVS_P4", self.cfg_sim_tvs_p4, 2.67),
+            ("VIRTUAL_MEP_TVS_P5", self.cfg_sim_tvs_p5, 46.3),
+            ("VIRTUAL_MEP_TVS_P6", self.cfg_sim_tvs_p6, 0.1086),
+            ("VIRTUAL_MEP_TVS_P7", self.cfg_sim_tvs_p7, 4.88),
+            ("VIRTUAL_MEP_TVS_P8", self.cfg_sim_tvs_p8, 1.4739e-6),
+            ("VIRTUAL_MEP_TVS_P9", self.cfg_sim_tvs_p9, 0.39316),
         ):
             self._set_float(widget, env.get(
                 key, self._config_defaults.get(key, fallback)), fallback)
@@ -2455,13 +2594,45 @@ class MainWindow(QtWidgets.QMainWindow):
             self.cfg_sim_status.setText(
                 "Upper limit must be above the motor threshold.")
             return
+        model = self.cfg_sim_model.currentData() or "dvs"
+        if model == "dvs":
+            if (self.cfg_sim_dvs_r.value() <= 0
+                    or self.cfg_sim_dvs_amp.value() <= 0
+                    or self.cfg_sim_dvs_y0.value() <= 0):
+                self.cfg_sim_status.setText(
+                    "DVS slope, amplitude and offset must be positive.")
+                return
+        else:
+            if any(getattr(self, attr).value() <= 0 for attr in (
+                    "cfg_sim_tvs_p3", "cfg_sim_tvs_p4", "cfg_sim_tvs_p5",
+                    "cfg_sim_tvs_p8")):
+                self.cfg_sim_status.setText(
+                    "TVS p3, p4, p5 and p8 must be positive.")
+                return
+
         values = {
+            "VIRTUAL_MEP_MODEL": model,
             "VIRTUAL_MEP_NOISE_MV": f"{self.cfg_sim_noise.value():g}",
             "VIRTUAL_MEP_TRIAL_VARIABILITY":
                 "true" if self.cfg_sim_trial.isChecked() else "false",
             "VIRTUAL_MEP_MT": f"{self.cfg_sim_mt.value():g}",
             "VIRTUAL_MEP_UPPER_LIMIT": f"{self.cfg_sim_upper.value():g}",
             "VIRTUAL_MEP_EFIELD_SCALE": f"{self.cfg_sim_scale.value():g}",
+            "VIRTUAL_MEP_DVS_X0": f"{self.cfg_sim_dvs_x0.value():g}",
+            "VIRTUAL_MEP_DVS_R": f"{self.cfg_sim_dvs_r.value():g}",
+            "VIRTUAL_MEP_DVS_SIGMA_X": f"{self.cfg_sim_dvs_sigma_x.value():g}",
+            "VIRTUAL_MEP_DVS_AMP": f"{self.cfg_sim_dvs_amp.value():g}",
+            "VIRTUAL_MEP_DVS_Y0": f"{self.cfg_sim_dvs_y0.value():g}",
+            "VIRTUAL_MEP_DVS_SIGMA_Y": f"{self.cfg_sim_dvs_sigma_y.value():g}",
+            "VIRTUAL_MEP_TVS_P1": f"{self.cfg_sim_tvs_p1.value():g}",
+            "VIRTUAL_MEP_TVS_P2": f"{self.cfg_sim_tvs_p2.value():g}",
+            "VIRTUAL_MEP_TVS_P3": f"{self.cfg_sim_tvs_p3.value():g}",
+            "VIRTUAL_MEP_TVS_P4": f"{self.cfg_sim_tvs_p4.value():g}",
+            "VIRTUAL_MEP_TVS_P5": f"{self.cfg_sim_tvs_p5.value():g}",
+            "VIRTUAL_MEP_TVS_P6": f"{self.cfg_sim_tvs_p6.value():g}",
+            "VIRTUAL_MEP_TVS_P7": f"{self.cfg_sim_tvs_p7.value():g}",
+            "VIRTUAL_MEP_TVS_P8": f"{self.cfg_sim_tvs_p8.value():g}",
+            "VIRTUAL_MEP_TVS_P9": f"{self.cfg_sim_tvs_p9.value():g}",
         }
         try:
             self._config_store.write(values)
@@ -2612,7 +2783,10 @@ class MainWindow(QtWidgets.QMainWindow):
         sources_path = self.emg_config_label.text().strip()
         sources = os.path.basename(sources_path) if sources_path else "not set"
         box.setToolTip(sources_path)
+        model = (self.cfg_sim_model.currentData()
+                 if hasattr(self, "cfg_sim_model") else "dvs")
         box.setPlainText(
+            f"Model:       {str(model).upper()}\n"
             f"Channels:    {channels}\n"
             f"EMG sources: {sources}")
 
@@ -2697,16 +2871,21 @@ class MainWindow(QtWidgets.QMainWindow):
              "SMB share on the EMG computer (Digitimer D360 -> CED 1401)."))
 
         # Simulation page: used by both the virtual twin and training mode.
-        for attr in ("cfg_sim_noise", "cfg_sim_trial", "cfg_sim_mt",
-                     "cfg_sim_upper", "cfg_sim_scale", "cfg_sim_save_btn"):
+        for attr in ("cfg_sim_model", "cfg_sim_noise", "cfg_sim_trial",
+                     "cfg_sim_mt", "cfg_sim_upper", "cfg_sim_scale",
+                     "cfg_sim_save_btn", "cfg_sim_dvs_group",
+                     "cfg_sim_tvs_group"):
             widget = getattr(self, attr, None)
             if widget is not None:
                 widget.setEnabled(virtual_emg)
+        if virtual_emg:
+            self._update_sim_model_fields()
         hint = getattr(self, "cfg_sim_hint", None)
         if hint is not None:
             hint.setText(
-                "Used by the virtual EMG in simulation and training modes; "
-                "restart to apply."
+                "Used by the virtual EMG in simulation and training modes. "
+                "DVS uses the field in V/m; TVS normalises to the upper "
+                "limit. Restart to apply."
                 if virtual_emg else
                 "Simulation and training only; these values are ignored in "
                 "real and manual modes.")

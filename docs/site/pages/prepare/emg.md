@@ -92,26 +92,37 @@ not used by the regression.
 In simulation and training the "EMG" is generated from the E-field and the
 channel sources:
 the virtual amplifier adds noise and a recruitment curve on top of the field at
-the channel's source element. It uses the triple-variability-source (TVS) model,
-not DVS; the model choice is not a configuration option. The settings are
-`.env` keys, read when the controller starts:
+the channel's source element. The source element is read for every pulse, from
+the precomputed row or from the online per-pulse field.
+
+Two response models are available:
+
+- **DVS** (the default): a sigmoid in the E-field itself. `x0` and the slope
+  are in V/m, and the input-side noise is also in V/m.
+- **TVS**: the nine-coefficient population model. Its input is `E / upper limit`
+  (a fraction of maximum stimulator output); `p3`–`p7` are the linear
+  coefficients from the original model.
+
+The settings are `.env` keys, read when the controller starts:
 
 | Key | Default | Effect |
 |---|---|---|
+| `VIRTUAL_MEP_MODEL` | `dvs` | `dvs` or `tvs` |
 | `VIRTUAL_MEP_NOISE_MV` | `0.001` | white-noise sigma added to the trace, mV |
 | `VIRTUAL_MEP_TRIAL_VARIABILITY` | `true` | trial-to-trial variability of the MEP model |
 | `VIRTUAL_MEP_MT` | `60` | field at or below which no MEP is produced, V/m |
-| `VIRTUAL_MEP_UPPER_LIMIT` | `100` | field mapped to 100 % of the recruitment curve, V/m |
+| `VIRTUAL_MEP_UPPER_LIMIT` | `100` | TVS normalisation field, V/m |
 | `VIRTUAL_MEP_EFIELD_SCALE` | `1.4` | scale applied to the precomputed E-field row |
 
-`VIRTUAL_MEP_NOISE_MV` is the standard deviation of the white noise, in mV.
-`VIRTUAL_MEP_TRIAL_VARIABILITY` turns the model's trial-to-trial variability on
-or off; turning it off gives an ideal, repeatable curve. `VIRTUAL_MEP_MT` is the
-no-response cutoff: fields at or below it produce MEP 0. `VIRTUAL_MEP_UPPER_LIMIT`
-is the field mapped to 100 % of the TVS recruitment curve; fields between the
-two values drive the curve and larger fields saturate it. The curve's own
-threshold is inside this range, so a field just above `VIRTUAL_MEP_MT` still
-gives a small response. All five keys are in the
+DVS keys: `VIRTUAL_MEP_DVS_X0` (V/m), `VIRTUAL_MEP_DVS_R` (per V/m),
+`VIRTUAL_MEP_DVS_SIGMA_X` (V/m), `VIRTUAL_MEP_DVS_AMP` (mV),
+`VIRTUAL_MEP_DVS_Y0` (mV), and `VIRTUAL_MEP_DVS_SIGMA_Y` (log10 units).
+
+TVS keys: `VIRTUAL_MEP_TVS_P1`…`P9`. `p1`/`p2` are log10 terms; `p3`–`p7` are
+linear values, `p8` is V, and `p9` is dimensionless. `VIRTUAL_MEP_MT` remains
+the no-response cutoff for both models. `VIRTUAL_MEP_TRIAL_VARIABILITY` turns
+the model's trial-to-trial variability on or off; turning it off gives an ideal,
+repeatable curve. All keys are in the
 [`.env` reference](config/env.md). The same values are editable on
 [Config › Simulation](gui/config.md).
 

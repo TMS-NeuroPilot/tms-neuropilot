@@ -174,11 +174,23 @@ restart to apply.
 
 | Field | Key | Default | Unit |
 |---|---|---|---|
+| **Model** | `VIRTUAL_MEP_MODEL` | `dvs` | `dvs` / `tvs` |
 | **Noise sigma** | `VIRTUAL_MEP_NOISE_MV` | `0.001` | mV |
 | **Trial-to-trial variability** | `VIRTUAL_MEP_TRIAL_VARIABILITY` | `true` | on/off |
 | **Motor threshold** | `VIRTUAL_MEP_MT` | `60` | V/m (no-response cutoff) |
-| **Upper limit** | `VIRTUAL_MEP_UPPER_LIMIT` | `100` | V/m (100 % of the curve) |
+| **Upper limit** | `VIRTUAL_MEP_UPPER_LIMIT` | `100` | V/m (TVS normalisation) |
 | **E-field scale (dI/dt)** | `VIRTUAL_MEP_EFIELD_SCALE` | `1.4` | factor |
+
+The model selector swaps the parameter panel below the common fields:
+
+- **DVS**: `x0` and `r` in V/m, `sigma_x` in V/m, `amp`/`y0` in mV,
+  `sigma_y` in log10 units.
+- **TVS**: all nine coefficients. `p1`/`p2` are log10 terms; `p3`–`p7`
+  are linear values, `p8` is V, `p9` is dimensionless.
+
+The selected model reads the E-field at the channel's configured MEP source
+element. DVS uses the field directly in V/m; TVS uses `E / upper limit` as its
+MSO-normalised input. Only one model's panel is shown at a time.
 
 The MEP source itself is project data: the cortical element per channel is
 assigned in the project, not here. The page shows the configured channel names

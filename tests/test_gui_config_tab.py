@@ -466,20 +466,43 @@ def test_stimulator_box_is_in_the_right_lab_column(window):
     assert "groupBox_cfg_stim" not in left_names
 
 
+def test_simulation_model_selector_toggles_the_parameter_groups(window):
+    assert window.cfg_sim_model.currentData() == "dvs"
+    assert not window.cfg_sim_dvs_group.isHidden()
+    assert window.cfg_sim_tvs_group.isHidden()
+
+    window.cfg_sim_model.setCurrentIndex(
+        window.cfg_sim_model.findData("tvs"))
+    assert window.cfg_sim_dvs_group.isHidden()
+    assert not window.cfg_sim_tvs_group.isHidden()
+    assert "TVS" in window.cfg_sim_sources.toPlainText()
+
+
 def test_simulation_reload_fills_from_env(window, tmp_path):
     env = tmp_path / ".env"
-    env.write_text("VIRTUAL_MEP_NOISE_MV=0.02\n"
+    env.write_text("VIRTUAL_MEP_MODEL=tvs\n"
+                   "VIRTUAL_MEP_NOISE_MV=0.02\n"
                    "VIRTUAL_MEP_TRIAL_VARIABILITY=false\n"
                    "VIRTUAL_MEP_MT=45\n"
                    "VIRTUAL_MEP_UPPER_LIMIT=90\n"
-                   "VIRTUAL_MEP_EFIELD_SCALE=1.2\n")
+                   "VIRTUAL_MEP_EFIELD_SCALE=1.2\n"
+                   "VIRTUAL_MEP_DVS_X0=82\n"
+                   "VIRTUAL_MEP_DVS_R=0.2\n"
+                   "VIRTUAL_MEP_TVS_P3=5000\n"
+                   "VIRTUAL_MEP_TVS_P5=50\n")
     window._config_store = ConfigStore(env)
     window.on_config_reload()
+    assert window.cfg_sim_model.currentData() == "tvs"
     assert window.cfg_sim_noise.value() == pytest.approx(0.02)
     assert not window.cfg_sim_trial.isChecked()
     assert window.cfg_sim_mt.value() == pytest.approx(45)
     assert window.cfg_sim_upper.value() == pytest.approx(90)
     assert window.cfg_sim_scale.value() == pytest.approx(1.2)
+    assert window.cfg_sim_dvs_x0.value() == pytest.approx(82)
+    assert window.cfg_sim_dvs_r.value() == pytest.approx(0.2)
+    assert window.cfg_sim_tvs_p3.value() == pytest.approx(5000)
+    assert window.cfg_sim_tvs_p5.value() == pytest.approx(50)
+    assert not window.cfg_sim_tvs_group.isHidden()
 
 
 def test_simulation_save_writes_the_env_keys(window, tmp_path):
@@ -493,11 +516,14 @@ def test_simulation_save_writes_the_env_keys(window, tmp_path):
     window.cfg_sim_scale.setValue(1.3)
     window.on_sim_save()
     text = env.read_text()
+    assert "VIRTUAL_MEP_MODEL=dvs" in text
     assert "VIRTUAL_MEP_NOISE_MV=0.01" in text
     assert "VIRTUAL_MEP_TRIAL_VARIABILITY=false" in text
     assert "VIRTUAL_MEP_MT=50" in text
     assert "VIRTUAL_MEP_UPPER_LIMIT=90" in text
     assert "VIRTUAL_MEP_EFIELD_SCALE=1.3" in text
+    assert "VIRTUAL_MEP_DVS_X0=" in text
+    assert "VIRTUAL_MEP_TVS_P9=" in text
     assert "KEEP_ME=1" in text
     assert "restart" in window.cfg_sim_status.text()
 
@@ -512,11 +538,25 @@ def test_simulation_save_rejects_an_upper_limit_at_the_threshold(window, tmp_pat
     assert not env.exists() or "VIRTUAL_MEP" not in env.read_text()
 
 
+def test_simulation_save_writes_the_selected_model(window, tmp_path):
+    env = tmp_path / ".env"
+    window._config_store = ConfigStore(env)
+    window.cfg_sim_model.setCurrentIndex(
+        window.cfg_sim_model.findData("tvs"))
+    window.cfg_sim_tvs_p5.setValue(42.0)
+    window.on_sim_save()
+    text = env.read_text()
+    assert "VIRTUAL_MEP_MODEL=tvs" in text
+    assert "VIRTUAL_MEP_TVS_P5=42" in text
+
+
 def test_simulation_page_disabled_in_real_mode(window, controller, monkeypatch):
     monkeypatch.setattr(window, "simulation", False)
     window.set_controller(controller)
     window._apply_config_mode()
+    assert not window.cfg_sim_model.isEnabled()
     assert not window.cfg_sim_noise.isEnabled()
+    assert not window.cfg_sim_dvs_group.isEnabled()
     assert not window.cfg_sim_save_btn.isEnabled()
     assert "ignored" in window.cfg_sim_hint.text()
 

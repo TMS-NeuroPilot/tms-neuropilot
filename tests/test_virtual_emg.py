@@ -32,6 +32,22 @@ def test_display_name_map_matches_positional_order(emg):
     assert emg.display_name_map() == {"ADC 0": "FDI", "ADC 1": "APB", "ADC 2": "ADM"}
 
 
+def test_default_mep_model_is_dvs(emg):
+    assert emg.model == "dvs"
+
+
+def test_model_can_be_selected_from_env(monkeypatch):
+    monkeypatch.setenv("EMG_CHANNELS", "FDI")
+    monkeypatch.setenv("VIRTUAL_MEP_MODEL", "TVS")
+    assert VirtualEMG().model == "tvs"
+
+
+def test_unknown_model_falls_back_to_dvs(monkeypatch):
+    monkeypatch.setenv("EMG_CHANNELS", "FDI")
+    monkeypatch.setenv("VIRTUAL_MEP_MODEL", "nonsense")
+    assert VirtualEMG().model == "dvs"
+
+
 def test_set_channel_elements_accepts_one_source_per_channel(emg):
     emg.set_channel_elements([11, 22, 33])
     assert emg.channel_elements == [11, 22, 33]
@@ -85,15 +101,10 @@ def test_fallback_uses_the_precomputed_matrix(emg):
 
 
 def test_precomputed_fallback_uses_the_pulse_amplitude(emg, monkeypatch):
-    from neuropilot.controller.systems import virtual_emg as vemg
-
     seen = []
     monkeypatch.setattr(
-        emg, "_normalise_field",
-        lambda e_field: (seen.append(e_field), 0.0)[1])
-    monkeypatch.setattr(
-        vemg, "get_virtual_mep_tvs",
-        lambda values, trial_variability: np.zeros(int(0.7 * 4000)))
+        emg, "_mep_for_field",
+        lambda e_field: (seen.append(e_field), (0.0, 0.0))[1])
 
     matrix = np.zeros((2, 10))
     matrix[1, 3:6] = 10.0
@@ -111,15 +122,10 @@ def test_precomputed_fallback_uses_the_pulse_amplitude(emg, monkeypatch):
 
 
 def test_solver_field_is_already_scaled_and_is_not_scaled_again(emg, monkeypatch):
-    from neuropilot.controller.systems import virtual_emg as vemg
-
     seen = []
     monkeypatch.setattr(
-        emg, "_normalise_field",
-        lambda e_field: (seen.append(e_field), 0.0)[1])
-    monkeypatch.setattr(
-        vemg, "get_virtual_mep_tvs",
-        lambda values, trial_variability: np.zeros(int(0.7 * 4000)))
+        emg, "_mep_for_field",
+        lambda e_field: (seen.append(e_field), (0.0, 0.0))[1])
 
     emg.set_e_matrix(np.zeros((2, 10)))
     emg.set_channel_elements([3, 4, 5])
@@ -145,7 +151,7 @@ def test_field_normalisation_is_a_fraction_of_the_mso_field(emg):
     assert emg._normalise_field(120.0) == 1.0
 
 
-def test_fields_inside_the_configured_range_produce_a_mep(emg):
+def test_dvs_uses_the_field_in_v_per_m(emg):
     emg.trial_variability = False
     emg.noise_mv = 0.0
     emg.set_e_matrix(np.zeros((1, 3)))
@@ -156,6 +162,18 @@ def test_fields_inside_the_configured_range_produce_a_mep(emg):
 
     inside = emg.get_latest_emg_df(e_field_for_mep=np.array([80.0] * 3))
     assert inside["ADC 0"].abs().max() > 0.1
+
+
+def test_tvs_uses_the_mso_normalised_field(emg):
+    emg.model = "tvs"
+    emg.trial_variability = False
+    emg.noise_mv = 0.0
+    emg.set_e_matrix(np.zeros((1, 3)))
+    emg.set_channel_elements([0, 1, 2])
+
+    low = emg.get_latest_emg_df(e_field_for_mep=np.array([70.0] * 3))
+    high = emg.get_latest_emg_df(e_field_for_mep=np.array([100.0] * 3))
+    assert high["ADC 0"].abs().max() > low["ADC 0"].abs().max()
 
 
 def test_details_describe_the_configured_channels(emg):
@@ -182,6 +200,34 @@ def test_mep_tuning_comes_from_env(monkeypatch):
     assert emg.efield_scale == pytest.approx(1.2)
 
 
+def test_tvs_coefficients_come_from_env(monkeypatch):
+    monkeypatch.setenv("EMG_CHANNELS", "FDI")
+    monkeypatch.setenv("VIRTUAL_MEP_MODEL", "tvs")
+    values = {f"VIRTUAL_MEP_TVS_P{i}": str(i + 0.5) for i in range(1, 10)}
+    for key, value in values.items():
+        monkeypatch.setenv(key, value)
+    emg = VirtualEMG()
+    assert [getattr(emg, f"tvs_p{i}") for i in range(1, 10)] == pytest.approx(
+        [float(values[f"VIRTUAL_MEP_TVS_P{i}"]) for i in range(1, 10)])
+
+
+def test_dvs_coefficients_come_from_env(monkeypatch):
+    monkeypatch.setenv("EMG_CHANNELS", "FDI")
+    monkeypatch.setenv("VIRTUAL_MEP_MODEL", "dvs")
+    for key, value in {
+            "VIRTUAL_MEP_DVS_X0": "82",
+            "VIRTUAL_MEP_DVS_R": "0.2",
+            "VIRTUAL_MEP_DVS_SIGMA_X": "6",
+            "VIRTUAL_MEP_DVS_AMP": "2",
+            "VIRTUAL_MEP_DVS_Y0": "0.02",
+            "VIRTUAL_MEP_DVS_SIGMA_Y": "0.3"}.items():
+        monkeypatch.setenv(key, value)
+    emg = VirtualEMG()
+    assert (emg.dvs_x0, emg.dvs_r, emg.dvs_sigma_x, emg.dvs_amp,
+            emg.dvs_y0, emg.dvs_sigma_y) == pytest.approx(
+        (82, 0.2, 6, 2, 0.02, 0.3))
+
+
 def test_disabling_noise_and_trial_variability_is_deterministic(monkeypatch):
     monkeypatch.setenv("EMG_CHANNELS", "FDI")
     monkeypatch.setenv("VIRTUAL_MEP_NOISE_MV", "0")
@@ -206,5 +252,5 @@ def test_emg_generation_logs_one_rounded_line_per_channel(emg, capsys):
              if line.startswith("Virtual EMG ")]
     assert len(lines) == emg.channel_count
     assert all(re.search(
-        r"E=\d+\.\d{2} V/m, x=\d+\.\d{2}, MEP=\d+\.\d{2} mV", line)
+        r"\[DVS\]: E=\d+\.\d{2} V/m, MEP=\d+\.\d{2} mV", line)
         for line in lines)
