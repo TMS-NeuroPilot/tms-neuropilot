@@ -426,9 +426,10 @@ First release of the merged suite.
 - Relay channels renamed to the external-controller convention
   (`from_external_controller` / `to_external_controller`); the marker topic
   is now `External Controller to Neuronavigation: Create Marker`.
-- The simulated end-effector is the coil holder
-  (`coil_holder_fs_w_mcf_b65.stl`) instead of the bare B65 coil case, with
-  the matching TCP height.
+- The simulated end-effector uses the detailed B65 case v2.4 meshes
+  (`coil_holder_b65_case_v2.4_fixed.stl` for display and
+  `..._collision.stl` for the watertight collision body), with the matching
+  TCP height.  The previous simplified holder is retained for rollback.
 - Renamed for clarity: `onlineFEM.py` → `OnlineFEMManager.py`,
   `control_panel_window2.py` → `control_panel.py`.
 

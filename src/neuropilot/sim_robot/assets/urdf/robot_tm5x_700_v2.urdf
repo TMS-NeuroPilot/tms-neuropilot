@@ -308,7 +308,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 -1.5708"/>
       <geometry>
-        <mesh filename="../meshes/coil/coil_holder_fs_w_mcf_b65.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="../meshes/coil/coil_holder_b65_case_v2.4_fixed.stl" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="grey">
         <color rgba="0.4 0.4 0.4 1.0"/>
@@ -317,7 +317,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 -1.5708"/>
       <geometry>
-        <mesh filename="../meshes/coil/coil_holder_fs_w_mcf_b65.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="../meshes/coil/coil_holder_b65_case_v2.4_collision.stl" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
     <inertial>

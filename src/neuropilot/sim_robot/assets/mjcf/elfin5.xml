@@ -9,7 +9,8 @@
     <mesh name="elfin_link4" file="robot/elfin5/elfin_link4.STL" />
     <mesh name="elfin_link5" file="robot/elfin5/elfin_link5.STL" />
     <mesh name="elfin_link6" file="robot/elfin5/elfin_link6.STL" />
-    <mesh name="coil_holder" file="coil/coil_holder_fs_w_mcf_b65.stl" scale="0.001 0.001 0.001" />
+    <mesh name="coil_holder_vis" file="coil/coil_holder_b65_case_v2.4_fixed.stl" scale="0.001 0.001 0.001" />
+    <mesh name="coil_holder_col" file="coil/coil_holder_b65_case_v2.4_collision.stl" scale="0.001 0.001 0.001" />
     <material name="mat_coil" rgba="0.35 0.35 0.35 1" />
   </asset>
   <worldbody>
@@ -43,8 +44,8 @@
                   <frame pos="0 -0.0935 0" quat="0.5 0.5 0.5 -0.5" />
                   <body name="flange" pos="0 0 0.0545" quat="0.707105 0 0 -0.707108">
                     <inertial mass="1.909" pos="0 0 0" diaginertia="0.004 0.004 0.004" />
-                    <geom name="g_coil_vis" type="mesh" mesh="coil_holder" material="mat_coil" euler="0 0 -1.5708" contype="0" conaffinity="0" />
-                    <geom name="g_coil_col" type="mesh" mesh="coil_holder" rgba="0 0 0 0" euler="0 0 -1.5708" contype="1" conaffinity="1" />
+                    <geom name="g_coil_vis" type="mesh" mesh="coil_holder_vis" material="mat_coil" euler="0 0 -1.5708" contype="0" conaffinity="0" />
+                    <geom name="g_coil_col" type="mesh" mesh="coil_holder_col" rgba="0 0 0 0" euler="0 0 -1.5708" contype="1" conaffinity="1" />
                     <site name="coil_tcp_site" pos="0 0 0.1" xyaxes="1 0 0 0 1 0" />
                   </body>
                 </body>
