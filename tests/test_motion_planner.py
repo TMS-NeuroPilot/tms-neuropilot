@@ -111,10 +111,44 @@ def test_proximity_warning_is_logged_once_per_episode(monkeypatch):
     assert checker.check() is False
     assert len(warnings) == 1
 
+    # A moving coil changes the distance but stays in the same episode.
+    world.distance = 0.0090
+    assert checker.check() is False
+    world.distance = 0.0020
+    assert checker.check() is False
+    assert len(warnings) == 1
+
     world.distance = None                 # robot moved clear
     assert checker.check() is False
     world.distance = 0.0065
     assert checker.check() is False
+    assert len(warnings) == 2
+
+
+def test_collision_warning_is_logged_once_per_episode(monkeypatch):
+    from neuropilot.sim_robot import collision_checker
+
+    class FakeWorld:
+        distance = -0.005
+
+        def get_robot_head_closest_distance(self, distance_threshold=None):
+            return self.distance
+
+    world = FakeWorld()
+    checker = CollisionChecker(world)
+    warnings = []
+    monkeypatch.setattr(collision_checker.log, "warning",
+                        lambda message: warnings.append(message))
+
+    assert checker.check() is True
+    world.distance = -0.008
+    assert checker.check() is True
+    assert len(warnings) == 1
+
+    world.distance = None
+    assert checker.check() is False
+    world.distance = -0.005
+    assert checker.check() is True
     assert len(warnings) == 2
 
 

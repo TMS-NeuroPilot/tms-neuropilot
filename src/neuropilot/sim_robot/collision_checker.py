@@ -11,11 +11,11 @@ class CollisionChecker:
     def __init__(self, world: MuJoCoWorld):
         self.world = world
         self._distance_threshold_m = config.COLLISION_DISTANCE_THRESHOLD_M
-        # The planner checks at 20 Hz; a persistent proximity warning would
-        # otherwise repeat an identical line at every tick. Log only when the
-        # distance changes meaningfully, and reset after the robot is clear.
-        self._last_proximity_mm = None
-        self._last_collision_mm = None
+        # The planner checks at 20 Hz. Log one line when an episode starts,
+        # not on every tick or every distance change, and reset after the
+        # robot is clear so a later episode can be reported again.
+        self._proximity_active = False
+        self._collision_active = False
         self._self_collision_logged = False
 
     def check(self) -> bool:
@@ -32,30 +32,28 @@ class CollisionChecker:
 
         if distance is None:
             # No points found within threshold — safe
-            self._last_proximity_mm = None
-            self._last_collision_mm = None
+            self._proximity_active = False
+            self._collision_active = False
             return False
 
         distance_mm = distance * 1000.0
         if distance <= config.PENTRATION_TOLERANCE:
-            if (self._last_collision_mm is None
-                    or abs(distance_mm - self._last_collision_mm) >= 0.1):
+            if not self._collision_active:
                 log.warning(f"Collision detected: penetration depth "
                             f"{distance_mm:.2f} mm")
-                self._last_collision_mm = distance_mm
-            self._last_proximity_mm = None
+                self._collision_active = True
+            self._proximity_active = False
             return True
 
         if distance <= self._distance_threshold_m:
-            if (self._last_proximity_mm is None
-                    or abs(distance_mm - self._last_proximity_mm) >= 0.1):
+            if not self._proximity_active:
                 log.warning(f"Proximity warning: {distance_mm:.2f} mm to head")
-                self._last_proximity_mm = distance_mm
-            self._last_collision_mm = None
+                self._proximity_active = True
+            self._collision_active = False
             return False
 
-        self._last_proximity_mm = None
-        self._last_collision_mm = None
+        self._proximity_active = False
+        self._collision_active = False
         return False
 
     def check_self_collision(self) -> bool:
