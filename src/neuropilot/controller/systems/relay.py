@@ -9,6 +9,7 @@ external and is never stopped by NeuroPilot.
 
 import asyncio
 import atexit
+import os
 import socket
 import subprocess
 import sys
@@ -41,6 +42,7 @@ class RelaySystem(System):
         self.failure_reason = ""
         self.log_handle = None
         self.log_path = Path(config.ROOT_FOLDER) / "relay.log"
+        self.pid_path = Path(config.ROOT_FOLDER) / "relay.pid"
         self._remote = self.host not in ("127.0.0.1", "localhost", "::1")
         if self.simulation:
             self.manage = False
@@ -167,6 +169,7 @@ class RelaySystem(System):
                 start_new_session=True,
             )
             self.owned = True
+            self._write_pid()
             self._publish_details()
         except OSError as e:
             print(f"[RELAY] could not start {script}: {e}")
@@ -182,6 +185,7 @@ class RelaySystem(System):
                 self.failure_reason = (
                     f"relay_server.py exited with code {self.process.returncode}; "
                     f"see {self.log_path}")
+                self._remove_pid(self.process.pid)
                 self._close_log()
                 return False
             if self._port_open():
@@ -195,6 +199,8 @@ class RelaySystem(System):
 
     def _stop(self):
         process = self.process
+        pid = process.pid if process is not None else None
+        was_owned = self.owned
         self.process = None
         self.owned = False
         if process is not None and process.poll() is None:
@@ -206,6 +212,8 @@ class RelaySystem(System):
                 process.wait(timeout=2)
             except OSError:
                 pass
+        if was_owned or process is not None:
+            self._remove_pid(pid)
         self._close_log()
 
     def _close_log(self):
@@ -215,6 +223,29 @@ class RelaySystem(System):
             except OSError:
                 pass
             self.log_handle = None
+
+    def _write_pid(self):
+        """Record the relay PID so the supervisor can clean up a crash."""
+        if self.process is None:
+            return
+        try:
+            self.pid_path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = self.pid_path.with_suffix(self.pid_path.suffix + ".tmp")
+            tmp.write_text(str(self.process.pid), encoding="utf-8")
+            os.replace(tmp, self.pid_path)
+        except OSError as exc:
+            print(f"[RELAY] could not write {self.pid_path}: {exc}")
+
+    def _remove_pid(self, pid=None):
+        try:
+            if not self.pid_path.is_file():
+                return
+            recorded = self.pid_path.read_text(encoding="utf-8").strip()
+            if pid is not None and recorded not in ("", str(pid)):
+                return
+            self.pid_path.unlink()
+        except OSError:
+            pass
 
     def stop(self):
         """Terminate a relay started by this process, if any."""

@@ -10,7 +10,10 @@ terminal, and terminates everything on exit.
 import asyncio
 import os
 import re
+import signal
 import sys
+import time
+from pathlib import Path
 
 from . import config
 
@@ -66,15 +69,89 @@ _GTK_LAYOUT_NOISE = re.compile(
     r"Negative content (?:width|height)|"
     r"gtk_widget_set_size_request)"
 )
+_PETSC_SHUTDOWN_NOISE = re.compile(
+    r"(?:\[0\]PETSC ERROR: Caught signal number 15 Terminate|"
+    r"PETSC ERROR: Try option -start_in_debugger|"
+    r"PETSC ERROR: or see https://petsc\.org|"
+    r"PETSC ERROR: configure using --with-debugging=yes|"
+    r"PETSC ERROR: to get more information about the crash|"
+    r"application called MPI_Abort\(MPI_WORLD, 59\)|"
+    r"PMIU_write error|"
+    r"system msg for write_line failure)"
+)
 
 
 def _drop_output_line(source, text):
-    """Drop known GTK layout noise and blank InVesalius spacer lines."""
+    """Drop known GTK layout and PETSc shutdown noise."""
     if _GTK_LAYOUT_NOISE.search(text):
+        return True
+    if _PETSC_SHUTDOWN_NOISE.search(text):
+        return True
+    if source == "controller" and text.strip() == ":":
         return True
     if source == "invesalius" and not text.strip():
         return True
     return False
+
+
+def _pid_alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+
+def _is_relay_process(pid):
+    """Check /proc so a recycled PID is never killed by mistake."""
+    try:
+        raw = Path(f"/proc/{pid}/cmdline").read_bytes()
+    except OSError:
+        return True  # no /proc (non-Linux): trust the owned PID file
+    return any("relay_server.py" in part for part in
+               raw.decode(errors="replace").split("\0"))
+
+
+def _stop_owned_relay():
+    """Stop a relay recorded by RelaySystem if its controller crashed."""
+    pid_path = Path(config.ROOT_FOLDER) / "relay.pid"
+    try:
+        pid = int(pid_path.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return None
+    if not _pid_alive(pid):
+        try:
+            pid_path.unlink()
+        except OSError:
+            pass
+        return None
+    if not _is_relay_process(pid):
+        try:
+            pid_path.unlink()
+        except OSError:
+            pass
+        return None
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    except OSError:
+        return None
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline and _pid_alive(pid):
+        time.sleep(0.1)
+    if _pid_alive(pid):
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except OSError:
+            pass
+    try:
+        pid_path.unlink()
+    except OSError:
+        pass
+    return pid
 
 
 class Component:
@@ -292,6 +369,9 @@ async def run_stack(components, timeout=None):
     finally:
         for component in components:
             await _stop(component)
+        stopped_relay = _stop_owned_relay()
+        if stopped_relay is not None:
+            _log("neuropilot", f"stopped owned relay (pid {stopped_relay})")
         _log("neuropilot", "all components stopped")
 
 

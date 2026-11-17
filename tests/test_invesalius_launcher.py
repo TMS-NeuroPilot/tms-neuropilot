@@ -328,3 +328,18 @@ def test_supervisor_drops_gtk_layout_noise():
         "invesalius", "real InVesalius error: could not load project")
     assert not supervisor._drop_output_line(
         "relay", "Gtk-WARNING **: unrelated non-layout warning")
+
+
+def test_supervisor_drops_petsc_shutdown_noise():
+    noise = [
+        "[0]PETSC ERROR: Caught signal number 15 Terminate: Some process told this process to end",
+        "[0]PETSC ERROR: Try option -start_in_debugger or -on_error_attach_debugger",
+        "application called MPI_Abort(MPI_WORLD, 59) - process 0",
+        "[unset]: PMIU_write error; fd=-1",
+        "system msg for write_line failure : Bad file descriptor",
+        ":",
+    ]
+    for text in noise:
+        assert supervisor._drop_output_line("controller", text)
+    assert not supervisor._drop_output_line(
+        "controller", "[0]PETSC ERROR: a real solver error")
