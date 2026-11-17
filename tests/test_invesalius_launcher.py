@@ -312,3 +312,19 @@ def test_invesalius_start_line_shows_the_checkout(tmp_path, capsys):
     asyncio.run(supervisor.run_stack(components))
     out = capsys.readouterr().out
     assert f"[invesalius] start InVesalius from {tmp_path}" in out
+
+
+def test_supervisor_drops_gtk_layout_noise():
+    noise = [
+        "(app.py:123): Gtk-WARNING **: 09:05:10.815: for_size smaller than min-size (21 < 32) while measuring gadget (node entry, owner GtkSpinButton)",
+        "(app.py:123): Gtk-WARNING **: 09:05:10.815: Negative content width -14 (allocation 20, extents 17x17) while allocating gadget (node button, owner GtkButton)",
+        "(app.py:123): Gtk-CRITICAL **: 09:05:10.760: gtk_widget_set_size_request: assertion 'height >= -1' failed",
+    ]
+    for text in noise:
+        assert supervisor._drop_output_line("invesalius", text)
+    assert supervisor._drop_output_line("invesalius", "")
+    assert not supervisor._drop_output_line("controller", "")
+    assert not supervisor._drop_output_line(
+        "invesalius", "real InVesalius error: could not load project")
+    assert not supervisor._drop_output_line(
+        "relay", "Gtk-WARNING **: unrelated non-layout warning")

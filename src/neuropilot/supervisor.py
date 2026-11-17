@@ -9,6 +9,7 @@ terminal, and terminates everything on exit.
 
 import asyncio
 import os
+import re
 import sys
 
 from . import config
@@ -54,6 +55,26 @@ def _label(name):
 
 def _log(name, message):
     print(f"{_label(name)} {message}", flush=True)
+
+
+# GTK emits these cosmetic layout warnings when wxPython asks a control to be
+# smaller than the active GTK theme's minimum. They originate inside the
+# InVesalius GUI and are not actionable from the supervisor.
+_GTK_LAYOUT_NOISE = re.compile(
+    r"Gtk-(?:WARNING|CRITICAL).*?"
+    r"(?:for_size smaller than min-size|"
+    r"Negative content (?:width|height)|"
+    r"gtk_widget_set_size_request)"
+)
+
+
+def _drop_output_line(source, text):
+    """Drop known GTK layout noise and blank InVesalius spacer lines."""
+    if _GTK_LAYOUT_NOISE.search(text):
+        return True
+    if source == "invesalius" and not text.strip():
+        return True
+    return False
 
 
 class Component:
@@ -112,6 +133,8 @@ async def _pump(component):
         if not line:
             break
         text = line.decode(errors="replace").rstrip("\n")
+        if _drop_output_line(component.name, text):
+            continue
         print(f"{_label(component.name)} {text}", flush=True)
         if component.wait_ready == "line" and READY_LINE in text:
             component.ready.set()
