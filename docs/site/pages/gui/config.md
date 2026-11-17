@@ -176,8 +176,8 @@ restart to apply.
 |---|---|---|---|
 | **Noise sigma** | `VIRTUAL_MEP_NOISE_MV` | `0.001` | mV |
 | **Trial-to-trial variability** | `VIRTUAL_MEP_TRIAL_VARIABILITY` | `true` | on/off |
-| **Motor threshold** | `VIRTUAL_MEP_MT` | `60` | V/m |
-| **Upper limit** | `VIRTUAL_MEP_UPPER_LIMIT` | `100` | V/m |
+| **Motor threshold** | `VIRTUAL_MEP_MT` | `60` | V/m (no-response cutoff) |
+| **Upper limit** | `VIRTUAL_MEP_UPPER_LIMIT` | `100` | V/m (100 % of the curve) |
 | **E-field scale (dI/dt)** | `VIRTUAL_MEP_EFIELD_SCALE` | `1.4` | factor |
 
 The MEP source itself is project data: the cortical element per channel is

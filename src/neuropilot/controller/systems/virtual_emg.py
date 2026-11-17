@@ -4,7 +4,8 @@ import os
 import numpy as np
 import pandas as pd
 from ..systems.system import System, SystemStatus
-from pynibs.expio.Mep import get_virtual_mep_tvs, scale_e_for_dvs
+# The virtual muscle uses the triple-variability-source (TVS) model, not DVS.
+from pynibs.expio.Mep import get_virtual_mep_tvs
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -102,6 +103,19 @@ class VirtualEMG(System):
         self.current_coil_placement_idx = coil_placement_idx
         self.stimulator_amplitude = stimuator_amplitude
 
+    def _normalise_field(self, e_field):
+        """Return the TVS input as a fraction of maximum stimulator output.
+
+        The TVS model expects its amplitude in [0, 1] of MSO; its own
+        threshold is around the middle of that range.  Mapping the configured
+        motor threshold to zero (the old ``scale_e_for_dvs`` behaviour)
+        compressed 60–100 V/m into the model's flat sub-threshold part, so a
+        field in the configured range produced no useful MEP.
+        """
+        if e_field <= self.mt or self.upper_limit <= 0:
+            return 0.0
+        return float(np.clip(e_field / self.upper_limit, 0.0, 1.0))
+
     def get_latest_emg_df(self, idx=None, e_field_for_mep=None, after=None):
         """Synthesise the sweep for the current coil placement.
 
@@ -129,19 +143,17 @@ class VirtualEMG(System):
                     * self.stimulator_amplitude
                 )
 
-            # Normalize to [0,1] (0 = motor threshold)
-            e_normalized = scale_e_for_dvs(
-                e_field, mt=self.mt, upper_limit=self.upper_limit)
-            e_normalized = np.clip(e_normalized, 0, 1)
-
-            # Generate MEP using TVS model. The model returns mV; at
-            # sub-threshold fields it has a small non-zero floor, which is
-            # still a valid simulated response (not a failed calculation).
-            mep_mv = float(np.asarray(get_virtual_mep_tvs(
-                np.array([e_normalized]),
-                trial_variability=self.trial_variability,
-            )).reshape(-1)[0])
-            vpp = max(mep_mv, 0.0)
+            # A field at or below MT is a no-response pulse; above it the
+            # TVS model sees the field as a fraction of the MSO field.
+            e_normalized = self._normalise_field(e_field)
+            if e_normalized > 0.0:
+                mep_mv = float(np.asarray(get_virtual_mep_tvs(
+                    np.array([e_normalized]),
+                    trial_variability=self.trial_variability,
+                )).reshape(-1)[0])
+                vpp = max(mep_mv, 0.0)
+            else:
+                vpp = 0.0
             vpps[name] = vpp
             label = (self.display_names[channel_index]
                      if channel_index < len(self.display_names) else name)

@@ -92,24 +92,26 @@ not used by the regression.
 In simulation and training the "EMG" is generated from the E-field and the
 channel sources:
 the virtual amplifier adds noise and a recruitment curve on top of the field at
-the channel's source element. The settings are `.env` keys, read when the
-controller starts:
+the channel's source element. It uses the triple-variability-source (TVS) model,
+not DVS; the model choice is not a configuration option. The settings are
+`.env` keys, read when the controller starts:
 
 | Key | Default | Effect |
 |---|---|---|
 | `VIRTUAL_MEP_NOISE_MV` | `0.001` | white-noise sigma added to the trace, mV |
 | `VIRTUAL_MEP_TRIAL_VARIABILITY` | `true` | trial-to-trial variability of the MEP model |
-| `VIRTUAL_MEP_MT` | `60` | motor threshold used to normalise the field, V/m |
-| `VIRTUAL_MEP_UPPER_LIMIT` | `100` | saturation field of the recruitment curve, V/m |
+| `VIRTUAL_MEP_MT` | `60` | field at or below which no MEP is produced, V/m |
+| `VIRTUAL_MEP_UPPER_LIMIT` | `100` | field mapped to 100 % of the recruitment curve, V/m |
 | `VIRTUAL_MEP_EFIELD_SCALE` | `1.4` | scale applied to the precomputed E-field row |
 
 `VIRTUAL_MEP_NOISE_MV` is the standard deviation of the white noise, in mV.
 `VIRTUAL_MEP_TRIAL_VARIABILITY` turns the model's trial-to-trial variability on
-or off; turning it off gives an ideal, repeatable curve. `VIRTUAL_MEP_MT` and
-`VIRTUAL_MEP_UPPER_LIMIT` set the field values where the recruitment curve
-starts and saturates. At or below the motor threshold the TVS model keeps a
-small non-zero baseline (a few µV), so a reported MEP near 0.01 mV is not a
-failed calculation. All five keys are in the
+or off; turning it off gives an ideal, repeatable curve. `VIRTUAL_MEP_MT` is the
+no-response cutoff: fields at or below it produce MEP 0. `VIRTUAL_MEP_UPPER_LIMIT`
+is the field mapped to 100 % of the TVS recruitment curve; fields between the
+two values drive the curve and larger fields saturate it. The curve's own
+threshold is inside this range, so a field just above `VIRTUAL_MEP_MT` still
+gives a small response. All five keys are in the
 [`.env` reference](config/env.md). The same values are editable on
 [Config › Simulation](gui/config.md).
 

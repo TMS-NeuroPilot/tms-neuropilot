@@ -89,8 +89,8 @@ def test_precomputed_fallback_uses_the_pulse_amplitude(emg, monkeypatch):
 
     seen = []
     monkeypatch.setattr(
-        vemg, "scale_e_for_dvs",
-        lambda e_field, mt, upper_limit: (seen.append(e_field), 0.0)[1])
+        emg, "_normalise_field",
+        lambda e_field: (seen.append(e_field), 0.0)[1])
     monkeypatch.setattr(
         vemg, "get_virtual_mep_tvs",
         lambda values, trial_variability: np.zeros(int(0.7 * 4000)))
@@ -115,8 +115,8 @@ def test_solver_field_is_already_scaled_and_is_not_scaled_again(emg, monkeypatch
 
     seen = []
     monkeypatch.setattr(
-        vemg, "scale_e_for_dvs",
-        lambda e_field, mt, upper_limit: (seen.append(e_field), 0.0)[1])
+        emg, "_normalise_field",
+        lambda e_field: (seen.append(e_field), 0.0)[1])
     monkeypatch.setattr(
         vemg, "get_virtual_mep_tvs",
         lambda values, trial_variability: np.zeros(int(0.7 * 4000)))
@@ -137,6 +137,25 @@ def test_waveform_length_matches_the_configured_segment(emg):
     df = emg.get_latest_emg_df(e_field_for_mep=np.full(6000, 90.0))
     assert len(df) == int(0.7 * 4000)
     assert df["Time"].iloc[0] == 0.0
+
+
+def test_field_normalisation_is_a_fraction_of_the_mso_field(emg):
+    assert emg._normalise_field(emg.mt) == 0.0
+    assert emg._normalise_field(80.0) == pytest.approx(0.8)
+    assert emg._normalise_field(120.0) == 1.0
+
+
+def test_fields_inside_the_configured_range_produce_a_mep(emg):
+    emg.trial_variability = False
+    emg.noise_mv = 0.0
+    emg.set_e_matrix(np.zeros((1, 3)))
+    emg.set_channel_elements([0, 1, 2])
+
+    below = emg.get_latest_emg_df(e_field_for_mep=np.array([40.0] * 3))
+    assert below["ADC 0"].abs().max() == pytest.approx(0.0)
+
+    inside = emg.get_latest_emg_df(e_field_for_mep=np.array([80.0] * 3))
+    assert inside["ADC 0"].abs().max() > 0.1
 
 
 def test_details_describe_the_configured_channels(emg):
