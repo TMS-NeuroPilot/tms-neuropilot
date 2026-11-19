@@ -36,7 +36,8 @@ described by
 the TMS mapping protocol of
 [Weise et al. (2023)](https://doi.org/10.1038/s41596-022-00776-6). Coil
 placement optimisation can use FPS ([Schultheiss et al., 2025](https://doi.org/10.1162/IMAG.a.1056))
-or D-optimal design ([Numssen, Qiu et al., 2026](https://doi.org/10.64898/2026.10.24.761539)).
+or D-optimal design ([Qiu et al., 2026](https://doi.org/10.1162/IMAG.a.1446);
+[Numssen, Qiu et al., 2026](https://doi.org/10.64898/2026.10.24.761539)).
 The interpolated E-field mode uses the surrogate method of
 [Grosshagauer et al. (2025)](https://doi.org/10.1016/j.brs.2025.102990).
 
