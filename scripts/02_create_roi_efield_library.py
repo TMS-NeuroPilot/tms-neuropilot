@@ -1,5 +1,5 @@
 """Generate a coil-placement library around a target and compute the ROI
-E-fields, producing an ``e.hdf5`` consumable by the NeuroPilot pipeline
+E-fields, producing an ``e.hdf5`` consumable by the TMS NeuroPilot pipeline
 (offline "Precomputed E-Field" mode reads the ``E_mag`` dataset,
 shape ``(n_placements, n_roi_elements)``).
 
@@ -143,7 +143,7 @@ else:
     radius_source = "explicit"
 
 print("-" * 64)
-print("NeuroPilot ROI E-field library")
+print("TMS NeuroPilot ROI E-field library")
 print(f"  mesh:          {args.mesh_msh}")
 print(f"  roi:           {args.roi_idx} ({args.roi_hdf5}), "
       f"{len(roi_centroids)} triangles")

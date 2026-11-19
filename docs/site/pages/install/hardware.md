@@ -1,7 +1,7 @@
 # Hardware setup
 
 Nothing on this page is needed for the simulator. It explains how to connect
-*your* hardware to NeuroPilot: which pieces exist, which endpoints NeuroPilot
+*your* hardware to TMS NeuroPilot: which pieces exist, which endpoints TMS NeuroPilot
 needs, and how to check each one before a subject arrives.
 
 The suite does not assume a particular lab. One PC can host everything, or each
@@ -10,7 +10,7 @@ from every peer and that the settings below point at the right devices.
 
 ## The pieces
 
-| Role | What runs there | What NeuroPilot needs from it |
+| Role | What runs there | What TMS NeuroPilot needs from it |
 |---|---|---|
 | **Control PC** | controller + relay | a display, the `neuropilot` environment, a writable data folder |
 | **Neuronavigation PC** | InVesalius (group fork) | `--remote-host` pointed at the relay; the coil tracked |
@@ -18,7 +18,7 @@ from every peer and that the settings below point at the right devices.
 | **Stimulator** | your stimulator + its driver (`magicpy` for MagVenture) | a serial port and a TTL line on the control PC |
 | **EMG acquisition** | acquisition software writing to a share (CED/Signal is one example) | an SMB share the control PC can read |
 
-The relay is the only network service NeuroPilot itself requires. Everything
+The relay is the only network service TMS NeuroPilot itself requires. Everything
 else is either a local device or a file share.
 
 ## 1. Write down your addresses
@@ -89,7 +89,7 @@ run without hardware, `neuropilot relay` starts the simulated relay instead.
 
 ## 4. Neuronavigation PC
 
-Use the group's InVesalius build: it adds the PubSub topics NeuroPilot relies on
+Use the group's InVesalius build: it adds the PubSub topics TMS NeuroPilot relies on
 (`External Controller to Neuronavigation: Create Marker`,
 `From Neuronavigation: Coil at target`, …). Stock upstream InVesalius does not
 have them.
@@ -123,7 +123,7 @@ Before the first session:
 - **Tool point** — the driver's tool centre point must be the coil's
   stimulation point, not the flange or the handle. Re-measure it if the coil
   mount changed.
-- **Force sensor** — the driver must publish a force reading; NeuroPilot uses
+- **Force sensor** — the driver must publish a force reading; TMS NeuroPilot uses
   it as the contact gate before a pulse.
 - **Reach and collisions** — teach the approach pose and verify that the first
   target is reachable without self-collision.
@@ -139,7 +139,7 @@ In InVesalius, press *Connect to robot* only after `main_loop.py` is running.
 !!! danger "Safety: order matters"
     Start the relay, then InVesalius, then the robot driver, then the
     controller — and press *Connect to robot* in InVesalius only after the
-    driver is running. NeuroPilot can start the relay and InVesalius for you,
+    driver is running. TMS NeuroPilot can start the relay and InVesalius for you,
     but `main_loop.py` must already be running before you connect in
     InVesalius. Connecting to a robot whose driver is not running leaves it
     uninitialised and the first target will not move it.
@@ -157,7 +157,7 @@ ls -l /dev/ttyUSB0 /dev/parport0
 
 If the controller prints `Permission denied` for the serial device, the
 group change has not reached the process yet. Log out and back in for the GUI,
-or run `newgrp dialout` in the terminal that starts NeuroPilot. The controller
+or run `newgrp dialout` in the terminal that starts TMS NeuroPilot. The controller
 prints this fix in the terminal when it sees the error. If `/dev/parport0` is
 missing, the controller continues with the serial port only; load the parallel
 driver with `sudo modprobe ppdev` and check the `lp` group only if you actually
@@ -187,7 +187,7 @@ record EMG itself.
 | `EMG_COMPUTER_PASSWORD` | SMB password | `<set in .env>` |
 | `EMG_CONNECT_TIMEOUT_S` | initial SMB connection timeout | `3` |
 
-The share name is fixed in the acquisition setup, not in NeuroPilot. Confirm
+The share name is fixed in the acquisition setup, not in TMS NeuroPilot. Confirm
 that the control PC can list it, and that new files appear there when you tap
 the electrodes:
 

@@ -141,8 +141,8 @@ def architecture():
     b.append(note(480, 428, "Solid: relay topics.  Dashed: direct device links "
                             "on the control PC."))
     b.append(note(480, 448, "In simulation the relay, neuronavigation and robot "
-                            "are NeuroPilot's virtual twin."))
-    return svg(960, 470, "".join(b), "NeuroPilot architecture")
+                            "are TMS NeuroPilot's virtual twin."))
+    return svg(960, 470, "".join(b), "TMS NeuroPilot architecture")
 
 
 def mapping_loop():

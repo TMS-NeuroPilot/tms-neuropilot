@@ -124,7 +124,7 @@ async def main(enable_health_check_and_control_panel, simulation, manual=False,
         message = controller.relay.failure_reason or \
             startup.relay_unavailable_message()
         await startup.show_error_async(
-            "NeuroPilot startup error", message,
+            "TMS NeuroPilot startup error", message,
             gui=enable_health_check_and_control_panel)
         if app is not None:
             app.quit()
@@ -139,7 +139,7 @@ async def main(enable_health_check_and_control_panel, simulation, manual=False,
             f"http://{config.RELAY_HOST}:{config.RELAY_PORT}.\n\n{exc}"
         )
         await startup.show_error_async(
-            "NeuroPilot startup error", message,
+            "TMS NeuroPilot startup error", message,
             gui=enable_health_check_and_control_panel)
         if app is not None:
             app.quit()
@@ -181,7 +181,7 @@ def run(argv=None):
     """
     global app
     import argparse
-    parser = argparse.ArgumentParser(description="NeuroPilot controller")
+    parser = argparse.ArgumentParser(description="TMS NeuroPilot controller")
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--sim', action='store_true',
                        help='start in simulation mode (skip the mode dialog)')

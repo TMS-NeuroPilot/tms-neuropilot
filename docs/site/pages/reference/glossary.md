@@ -8,7 +8,7 @@ included so a code search lands here.
 **TMS**: transcranial magnetic stimulation. A coil over the scalp induces a
 brief electric field in the cortex.
 
-**MSO**: maximum stimulator output. Amplitudes in NeuroPilot are % MSO.
+**MSO**: maximum stimulator output. Amplitudes in TMS NeuroPilot are % MSO.
 
 **RMT**: resting motor threshold. The intensity at which a MEP appears in
 about half of the trials; often the reference for the session amplitude.
@@ -19,7 +19,7 @@ peak-to-peak amplitude is the quantity the regression uses.
 **Pre-activation**: EMG activity before the pulse. Displayed and recorded, not
 used by the regression.
 
-**ISI**: inter-stimulus interval. NeuroPilot enforces a minimum
+**ISI**: inter-stimulus interval. TMS NeuroPilot enforces a minimum
 (`minium_isi`, seconds) between pulses.
 
 **Motor hotspot**: the scalp site with the largest MEP for a muscle. Often the
@@ -43,7 +43,7 @@ surface, used as the ROI because it samples the field where pyramidal cells sit.
 **m2m**: the SimNIBS output folder `m2m_<subject>` with the mesh and the
 intermediate segmentations.
 
-**`.msh`**: SimNIBS mesh file, read by NeuroPilot for display and the online
+**`.msh`**: SimNIBS mesh file, read by TMS NeuroPilot for display and the online
 solver.
 
 **`.ccd`**: SimNIBS coil model file (optionally `.ccd.nii.gz`).

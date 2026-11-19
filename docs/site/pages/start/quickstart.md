@@ -47,7 +47,7 @@ InVesalius is not part of this environment: it is a separate application for
 real and manual sessions, covered in [Install the suite](install/install.md)
 under *InVesalius*.
 
-## 3. Install NeuroPilot
+## 3. Install TMS NeuroPilot
 
 ```bash
 pip install -e . --no-deps

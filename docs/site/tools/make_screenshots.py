@@ -339,7 +339,7 @@ def run(args, project: Path) -> None:
         win.totaltargets3.setText("500")
         win.currenttarget.setText("pulse 16 · 1/1 · target 483")
         win.finishedsteps.appendPlainText(
-            "NeuroPilot 0.1.0 · simulation mode\n"
+            "TMS NeuroPilot 0.1.0 · simulation mode\n"
             "Project NP001_M1_left loaded\n"
             "Relay connected · 5000\n"
             "Stimulator, EMG and robot ready\n"

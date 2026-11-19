@@ -1,4 +1,4 @@
-"""Process supervisor for the NeuroPilot component stack.
+"""Process supervisor for the TMS NeuroPilot component stack.
 
 Each component runs as its own child process (the controller hosts a
 Qt/qasync event loop, the virtual robot a MuJoCo viewer — these cannot share

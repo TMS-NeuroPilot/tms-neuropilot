@@ -1,6 +1,6 @@
 # Install the suite
 
-This page installs NeuroPilot into a conda environment and configures it. It
+This page installs TMS NeuroPilot into a conda environment and configures it. It
 assumes the machine already has conda (miniforge or miniconda). InVesalius, the
 neuronavigation application for real sessions, has its own environment; its
 installation is at the end of this page.
@@ -96,7 +96,7 @@ pip install "mkl==2024.2.0" tbb numba fmm3dpy samseg
 conda install -c conda-forge python-mumps
 ```
 
-### 5. Install NeuroPilot in editable mode
+### 5. Install TMS NeuroPilot in editable mode
 
 ```bash
 pip install -e . --no-deps
@@ -197,7 +197,7 @@ Install the current icon and desktop entry with:
 scripts/install_desktop_entry.sh
 ```
 
-Then restart NeuroPilot. The script installs the icon under a new theme name,
+Then restart TMS NeuroPilot. The script installs the icon under a new theme name,
 so GNOME does not reuse its cached placeholder.
 
 ## InVesalius (real, manual and training modes)

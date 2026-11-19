@@ -100,7 +100,7 @@ building the wrong machine.
 - a `ROBOT_CONFIG` tuning block,
 - `ROBOT=<name>` in its own `.env`.
 
-NeuroPilot does not change for a real robot: it already sends the same topics
+TMS NeuroPilot does not change for a real robot: it already sends the same topics
 the simulator answers.
 
 ## Checklist

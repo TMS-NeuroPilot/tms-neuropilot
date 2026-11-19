@@ -74,7 +74,7 @@ These are used only when the online E-field mode is selected.
   overrides.
 - The status line reports the file and the override count:
   `Loaded lab.yaml (~/.neuropilot/lab.yaml) · 2 key(s) overridden by .env`.
-- Saving says: `Saved lab.yaml — restart NeuroPilot to apply.` The theme is the
+- Saving says: `Saved lab.yaml — restart TMS NeuroPilot to apply.` The theme is the
   exception: it applies before you save.
 
 !!! warning "`.env` wins"

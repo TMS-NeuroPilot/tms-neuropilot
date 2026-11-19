@@ -51,7 +51,7 @@ In practice the coil sits a few millimetres away from the planned pose, the
 head moves, and the handle angle changes. The field therefore differs between
 pulses, and a regression against a nominal field blurs the map.
 
-NeuroPilot records the field of the realised pose for every pulse. Each row of
+TMS NeuroPilot records the field of the realised pose for every pulse. Each row of
 the regression is `(E-field vector, MEP amplitude)` for one pulse, so a pulse
 that landed 3 mm off contributes the field it actually delivered. This is also
 why the E-field mode can be switched mid-run without corrupting anything: the
@@ -96,7 +96,7 @@ peers changes:
 
 [Run modes](run/modes.md) compares them in full.
 
-## What NeuroPilot is not
+## What TMS NeuroPilot is not
 
 - It is **not a medical device**. It is research software; every real session
   needs ethics approval and local MR-safety rules.

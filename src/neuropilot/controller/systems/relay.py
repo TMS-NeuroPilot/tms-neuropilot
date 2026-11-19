@@ -3,8 +3,8 @@
 In real/manual/training mode the relay is the hub every peer connects to. This
 class exposes it on the Connections page: it checks the port, can start the
 production ``relay_server.py`` from ``TMS_ROBOT_CONTROL_PATH``, and can restart
-a relay that NeuroPilot started. A relay that was already running is treated as
-external and is never stopped by NeuroPilot.
+a relay that TMS NeuroPilot started. A relay that was already running is treated as
+external and is never stopped by TMS NeuroPilot.
 """
 
 import asyncio
@@ -67,7 +67,7 @@ class RelaySystem(System):
         self.set_details({
             "URL": f"http://{self.host}:{self.port}",
             "Mode": "Simulated" if self.simulation else "Production",
-            "Managed": ("NeuroPilot" if self.owned else
+            "Managed": ("TMS NeuroPilot" if self.owned else
                         ("Supervisor" if self.simulation else "External")),
             "PID": str(self.process.pid) if self.owned and self.process else "",
             "Log": str(self.log_path) if self.owned else "",
@@ -78,7 +78,7 @@ class RelaySystem(System):
         self.set_system_status(status, message)
 
     def try_connect(self):
-        """Check the port; start the relay only when NeuroPilot manages it."""
+        """Check the port; start the relay only when TMS NeuroPilot manages it."""
         self.failure_reason = ""
         self._publish_details()
         if self._port_open():

@@ -74,7 +74,7 @@ DEFAULTS = {
 }
 
 _HEADER = """\
-# NeuroPilot lab profile -- hardware settings shared by every component.
+# TMS NeuroPilot lab profile -- hardware settings shared by every component.
 # Edited in Config > Lab.  Precedence (highest first):
 #   shell environment  >  .env  >  this file  >  built-in defaults
 # so a key you keep in .env still wins over the value here.

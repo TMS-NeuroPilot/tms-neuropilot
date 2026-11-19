@@ -66,7 +66,7 @@ TMS_ROBOT_CONTROL_PATH = _env("TMS_ROBOT_CONTROL_PATH", "")
 
 # Optional: how to start local InVesalius for real/manual/training modes.
 # auto = local relay and a discovered/configured launcher; local = also with a
-# remote relay; off/external = never start it from NeuroPilot.
+# remote relay; off/external = never start it from TMS NeuroPilot.
 INVESALIUS_LAUNCH = _env("INVESALIUS_LAUNCH", "auto")
 INVESALIUS_ENV = _env("INVESALIUS_ENV", "")
 INVESALIUS_CHECKOUT = _env("INVESALIUS_CHECKOUT", "")

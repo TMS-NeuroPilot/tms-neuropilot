@@ -5,7 +5,7 @@ the lab wiring are done; the goal is that nothing about the software is decided
 for the first time while a subject is in the chair.
 
 !!! danger "Safety: research software, not a medical device"
-    NeuroPilot has no medical approval. Real stimulation requires ethics
+    TMS NeuroPilot has no medical approval. Real stimulation requires ethics
     approval, a trained operator, the stimulator's own safety limits and written
     consent. This checklist covers the software, not the medical procedure.
 
@@ -33,10 +33,10 @@ for the first time while a subject is in the chair.
 - [ ] The robot's force sensor shows a reading (touch it once if the robot side says `Awaiting valid pressure data`).
 
 !!! note "One command, with explicit hardware"
-    `neuropilot sim` starts all four simulated peers. In real mode NeuroPilot
+    `neuropilot sim` starts all four simulated peers. In real mode TMS NeuroPilot
     starts the controller, the production relay when it is configured, and a
     local InVesalius. The Relay card can also start or restart a relay that
-    NeuroPilot owns. `main_loop.py` remains a separate application and must be
+    TMS NeuroPilot owns. `main_loop.py` remains a separate application and must be
     started as above.
 
 ## Five minutes before

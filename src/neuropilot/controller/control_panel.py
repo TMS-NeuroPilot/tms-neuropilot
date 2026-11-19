@@ -1825,7 +1825,7 @@ class MainWindow(QtWidgets.QMainWindow):
             header.addWidget(logo)
         title_col = QtWidgets.QVBoxLayout()
         title_col.setSpacing(2)
-        title = QtWidgets.QLabel("NeuroPilot")
+        title = QtWidgets.QLabel("TMS NeuroPilot")
         font = title.font()
         font.setPointSize(20)
         font.setBold(True)
@@ -1848,7 +1848,7 @@ class MainWindow(QtWidgets.QMainWindow):
         left.addLayout(header)
 
         warn = wrap(
-            "<b>Research software — not a medical device.</b> NeuroPilot is "
+            "<b>Research software — not a medical device.</b> TMS NeuroPilot is "
             "intended for research use only and is not approved or cleared "
             "for clinical or therapeutic use. It must not be used for "
             "clinical decisions or to stimulate patients. Real TMS requires "
@@ -1857,7 +1857,7 @@ class MainWindow(QtWidgets.QMainWindow):
         left.addWidget(card("Research use only", [warn]))
 
         about = wrap(
-            "NeuroPilot runs E-field-optimized TMS mapping experiments: each "
+            "TMS NeuroPilot runs E-field-optimized TMS mapping experiments: each "
             "pulse is paired with the electric field at its realized coil "
             "pose, a regression is fitted per ROI element and EMG channel, "
             "and the results guide the next placement. It integrates with "
@@ -1943,7 +1943,7 @@ class MainWindow(QtWidgets.QMainWindow):
                        "E-Field Approach for Robot-Assisted TMS Motor Cortex "
                        "Mapping. Master's thesis, Ernst Abbe University of "
                        "Applied Sciences Jena.")
-        software_text = ("NeuroPilot: guided online TMS mapping with online "
+        software_text = ("TMS NeuroPilot: guided online TMS mapping with online "
                          "field optimization. MPI CBS Leipzig / ScaDS.AI.")
 
         def cite_row(text):
@@ -2586,7 +2586,7 @@ class MainWindow(QtWidgets.QMainWindow):
         detail = (f" · {len(overrides)} key(s) pinned by .env" if overrides else "")
         self._set_config_status(
             f"Saved {self._lab_profile.path.name}{detail}"
-            " — restart NeuroPilot to apply.")
+            " — restart TMS NeuroPilot to apply.")
 
     def on_sim_save(self):
         """Write the simulated-MEP knobs to .env."""
@@ -2645,7 +2645,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 f"Could not write {self._config_store.path}: {e}")
             return
         self.cfg_sim_status.setText(
-            "Saved simulation settings; restart NeuroPilot to apply.")
+            "Saved simulation settings; restart TMS NeuroPilot to apply.")
 
     def on_sim_reload(self):
         self.on_config_reload()
@@ -2827,7 +2827,7 @@ class MainWindow(QtWidgets.QMainWindow):
             "Manual": "Manual",
             "Real": "Real",
         }[mode]
-        self.setWindowTitle(f"NeuroPilot ({mode_title} mode)")
+        self.setWindowTitle(f"TMS NeuroPilot ({mode_title} mode)")
         badge = getattr(self, "cfg_mode_badge", None)
         if badge is None:
             return
@@ -3256,7 +3256,7 @@ class MainWindow(QtWidgets.QMainWindow):
         names = ", ".join(self._display_name(k) for k in self._channel_keys()) or "—"
         with open(path, "w") as f:
             f.write(
-                "NeuroPilot mapping export\n"
+                "TMS NeuroPilot mapping export\n"
                 "========================\n\n"
                 f"Channels: {names}\n"
                 "Coordinates are in mm, SimNIBS head space.\n\n"
@@ -4470,7 +4470,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.set_led_status(led_widget, "on", "green")
             if message_label:
                 message_label.setText("")
-            # A relay that NeuroPilot owns can be restarted even while healthy.
+            # A relay that TMS NeuroPilot owns can be restarted even while healthy.
             if ("relay" in getattr(system, "NAME", "").lower()
                     and recover_button is not None
                     and getattr(system, "owned", False)):

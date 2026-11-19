@@ -177,7 +177,7 @@ close()                  clean_errors()
 …plus a tuning block in `robot/constants.py::ROBOT_CONFIG` (`working_space_radius`,
 tuning/arc thresholds, speed and force thresholds) and `ROBOT=<name>` in the
 controller's `.env`.  `main_loop.py` looks the name up and constructs the
-driver; nothing in NeuroPilot changes — the pipeline still speaks the relay.
+driver; nothing in TMS NeuroPilot changes — the pipeline still speaks the relay.
 
 Relay contract (verified against `sim_robot/message_handlers.py`):
 

@@ -1,6 +1,6 @@
-# NeuroPilot
+# TMS NeuroPilot
 
-**NeuroPilot — guided online TMS mapping with online field optimization.**
+**TMS NeuroPilot — guided online TMS mapping with online field optimization.**
 
 One suite for robot-assisted TMS mapping experiments: an experimenter-facing
 controller (PyQt5 GUI) that drives the online mapping loop — coil targets,
@@ -27,7 +27,7 @@ shuts the whole stack down.
 
 ## Running on Windows
 
-NeuroPilot's four components and the whole simulated stack are
+TMS NeuroPilot's four components and the whole simulated stack are
 cross-platform. On Windows (Python 3.11+ in a conda env with the heavy deps
 installed — same `neuropilot` environment as on Linux):
 
@@ -194,7 +194,7 @@ the repository's `.env`.
 
 ## License
 
-NeuroPilot is licensed under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+TMS NeuroPilot is licensed under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0
 International (CC BY-NC-SA 4.0)** license — free to use, share, and adapt for
 non-commercial purposes (research and clinical science), with attribution and
 share-alike; commercial use requires prior permission from the authors.

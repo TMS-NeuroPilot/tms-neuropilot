@@ -1,6 +1,6 @@
 # About the project
 
-NeuroPilot is research software from the **Brain Networks** and **Neural Data
+TMS NeuroPilot is research software from the **Brain Networks** and **Neural Data
 Science and Statistical Computing** groups at the
 [Max Planck Institute for Human Cognitive and Brain Sciences](https://www.cbs.mpg.de/en)
 (*MPI CBS*) and the
@@ -28,7 +28,7 @@ operator and the stimulator's own safety limits.
 
 ## Scientific scope and limits
 
-NeuroPilot implements per-pulse E-field mapping: each pulse is paired with the
+TMS NeuroPilot implements per-pulse E-field mapping: each pulse is paired with the
 field at its realised coil pose, and a regression is fitted separately for each
 ROI element and EMG channel. This follows the element-wise mapping approach
 described by
@@ -98,7 +98,7 @@ function has to be documented, or CI fails. See
 
 ## License
 
-NeuroPilot is licensed under
+TMS NeuroPilot is licensed under
 **CC BY-NC-SA 4.0** (Creative Commons Attribution-NonCommercial-ShareAlike
 4.0 International). You may use, share and adapt it for non-commercial
 purposes (research and clinical science) with attribution and share-alike.
@@ -123,7 +123,7 @@ For the software itself, cite the repository and the version or commit you
 used:
 
 ```text
-NeuroPilot: guided online TMS mapping with online field optimization.
+TMS NeuroPilot: guided online TMS mapping with online field optimization.
 Brain Networks and Neural Data Science and Statistical Computing groups,
 MPI CBS Leipzig / ScaDS.AI.
 https://gitlab.gwdg.de/tms-localization/papers/neuropilot

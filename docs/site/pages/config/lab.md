@@ -7,7 +7,7 @@ shared by every component and by every project. It is a small YAML at
 ## The file
 
 ```yaml
-# NeuroPilot lab profile -- hardware settings shared by every component.
+# TMS NeuroPilot lab profile -- hardware settings shared by every component.
 # Edited in Config > Lab.  Precedence (highest first):
 #   shell environment  >  .env  >  this file  >  built-in defaults
 # so a key you keep in .env still wins over the value here.
@@ -59,7 +59,7 @@ Values are stored as strings; the GUI converts them when it reads them.
 
 ## InVesalius auto-start
 
-In `real`, `manual`, and `training` mode NeuroPilot starts a local InVesalius
+In `real`, `manual`, and `training` mode TMS NeuroPilot starts a local InVesalius
 before the controller. Simulation does not use InVesalius. With
 `INVESALIUS_LAUNCH: auto`, this happens only when the relay is local; use
 `local` to start a local InVesalius against a remote relay, or `off`/`external`
@@ -70,14 +70,14 @@ are filled automatically after the first successful discovery and can be
 edited directly in this YAML file. Discovery asks conda for the environment
 list; `CONDA_EXE` (or a `conda` executable on `PATH`) provides the conda
 binary. The installer wrapper in the environment is preferred; when it is
-missing or broken, NeuroPilot uses the environment's Python together with
+missing or broken, TMS NeuroPilot uses the environment's Python together with
 `INVESALIUS_CHECKOUT/app.py`. Closing InVesalius does not stop the controller.
 
 The picker also has an **Is started** option. It sets
 `INVESALIUS_LAUNCH: external`, skips local startup, and expects an InVesalius
 instance on another machine to connect to the same relay.
 
-When a real/manual/training session starts without a relay, NeuroPilot starts
+When a real/manual/training session starts without a relay, TMS NeuroPilot starts
 one from `TMS_ROBOT_CONTROL_PATH`. If that path is missing, a directory picker
 asks for the `tms-robot-control` checkout. A value already pinned in `.env` is
 updated there; otherwise it is written to this lab profile.

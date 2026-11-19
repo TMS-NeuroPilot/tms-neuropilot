@@ -53,7 +53,7 @@ EMG amplifier and a network that connects them. None of it is needed to install
 or explore the software.
 
 !!! danger "Safety: research software, not a medical device"
-    NeuroPilot has no medical approval. Real stimulation requires ethics
+    TMS NeuroPilot has no medical approval. Real stimulation requires ethics
     approval, a trained operator, the stimulator's own safety limits and the
     subject's written consent. Do not use it to make clinical decisions.
 

@@ -14,7 +14,7 @@ is gated on this page being green.
 
 | Card | Backend (simulation) | Backend (real) |
 |---|---|---|
-| **Relay** | `sim_relay` (supervisor) | production `relay_server.py`; NeuroPilot can start and restart it |
+| **Relay** | `sim_relay` (supervisor) | production `relay_server.py`; TMS NeuroPilot can start and restart it |
 | **Stimulator** | virtual stimulator | your stimulator via `magicpy` on `STIMULATOR_PORT` |
 | **EMG** | virtual EMG computer | your EMG PC's share (`EMG_COMPUTER_IP`) |
 | **Robot** | virtual MuJoCo robot | `tms-robot-control` over the relay |
@@ -22,7 +22,7 @@ is gated on this page being green.
 In manual and training modes the robot card is absent. In training the
 stimulator card is real and the EMG card is the virtual EMG. The relay card is
 present in every mode: in simulation it is owned by the supervisor; in real,
-manual and training modes NeuroPilot can start and restart a production relay.
+manual and training modes TMS NeuroPilot can start and restart a production relay.
 
 ## What a card shows
 
@@ -81,7 +81,7 @@ current error; the message says what failed and the fix is on the hardware side
 (cable, power, network, robot mode).
 
 The relay card uses **Start relay** when no relay is running and **Restart relay**
-when NeuroPilot owns one. An externally started relay is shown as `External` and
+when TMS NeuroPilot owns one. An externally started relay is shown as `External` and
 is left alone.
 
 ## Real mode order

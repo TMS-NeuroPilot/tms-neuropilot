@@ -1,5 +1,5 @@
 <div class="hero" markdown="0">
-<h1>NeuroPilot</h1>
+<h1>TMS NeuroPilot</h1>
 <p class="lead">Running optimized TMS mapping experiments with per-pulse electric fields,
 online analysis, InVesalius neuronavigation and a complete virtual twin.</p>
 <div class="badges">
@@ -11,7 +11,7 @@ online analysis, InVesalius neuronavigation and a complete virtual twin.</p>
 </div>
 </div>
 
-NeuroPilot guides the experimenter through a mapping experiment: the coil is
+TMS NeuroPilot guides the experimenter through a mapping experiment: the coil is
 held by hand (manual mode) or by a TMS robot (real mode, via
 [tms-robot-control](https://gitlab.gwdg.de/tms-localization/cobot/tms-robot-control)),
 while the software collects the EMG responses and runs element-wise mapping
@@ -69,7 +69,7 @@ on simulated MEPs and realistic tracking.
 </div>
 
 <figure class="screenshot-wide">
-  <img src="assets/screenshots/control-precomputed.png" alt="The NeuroPilot Control page: transport buttons and stimulation settings on the left, the E-field mode and the virtual robot in the middle, robot speeds and the session log on the right.">
+  <img src="assets/screenshots/control-precomputed.png" alt="The TMS NeuroPilot Control page: transport buttons and stimulation settings on the left, the E-field mode and the virtual robot in the middle, robot speeds and the session log on the right.">
   <figcaption>The Control page during a simulated session: transport and
   stimulation on the left, the E-field mode and the virtual robot in the
   middle, the session log underneath. The other five pages cover the project,
@@ -79,9 +79,9 @@ on simulated MEPs and realistic tracking.
 ## What it does
 
 <figure>
-  <img src="assets/diagrams/architecture.svg" alt="The four NeuroPilot processes (controller, relay, neuronavigation and robot) and the hardware they replace or drive.">
+  <img src="assets/diagrams/architecture.svg" alt="The four TMS NeuroPilot processes (controller, relay, neuronavigation and robot) and the hardware they replace or drive.">
   <figcaption>One controller process drives three peers over a Socket.IO relay.
-  In simulation the peers are NeuroPilot's own virtual twin; in a real session
+  In simulation the peers are TMS NeuroPilot's own virtual twin; in a real session
   they are InVesalius, the robot driver and the production relay.</figcaption>
 </figure>
 
@@ -110,7 +110,7 @@ pip install -e . --no-deps          # once, from the repository root
 neuropilot sim                      # relay → nav + robot → controller
 ```
 
-When the NeuroPilot GUI has loaded, load the `ernie` example project and press
+When the TMS NeuroPilot GUI has loaded, load the `ernie` example project and press
 **Start**.
 
 !!! tip "No hardware required"

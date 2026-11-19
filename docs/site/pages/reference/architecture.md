@@ -1,10 +1,10 @@
 # Architecture
 
-NeuroPilot is four processes that talk over one Socket.IO relay. This page is
+TMS NeuroPilot is four processes that talk over one Socket.IO relay. This page is
 the map: what each process owns, how they start, and where the code lives.
 
 <figure>
-  <img src="assets/diagrams/architecture.svg" alt="The four NeuroPilot processes and the relay that connects them, with the real hardware behind the simulated peers.">
+  <img src="assets/diagrams/architecture.svg" alt="The four TMS NeuroPilot processes and the relay that connects them, with the real hardware behind the simulated peers.">
   <figcaption>Simulation replaces the three peers; the controller and the relay
   protocol stay the same.</figcaption>
 </figure>

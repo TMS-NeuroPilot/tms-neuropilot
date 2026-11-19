@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install the current NeuroPilot icon for the desktop and Alt+Tab switcher.
+# Install the current TMS NeuroPilot icon for the desktop and Alt+Tab switcher.
 #
 # GNOME/Wayland resolves the app icon through the desktop file named by
 # QApplication.setDesktopFileName("neuropilot"), not through the window icon
@@ -30,7 +30,7 @@ else
     cat > "$desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=NeuroPilot
+Name=TMS NeuroPilot
 Comment=Guided online TMS mapping with online field optimization
 Icon=neuropilot-lockon
 StartupWMClass=neuropilot
@@ -53,6 +53,6 @@ if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database "$apps_dir" >/dev/null || true
 fi
 
-echo "installed NeuroPilot icon: $icon_dir/neuropilot-lockon.png"
+echo "installed TMS NeuroPilot icon: $icon_dir/neuropilot-lockon.png"
 echo "desktop entry: $desktop"
-echo "restart NeuroPilot to refresh the Alt+Tab icon"
+echo "restart TMS NeuroPilot to refresh the Alt+Tab icon"

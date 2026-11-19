@@ -1,4 +1,4 @@
-"""NeuroPilot command line interface.
+"""TMS NeuroPilot command line interface.
 
     neuropilot                  GUI mode selector (simulated vs real vs manual)
     neuropilot sim              full simulated stack
@@ -61,14 +61,14 @@ def _prepare_relay(*, gui=False):
         manage = startup.prepare_relay(gui=gui)
     except Exception as exc:                 # pragma: no cover - defensive
         startup.show_error(
-            "NeuroPilot startup error",
+            "TMS NeuroPilot startup error",
             f"Relay startup failed: {type(exc).__name__}: {exc}",
             gui=gui,
         )
         return None
     if manage is None:
         startup.show_error(
-            "NeuroPilot startup error",
+            "TMS NeuroPilot startup error",
             startup.relay_unavailable_message(),
             gui=gui,
         )
@@ -104,7 +104,7 @@ def _select_mode_gui():
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="neuropilot",
-        description="NeuroPilot — guided online TMS mapping with online field optimization",
+        description="TMS NeuroPilot — guided online TMS mapping with online field optimization",
     )
     sub = parser.add_subparsers(dest="command")
 

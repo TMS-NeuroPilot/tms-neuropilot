@@ -7,7 +7,7 @@
 [[sections]]
 title = "Start here"
 pages = [
-  ["Overview", "index.md", "What NeuroPilot is, what it does, and how to read this documentation."],
+  ["Overview", "index.md", "What TMS NeuroPilot is, what it does, and how to read this documentation."],
   ["Use cases", "start/use-cases.md", "Real experiments, virtual experiments and the hybrid training case."],
   ["Quick start", "start/quickstart.md", "Run a complete simulated mapping session in ten minutes."],
   ["Key concepts", "start/concepts.md", "Targets, pulses, E-fields, MEPs, R² maps and the vocabulary the rest of the site uses."],
@@ -26,7 +26,7 @@ pages = [
 [[sections]]
 title = "Prepare a session"
 pages = [
-  ["Subject data", "prepare/subject-data.md", "From a T1 MRI to the head mesh and the ROI surface NeuroPilot loads."],
+  ["Subject data", "prepare/subject-data.md", "From a T1 MRI to the head mesh and the ROI surface TMS NeuroPilot loads."],
   ["E-field library", "prepare/efield-library.md", "Build the precomputed E-field HDF5 and understand what the solver stores."],
   ["Coil placements and target order", "prepare/placements.md", "The placement library, the target-order file and how the loop consumes them."],
   ["EMG channels and MEP windows", "prepare/emg.md", "Channel names, cortical sources, sampling rate and the extraction window."],
@@ -96,5 +96,5 @@ pages = [
 [[sections]]
 title = "About"
 pages = [
-  ["About the project", "about.md", "Who builds NeuroPilot, where it comes from, how it is built and how to cite it."],
+  ["About the project", "about.md", "Who builds TMS NeuroPilot, where it comes from, how it is built and how to cite it."],
 ]

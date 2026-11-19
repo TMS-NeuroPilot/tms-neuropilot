@@ -56,7 +56,7 @@ def test_write_drops_none(profile):
 def test_file_has_a_header_explaining_precedence(profile):
     profile.write({"RELAY_HOST": "a"})
     text = profile.path.read_text()
-    assert text.startswith("# NeuroPilot lab profile")
+    assert text.startswith("# TMS NeuroPilot lab profile")
     assert "shell environment  >  .env" in text
     assert "RELAY_HOST: a" in text
 

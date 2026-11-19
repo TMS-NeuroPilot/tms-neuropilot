@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NeuroPilot logo — concept 06 "Trajectory N x lock-on ring" build script.
+"""TMS NeuroPilot logo — concept 06 "Trajectory N x lock-on ring" build script.
 
 Single source of geometric truth; emits
   * SVG masters (dark / light tile, mono marks, favicon variant)
@@ -123,7 +123,7 @@ def ring_segments_deg():
 def svg_doc(body, cls=""):
     return (
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" '
-        f'role="img" aria-label="NeuroPilot{cls}">\n  {body}\n</svg>\n'
+        f'role="img" aria-label="TMS NeuroPilot{cls}">\n  {body}\n</svg>\n'
     )
 
 
@@ -165,7 +165,7 @@ def build_favicon():
     )
     write_svg("favicon.svg",
               f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" '
-              f'aria-label="NeuroPilot">\n  {body}\n</svg>\n')
+              f'aria-label="TMS NeuroPilot">\n  {body}\n</svg>\n')
 
 
 # ----------------------------------------------------------------- PIL ------
@@ -367,7 +367,7 @@ def build_smil_spinner():
     )
     write_svg("spinner-smil.svg",
               f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" '
-              f'role="img" aria-label="NeuroPilot loading">\n  {body}\n</svg>\n')
+              f'role="img" aria-label="TMS NeuroPilot loading">\n  {body}\n</svg>\n')
 
 
 if __name__ == "__main__":

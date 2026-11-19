@@ -1,4 +1,4 @@
-/* NeuroPilot documentation — theme toggle, search, copy buttons, scrollspy. */
+/* TMS NeuroPilot documentation — theme toggle, search, copy buttons, scrollspy. */
 (() => {
   "use strict";
 

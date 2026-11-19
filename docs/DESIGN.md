@@ -1,4 +1,4 @@
-# NeuroPilot — design specification
+# TMS NeuroPilot — design specification
 
 **Version:** 1.1 (2026-11-10) — pending owner approval
 **Scope:** merge `cobot-pipeline-controller`, `relay_server_sim`, `tms-robot-sim2`,
@@ -11,7 +11,7 @@ deferred to phase 2 (owner request); §4 clarified.
 
 ## 1. Goals
 
-1. One repository, one project: the NeuroPilot online TMS mapping suite
+1. One repository, one project: the TMS NeuroPilot online TMS mapping suite
    (controller + virtual twin + sim relay).
 2. One-command startup: `neuropilot sim` boots the whole simulated stack;
    no manual 4-terminal procedure.
@@ -72,14 +72,14 @@ neuropilot real                      real mode; optional relay launch (see §6)
 ```
 
 The no-args selector reuses the controller's existing Simulation/Real dialog
-design, relocated to the NeuroPilot launcher level (branding: "NeuroPilot").
+design, relocated to the TMS NeuroPilot launcher level (branding: "TMS NeuroPilot").
 
 The controller gets real `--sim` / `--real` CLI flags so its mode is
 selectable programmatically — the supervisor starts it in the chosen mode
 without any dialog. Today that requires a monkeypatching hack
 (`launch_pipeline.py`) because the dialog always runs; with the flags it is
 replaced by a supported code path. In the normal flow the controller's own
-dialog disappears entirely: the selection happens once, at NeuroPilot level.
+dialog disappears entirely: the selection happens once, at TMS NeuroPilot level.
 
 Startup order and readiness probes:
 

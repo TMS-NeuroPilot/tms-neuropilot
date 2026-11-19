@@ -247,7 +247,7 @@ def test_save_button_writes_only_the_temporary_files(window, qapp, tmp_path):
 
 def test_mode_badge_simulated(window):
     window._apply_config_mode()
-    assert window.windowTitle() == "NeuroPilot (Simulation mode)"
+    assert window.windowTitle() == "TMS NeuroPilot (Simulation mode)"
     assert window.cfg_mode_badge.text() == "Simulated"
     assert window.cfg_mode_badge.property("role") == "badge"
     assert "font-size" not in window.cfg_mode_badge.styleSheet()
@@ -260,14 +260,14 @@ def test_window_title_tracks_training(window, controller, monkeypatch):
     monkeypatch.setattr(window, "simulation", False)
     controller.manual = True
     window.set_controller(controller)
-    assert window.windowTitle() == "NeuroPilot (Training mode)"
+    assert window.windowTitle() == "TMS NeuroPilot (Training mode)"
 
 
 def test_window_title_tracks_real_mode(window, controller, monkeypatch):
     monkeypatch.setattr(window, "simulation", False)
     controller.manual = False
     window.set_controller(controller)
-    assert window.windowTitle() == "NeuroPilot (Real mode)"
+    assert window.windowTitle() == "TMS NeuroPilot (Real mode)"
 
 
 def test_mode_badge_real(window, controller, monkeypatch):

@@ -85,7 +85,7 @@ starts.
 The column dictionary, generated with the data:
 
 ```text
-NeuroPilot mapping export
+TMS NeuroPilot mapping export
 =========================
 
 Channels: FDI, APB, ADM

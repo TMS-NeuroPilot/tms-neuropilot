@@ -1,6 +1,6 @@
 # E-field modes
 
-Every pulse needs an E-field. NeuroPilot can draw it from three sources, and
+Every pulse needs an E-field. TMS NeuroPilot can draw it from three sources, and
 the mode can change during a session without breaking the regression. The
 third source — a surrogate interpolator
 ([Grosshagauer et al., 2025](https://doi.org/10.1016/j.brs.2025.102990)) — is
@@ -81,7 +81,7 @@ per excursion. There is no interpolation outside the domain, and no fallback
 to the online solver. The CSV records `e_field_mode = surrogate` for these
 pulses.
 
-NeuroPilot implements the estimator independently of that repository
+TMS NeuroPilot implements the estimator independently of that repository
 (`EFieldSurrogate`). `scripts/03_validate_efield_surrogate.py` measures the
 accuracy on held-out placements, `scripts/04_export_efield_vtk_series.py`
 writes FEM-versus-surrogate time series for ParaView. On the ernie phantom

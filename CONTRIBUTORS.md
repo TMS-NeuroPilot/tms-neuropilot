@@ -1,6 +1,6 @@
 # Contributors
 
-**NeuroPilot — guided online TMS mapping with online field optimization**
+**TMS NeuroPilot — guided online TMS mapping with online field optimization**
 
 | Contributor | Role | Contact |
 |---|---|---|

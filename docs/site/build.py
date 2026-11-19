@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the NeuroPilot documentation site (GitLab Pages).
+"""Build the TMS NeuroPilot documentation site (GitLab Pages).
 
 Deliberately dependency-free: the CI runner only needs the Python that runs the
 tests, and the site must build on a machine with no network.  Markdown is a
@@ -33,7 +33,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 PAGES = ROOT / "pages"
 ASSETS = ROOT / "assets"
-SITE_NAME = "NeuroPilot"
+SITE_NAME = "TMS NeuroPilot"
 SITE_TAGLINE = "Guided TMS mapping with per-pulse electric fields and online analysis"
 REPO_URL = "https://gitlab.gwdg.de/tms-localization/papers/neuropilot"
 SITE_URL = "https://neuropilot-94ad2d.pages.gwdg.de/"
@@ -386,7 +386,7 @@ def _template(body: str, page: dict, nav_html: str, toc_html: str,
   <button class="menu" type="button" aria-label="Toggle navigation">☰</button>
   <a class="brand" href="{ctx['root']}index.html">
     <img class="brand-mark" src="{ctx['root']}assets/img/neuropilot-icon.png"
-         alt="NeuroPilot" width="30" height="30">
+         alt="TMS NeuroPilot" width="30" height="30">
     <span class="brand-name">{SITE_NAME}</span>
   </a>
   <span class="tagline">{SITE_TAGLINE}</span>

@@ -1,1 +1,1 @@
-"""NeuroPilot component package."""
+"""TMS NeuroPilot component package."""

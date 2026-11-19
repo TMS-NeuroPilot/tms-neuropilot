@@ -1,6 +1,6 @@
 # Use cases
 
-NeuroPilot is one controller with four run modes. The GUI, relay protocol and
+TMS NeuroPilot is one controller with four run modes. The GUI, relay protocol and
 analysis are the same in all of them; only the hardware behind the roles
 changes. This page maps the modes to the ways teams use the suite.
 
@@ -16,7 +16,7 @@ changes. This page maps the modes to the ways teams use the suite.
 The production path. The subject is prepared as described in
 [Subject data](prepare/subject-data.md); InVesalius tracks the coil and the head,
 the robot driver moves the coil, the stimulator fires, and the EMG computer
-records the response. NeuroPilot runs the mapping loop and analyses each pulse.
+records the response. TMS NeuroPilot runs the mapping loop and analyses each pulse.
 
 Use the robot when the coil must be held precisely for many placements:
 

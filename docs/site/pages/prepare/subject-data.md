@@ -1,7 +1,7 @@
 # Subject data
 
 A session needs five artefacts for one subject. This page says what each one is,
-which script produces it, and what NeuroPilot checks when it loads it.
+which script produces it, and what TMS NeuroPilot checks when it loads it.
 
 <figure>
   <img src="assets/diagrams/subject-pipeline.svg" alt="The subject-data pipeline: MRI to head model, mesh to ROI surface, placements to E-field library, and the order and EMG files that complete a project.">
@@ -25,7 +25,7 @@ Two more small files complete a project: the **EMG channel sources**
 
 ## 1. Head model
 
-NeuroPilot reads the SimNIBS head mesh directly:
+TMS NeuroPilot reads the SimNIBS head mesh directly:
 
 ```text
 m2m_<subj>/<subj>.msh
@@ -71,7 +71,7 @@ field where the pyramidal cells sit.
 
 !!! note "Element count is a contract"
     The number of E-field columns must equal `M`. If you change the ROI, every
-    E-field library computed for the old ROI is invalid. NeuroPilot reports the
+    E-field library computed for the old ROI is invalid. TMS NeuroPilot reports the
     mismatch instead of silently using the first columns.
 
 ## 3. Coil model

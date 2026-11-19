@@ -326,7 +326,7 @@ class PipelineController:
         self.systems = []
 
         # The relay is the hub every peer uses. In real/manual/training mode
-        # NeuroPilot can own it; in simulation the supervisor owns it.
+        # TMS NeuroPilot can own it; in simulation the supervisor owns it.
         self.relay = RelaySystem(update_control_panel_func,
                                  manage=manage_relay,
                                  simulation=simulation)

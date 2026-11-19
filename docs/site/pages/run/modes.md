@@ -1,6 +1,6 @@
 # Run modes
 
-NeuroPilot has four run modes. They share the controller, the state machine,
+TMS NeuroPilot has four run modes. They share the controller, the state machine,
 the relay protocol and the analysis; they differ only in who provides the
 robot, the neuronavigation, the stimulator and the EMG.
 
@@ -9,7 +9,7 @@ mode directly with `neuropilot sim`, `real`, `manual` or `training`.
 
 <figure>
   <img src="assets/diagrams/run-modes.svg" alt="The four run modes and the processes each one starts.">
-  <figcaption>Simulation replaces all peers with NeuroPilot's virtual twin.
+  <figcaption>Simulation replaces all peers with TMS NeuroPilot's virtual twin.
   Real mode uses the lab hardware. Manual mode keeps the hardware but removes
   the robot. Training keeps real stimulation and navigation but replaces the
   EMG with the virtual model and removes the robot.</figcaption>
@@ -86,10 +86,10 @@ conda environment discovered from `CONDA_EXE`, or the values stored in
 `~/.neuropilot/lab.yaml`.
 
 If InVesalius is already running elsewhere, use the **Is started** button in
-the picker. NeuroPilot then skips the local launch and expects that instance to
+the picker. TMS NeuroPilot then skips the local launch and expects that instance to
 connect to the same relay. `--no-invesalius` disables local startup as well.
 
-`main_loop.py` is never started by NeuroPilot. `--launch-relay` remains
+`main_loop.py` is never started by TMS NeuroPilot. `--launch-relay` remains
 accepted for compatibility; a configured relay is now automatic.
 
 !!! danger "Safety: real stimulation"
