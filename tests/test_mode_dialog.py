@@ -29,7 +29,7 @@ def test_dialog_contains_only_the_selector_heading_and_buttons(dialog):
         dialog.btn_real.text(),
         dialog.btn_manual.text(),
         dialog.btn_training.text(),
-    ) == ("Stimulation", "Robotic TMS", "Manual TMS", "Training")
+    ) == ("Simulation", "Robotic TMS", "Manual TMS", "Training")
 
 
 def test_selector_text_and_buttons_are_larger(dialog):

@@ -52,7 +52,7 @@ class ModeSelectionDialog(QDialog):
         btn_layout = QGridLayout()
         btn_layout.setSpacing(18)
 
-        self.btn_sim = QPushButton("Stimulation")
+        self.btn_sim = QPushButton("Simulation")
         self.btn_real = QPushButton("Robotic TMS")
         self.btn_manual = QPushButton("Manual TMS")
         self.btn_training = QPushButton("Training")
@@ -75,7 +75,7 @@ class ModeSelectionDialog(QDialog):
             button.setMinimumHeight(76)
             button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-        # Stimulation Button Style (Blue theme)
+        # Simulation Button Style (Blue theme)
         self.btn_sim.setStyleSheet(base_btn_style + """
             QPushButton { background-color: #3498db; }
             QPushButton:hover { background-color: #2980b9; }
