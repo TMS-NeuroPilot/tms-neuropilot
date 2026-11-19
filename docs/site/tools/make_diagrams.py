@@ -475,6 +475,67 @@ def config_precedence():
     return svg(960, 360, "".join(b), "Configuration precedence")
 
 
+def hardware_setup():
+    """Real Robo-TMS hardware: what runs where, and how the pieces are wired."""
+    W, H = 1060, 650
+    b = [multiline(W / 2, 30, ["Robo-TMS hardware setup (real mode)"], 17, "700")]
+
+    # boxes
+    b.append(box(40, 220, 310, 170, ["TMS NeuroPilot PC",
+                                     "controller · state machine",
+                                     "SimNIBS E-field · map analysis",
+                                     "EMG client (SMB)"], BLUE_SOFT, BLUE, 13))
+    b.append(box(420, 250, 200, 110, ["Relay", "Socket.IO :5000",
+                                      "from_* → to_*"], ACCENT_SOFT, ACCENT, 13))
+    b.append(box(700, 80, 300, 120, ["InVesalius PC",
+                                     "InVesalius neuronavigation",
+                                     "NDI Polaris camera",
+                                     "trackers: head · probe · coil"], OK_SOFT, OK, 12))
+    b.append(box(700, 250, 300, 120, ["Robot PC", "tms-robot-control",
+                                      "Omron TM5X-700",
+                                      "Ethernet :5890 / :502"], OK_SOFT, OK, 12))
+    b.append(box(700, 430, 300, 100, ["Stimulator", "MagPro X100 · coil MCF-B65",
+                                      "serial control · TTL trigger"], FILL, LINE, 12))
+    b.append(box(40, 440, 310, 110, ["EMG PC", "CED 1401 · Digitimer D360",
+                                     "Signal → SMB share"], FILL, LINE, 12))
+
+    # relay topics (IP)
+    b.append(arrow(352, 270, 418, 270)); b.append(label(385, 256, "topics", 10))
+    b.append(arrow(418, 306, 352, 306)); b.append(label(385, 330, "health", 10))
+    b.append(arrow(622, 262, 698, 148)); b.append(label(660, 178, "markers", 10))
+    b.append(arrow(622, 302, 698, 302)); b.append(label(660, 290, "targets", 10))
+
+    # serial control: controller PC -> stimulator
+    b.append(arrow(352, 378, 640, 378, head=False))
+    b.append(arrow(640, 378, 640, 470, head=False))
+    b.append(arrow(640, 470, 698, 470))
+    b.append(label(500, 370, "serial: intensity, fire", 10))
+
+    # parallel TTL: controller PC -> stimulator trigger in, T-split to the EMG
+    b.append(arrow(195, 392, 195, 438))
+    b.append(arrow(195, 405, 858, 405, head=False))
+    b.append(arrow(858, 405, 858, 428))
+    b.append(f'<circle cx="195" cy="405" r="3.4" fill="{MUTED}"/>')
+    b.append(label(540, 396, "parallel TTL: trigger in", 10))
+    b.append(label(186, 430, "T: also to the EMG", 10, MUTED, "end"))
+
+    # sweeps: EMG PC -> controller PC over the SMB share
+    b.append(arrow(300, 438, 300, 394, dashed=True))
+    b.append(label(310, 424, "SMB: one file per pulse", 10, MUTED, "start"))
+
+    # stimulator trigger out -> InVesalius (pulse marker)
+    b.append(arrow(1002, 450, 1028, 450, head=False))
+    b.append(arrow(1028, 450, 1028, 140, head=False))
+    b.append(arrow(1028, 140, 1002, 140))
+    b.append(label(884, 552, "trigger out: marks the delivered pulse", 10))
+
+    b.append(note(530, 592, "Relay topics run over IP: InVesalius, the robot PC and the "
+                            "controller may sit on different computers."))
+    b.append(note(530, 614, "Stimulator and EMG are wired to the controller PC: serial "
+                            "control, parallel TTL trigger (T-split to the EMG), SMB for the sweeps."))
+    return svg(W, H, "".join(b), "Robo-TMS hardware setup")
+
+
 FIGURES = {
     "architecture": architecture,
     "mapping-loop": mapping_loop,
@@ -485,6 +546,7 @@ FIGURES = {
     "state-machine": state_machine,
     "state-machine-vertical": state_machine_vertical,
     "config-precedence": config_precedence,
+    "hardware-setup": hardware_setup,
 }
 
 
