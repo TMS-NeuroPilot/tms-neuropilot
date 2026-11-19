@@ -38,10 +38,13 @@ on simulated MEPs and realistic tracking.
 
 <figure>
   <img src="assets/screenshots/neuropilot-sim-session.gif" alt="A simulated session: the Control page with the robot twin, the MEP page, the cortical R² map and the Connections page.">
-  <figcaption>A simulated session, sped up. The twin moves the coil from target
-  to target, the MEP page shows the responses as pulses arrive, the cortical map
-  is computed online, and the Connections page reports the health of all
-  subsystems.</figcaption>
+  <figcaption>TMS NeuroPilot graphical user interface for a voxel-wise mapping
+  session. TMS targets are read, sent to the neuronavigation (InVesalius) and the
+  stimulator is fired (Control page). Response data is acquired, MEPs are computed
+  and can be discarded if needed (MEP results page). The E-field for the realized
+  coil placement is computed (SimNIBS) and a voxel-wise regression is computed to
+  identify the cortical source of the MEP (Cortical results page). Here, a virtual
+  session is shown for simulated MEPs and virtual-twin robot.</figcaption>
 </figure>
 
 <div class="cards" markdown="0">
