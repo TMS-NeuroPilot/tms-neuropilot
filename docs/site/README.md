@@ -104,7 +104,9 @@ python docs/site/tools/make_diagrams.py
 ```
 
 Each figure is a function in `tools/make_diagrams.py` returning SVG; the helper
-functions (`box`, `arrow`, `text`, `note`) keep the palette consistent.
+functions (`box`, `arrow`, `text`, `note`) keep the palette consistent. For PNG
+copies next to the SVGs, run `python docs/site/tools/make_diagram_pngs.py` with
+an environment that has PyQt5.
 
 Screenshots are real windows:
 

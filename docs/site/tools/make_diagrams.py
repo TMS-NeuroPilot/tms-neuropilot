@@ -146,22 +146,30 @@ def architecture():
 
 
 def mapping_loop():
-    steps = ["INIT", "LOAD TARGET", "SEND MARKER", "START TRACKING",
-             "WAIT FOR TARGET REACHED", "FIRE TMS PULSE", "COLLECT DATA",
-             "ANALYSE", "COMPLETE"]
-    width, height = 1780, 250
-    b = [multiline(width // 2, 24, ["One pulse = one pass through the loop"],
-                   17, "700")]
-    x, y, w, h, gap = 22, 70, 180, 70, 12
+    steps = [
+        ("INIT", "Load project data"),
+        ("LOAD TARGET", None),
+        ("SEND MARKER", "to Neuronavigation"),
+        ("START TRACKING", "robot / manual"),
+        ("WAIT FOR TARGET REACHED", "Placement and force sensor ok"),
+        ("FIRE TMS PULSE", None),
+        ("COLLECT DATA", "MEP and E-field"),
+        ("ANALYSE", "Voxel-wise Mapping"),
+        ("COMPLETE", "Render results"),
+    ]
+    width, height = 1860, 270
+    b = [multiline(width // 2, 24, ["State Machine"], 17, "700")]
+    x, y, w, h, gap = 22, 70, 190, 84, 12
     centres = []
-    for i, step in enumerate(steps):
+    for i, (step, detail) in enumerate(steps):
         fill, stroke = (ACCENT_SOFT, ACCENT) if step == "COMPLETE" else (FILL, LINE)
-        b.append(box(x + i * (w + gap), y, w, h, [step], fill, stroke, 11))
+        lines = [step] + ([detail] if detail else [])
+        b.append(box(x + i * (w + gap), y, w, h, lines, fill, stroke, 11))
         centres.append((x + i * (w + gap) + w / 2, y + h / 2))
         if i:
             b.append(arrow(centres[i - 1][0] + w / 2 + 2, y + h / 2,
                            centres[i][0] - w / 2 - 2, y + h / 2))
-    first, last = centres[0][0], centres[-1][0]
+    last = centres[-1][0]
     # The next target/repetition re-enters at LOAD TARGET, not INIT.
     load_target = centres[1][0]
     loop_y = y - 18
@@ -169,24 +177,30 @@ def mapping_loop():
     b.append(arrow(last, loop_y, load_target, loop_y, head=False))
     b.append(arrow(load_target, loop_y, load_target, y))
     b.append(label(width / 2, loop_y - 6, "next target / next repetition"))
-    # Skip from START TRACKING to COMPLETE, below the row.
+    # SKIP leaves START TRACKING and abandons the current target.
     skip_y = y + h + 38
     b.append(arrow(centres[3][0], y + h, centres[3][0], skip_y,
                    dashed=True, head=False))
     b.append(arrow(centres[3][0], skip_y, last, skip_y, dashed=True, head=False))
     b.append(arrow(last, skip_y, last, y + h + 2, dashed=True))
-    b.append(label(width / 2, skip_y + 20,
-                   "SKIP / Next  →  COMPLETE (abandon this target)"))
+    b.append(label(width / 2, skip_y + 20, "SKIP"))
     b.append(note(width / 2, skip_y + 54,
                   "WAIT FOR TARGET REACHED needs coil-at-target + force + minimum interval."))
-    return svg(width, height, "".join(b), "The mapping loop")
-
+    return svg(width, height, "".join(b), "State Machine")
 
 def mapping_loop_vertical():
     """Vertical 2 x 5 snake variant of the pulse mapping loop."""
-    b = [multiline(320, 28, ["One pulse = one pass through the loop"],
-                   17, "700")]
-    w, h = 220, 64
+    b = [multiline(320, 28, ["State Machine"], 17, "700")]
+    details = {
+        "INIT": "Load project data",
+        "SEND MARKER": "to Neuronavigation",
+        "START TRACKING": "robot / manual",
+        "WAIT FOR TARGET REACHED": "Placement and force sensor ok",
+        "COLLECT DATA": "MEP and E-field",
+        "ANALYSE": "Voxel-wise Mapping",
+        "COMPLETE": "Render results",
+    }
+    w, h = 220, 80
     left, right = 70, 350
     rows = (70, 170, 270, 370, 470)
     positions = {
@@ -199,7 +213,8 @@ def mapping_loop_vertical():
     }
     for step, (x, y) in positions.items():
         fill, stroke = (ACCENT_SOFT, ACCENT) if step == "COMPLETE" else (FILL, LINE)
-        b.append(box(x, y, w, h, [step], fill, stroke, 12))
+        lines = [step] + ([details[step]] if step in details else [])
+        b.append(box(x, y, w, h, lines, fill, stroke, 11))
 
     def edge(step, side):
         x, y = positions[step]
@@ -233,25 +248,27 @@ def mapping_loop_vertical():
                    *edge("COMPLETE", "top")))
 
     # Next target/repetition re-enters at LOAD TARGET around the right.
-    b.append(arrow(*edge("COMPLETE", "bottom"), 180, 580, head=False))
-    b.append(arrow(180, 580, 600, 580, head=False))
-    b.append(arrow(600, 580, 600, rows[0] + h / 2, head=False))
+    b.append(arrow(*edge("COMPLETE", "bottom"), 180, 600, head=False))
+    b.append(arrow(180, 600, 600, 600, head=False))
+    b.append(arrow(600, 600, 600, rows[0] + h / 2, head=False))
     b.append(arrow(600, rows[0] + h / 2, right + w + 2, rows[0] + h / 2))
-    b.append(label(380, 600, "next target / next repetition"))
+    b.append(label(380, 592, "next target / next repetition"))
 
-    # Skip / Next leaves START TRACKING and completes the target.
+    # SKIP leaves START TRACKING and completes the target.
     b.append(arrow(*edge("START TRACKING", "left"), 40,
                    rows[1] + h / 2, dashed=True, head=False))
     b.append(arrow(40, rows[1] + h / 2, 40, rows[4] + h / 2,
                    dashed=True, head=False))
     b.append(arrow(40, rows[4] + h / 2, left - 2, rows[4] + h / 2,
                    dashed=True))
-    b.append(label(50, 352, "SKIP / Next", 11, MUTED, "start"))
+    skip = text(55, 360, "SKIP", 11, "500", MUTED, "middle")
+    b.append(skip.replace('text-anchor="middle"',
+                          'text-anchor="middle" transform="rotate(180 55 360)"'))
 
     b.append(note(320, 636,
                   "WAIT FOR TARGET REACHED needs coil-at-target + force +", 12))
     b.append(note(320, 654, "minimum interval.", 12))
-    return svg(640, 680, "".join(b), "The mapping loop (vertical)")
+    return svg(640, 680, "".join(b), "State Machine")
 
 def subject_pipeline():
     b = [multiline(480, 30, ["From MRI to a session"], 17, "700")]
