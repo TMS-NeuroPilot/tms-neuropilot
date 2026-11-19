@@ -217,3 +217,18 @@ def test_reapplying_the_same_theme_does_not_write(window, qapp, tmp_path):
     window.cfg_theme.setCurrentText("Graphite")     # same value: no signal
     qapp.processEvents()
     assert window._lab_profile.path.read_text() == first
+
+
+def test_runtime_tab_pages_use_the_themed_canvas(window, qapp):
+    window.cfg_theme.setCurrentText("Graphite")
+    qapp.processEvents()
+    assert window.collision_tab.property("page") is True
+    about = None
+    for index in range(window.tabWidget.count()):
+        if window.tabWidget.tabText(index) == "About":
+            about = window.tabWidget.widget(index)
+            break
+    assert about is not None and about.property("page") is True
+    sheet = window.styleSheet()
+    assert "QScrollArea > QWidget" in sheet
+    assert "QProgressBar::chunk" in sheet

@@ -193,6 +193,11 @@ class CollisionTestTab(QtWidgets.QWidget):
 
     def __init__(self, window, parent=None):
         super().__init__(parent)
+        # This page is inserted into the main QTabWidget at runtime, so mark
+        # it like the generated .ui pages: otherwise Fusion paints the bare
+        # QWidget with its pale default window colour in dark themes.
+        self.setProperty("page", True)
+        self.setAttribute(QtCore.Qt.WA_StyledBackground, True)
         self.window = window
         self.controller = None
         self.session: Optional[CollisionTestSession] = None
@@ -495,13 +500,8 @@ class CollisionTestTab(QtWidgets.QWidget):
         self.progress.setRange(0, 1)
         self.progress.setValue(0)
         self.progress.setFixedHeight(22)
-        self.progress.setStyleSheet(
-            "QProgressBar { background: palette(base); "
-            "border: 1px solid palette(mid); "
-            "border-radius: 3px; min-height: 20px; max-height: 24px; "
-            "text-align: center; } "
-            "QProgressBar::chunk { background: palette(highlight); "
-            "border-radius: 2px; }")
+        # The global sheet colours this for the active theme.  The old
+        # palette(base) inline style stayed light in Graphite/Midnight.
         scan_layout.addWidget(self.progress)
         self.scan_status = QtWidgets.QLabel("Idle.")
         self.scan_status.setProperty("role", "cap")

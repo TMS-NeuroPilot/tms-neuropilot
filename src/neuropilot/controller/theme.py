@@ -151,6 +151,13 @@ QGroupBox { background: transparent; }
 QTabWidget { background: %(card)s; }
 QTabWidget::pane { border: 0; background: %(canvas)s; }
 QTabBar { background: %(card)s; border-bottom: 1px solid %(line)s; }
+
+/* Scroll pages (Collision, About) sit directly on the canvas.  Qt's
+   Fusion palette otherwise paints their viewport with the light base
+   colour, which leaves a pale block in dark themes. */
+QScrollArea { background: transparent; border: 0; }
+QScrollArea > QWidget { background: transparent; }
+QScrollArea > QWidget > QWidget { background: transparent; }
 QTabBar::tab {
     background: transparent; color: %(muted)s;
     padding: 11px 18px; margin: 0; border: 0;
@@ -276,6 +283,10 @@ QHeaderView::section {
     border-bottom: 1px solid %(line)s; padding: 4px 6px; font-size: 11px;
 }
 QTableCornerButton::section { background: %(hover)s; border: 0; }
+QProgressBar { background: %(canvas)s; border: 1px solid %(line)s;
+               border-radius: 3px; min-height: 20px; max-height: 24px;
+               text-align: center; color: %(ink)s; }
+QProgressBar::chunk { background: %(accent)s; border-radius: 2px; }
 QPlainTextEdit, QTextEdit {
     background: %(card)s; color: %(ink)s; border: 1px solid %(line)s;
     border-radius: 6px; padding: 6px;
