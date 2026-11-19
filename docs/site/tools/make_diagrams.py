@@ -146,57 +146,60 @@ def architecture():
 
 
 def mapping_loop():
-    steps = ["INIT", "SEND\nMARKER", "START\nTRACKING", "WAIT FOR\nTARGET",
-             "FIRE\nSTIM", "COLLECT\nDATA", "ANALYSE", "COMPLETE"]
-    width, height = 1000, 250
+    steps = ["INIT", "LOAD TARGET", "SEND MARKER", "START TRACKING",
+             "WAIT FOR TARGET REACHED", "FIRE TMS PULSE", "COLLECT DATA",
+             "ANALYSE", "COMPLETE"]
+    width, height = 1780, 250
     b = [multiline(width // 2, 24, ["One pulse = one pass through the loop"],
                    17, "700")]
-    x, y, w, h, gap = 24, 70, 104, 70, 17
+    x, y, w, h, gap = 22, 70, 180, 70, 12
     centres = []
     for i, step in enumerate(steps):
         fill, stroke = (ACCENT_SOFT, ACCENT) if step == "COMPLETE" else (FILL, LINE)
-        b.append(box(x + i * (w + gap), y, w, h, step.split("\n"), fill, stroke, 12))
+        b.append(box(x + i * (w + gap), y, w, h, [step], fill, stroke, 11))
         centres.append((x + i * (w + gap) + w / 2, y + h / 2))
         if i:
             b.append(arrow(centres[i - 1][0] + w / 2 + 2, y + h / 2,
                            centres[i][0] - w / 2 - 2, y + h / 2))
     first, last = centres[0][0], centres[-1][0]
-    # loop back from COMPLETE to INIT, above the row
+    # The next target/repetition re-enters at LOAD TARGET, not INIT.
+    load_target = centres[1][0]
     loop_y = y - 18
     b.append(arrow(last, y, last, loop_y, head=False))
-    b.append(arrow(last, loop_y, first, loop_y, head=False))
-    b.append(arrow(first, loop_y, first, y))
+    b.append(arrow(last, loop_y, load_target, loop_y, head=False))
+    b.append(arrow(load_target, loop_y, load_target, y))
     b.append(label(width / 2, loop_y - 6, "next target / next repetition"))
-    # skip from START TRACKING to COMPLETE, below the row
+    # Skip from START TRACKING to COMPLETE, below the row.
     skip_y = y + h + 38
-    b.append(arrow(centres[2][0], y + h, centres[2][0], skip_y,
+    b.append(arrow(centres[3][0], y + h, centres[3][0], skip_y,
                    dashed=True, head=False))
-    b.append(arrow(centres[2][0], skip_y, last, skip_y, dashed=True, head=False))
+    b.append(arrow(centres[3][0], skip_y, last, skip_y, dashed=True, head=False))
     b.append(arrow(last, skip_y, last, y + h + 2, dashed=True))
     b.append(label(width / 2, skip_y + 20,
                    "SKIP / Next  →  COMPLETE (abandon this target)"))
-    # gates
     b.append(note(width / 2, skip_y + 54,
-                  "WAIT FOR TARGET needs coil-at-target + force + minimum interval."))
+                  "WAIT FOR TARGET REACHED needs coil-at-target + force + minimum interval."))
     return svg(width, height, "".join(b), "The mapping loop")
 
 
 def mapping_loop_vertical():
-    """Vertical 2 x 4 snake variant of the pulse mapping loop."""
-    b = [multiline(310, 26, ["One pulse = one pass through the loop"],
+    """Vertical 2 x 5 snake variant of the pulse mapping loop."""
+    b = [multiline(320, 28, ["One pulse = one pass through the loop"],
                    17, "700")]
-    w, h = 180, 64
-    left, right = 80, 320
-    rows = (70, 170, 270, 370)
+    w, h = 220, 64
+    left, right = 70, 350
+    rows = (70, 170, 270, 370, 470)
     positions = {
-        "INIT": (left, rows[0]), "SEND\nMARKER": (right, rows[0]),
-        "WAIT FOR\nTARGET": (left, rows[1]), "START\nTRACKING": (right, rows[1]),
-        "FIRE\nSTIM": (left, rows[2]), "COLLECT\nDATA": (right, rows[2]),
-        "COMPLETE": (left, rows[3]), "ANALYSE": (right, rows[3]),
+        "INIT": (left, rows[0]), "LOAD TARGET": (right, rows[0]),
+        "START TRACKING": (left, rows[1]), "SEND MARKER": (right, rows[1]),
+        "WAIT FOR TARGET REACHED": (left, rows[2]),
+        "FIRE TMS PULSE": (right, rows[2]),
+        "ANALYSE": (left, rows[3]), "COLLECT DATA": (right, rows[3]),
+        "COMPLETE": (left, rows[4]),
     }
     for step, (x, y) in positions.items():
         fill, stroke = (ACCENT_SOFT, ACCENT) if step == "COMPLETE" else (FILL, LINE)
-        b.append(box(x, y, w, h, step.split("\n"), fill, stroke, 12))
+        b.append(box(x, y, w, h, [step], fill, stroke, 12))
 
     def edge(step, side):
         x, y = positions[step]
@@ -208,46 +211,47 @@ def mapping_loop_vertical():
             return x + w / 2, y
         return x + w / 2, y + h
 
-    # Row 1: INIT -> SEND_MARKER
-    b.append(arrow(*edge("INIT", "right"), *edge("SEND\nMARKER", "left")))
-    # Row 2, right to left: START_TRACKING -> WAIT FOR TARGET
-    b.append(arrow(*edge("SEND\nMARKER", "bottom"),
-                   *edge("START\nTRACKING", "top")))
-    b.append(arrow(*edge("START\nTRACKING", "left"),
-                   *edge("WAIT FOR\nTARGET", "right")))
-    # Row 3: WAIT -> FIRE, then FIRE -> COLLECT
-    b.append(arrow(*edge("WAIT FOR\nTARGET", "bottom"),
-                   *edge("FIRE\nSTIM", "top")))
-    b.append(arrow(*edge("FIRE\nSTIM", "right"),
-                   *edge("COLLECT\nDATA", "left")))
-    # Row 4, right to left: COLLECT -> ANALYSE -> COMPLETE
-    b.append(arrow(*edge("COLLECT\nDATA", "bottom"),
-                   *edge("ANALYSE", "top")))
-    b.append(arrow(*edge("ANALYSE", "left"),
-                   *edge("COMPLETE", "right")))
+    # Row 1: INIT -> LOAD TARGET
+    b.append(arrow(*edge("INIT", "right"), *edge("LOAD TARGET", "left")))
+    # Row 2, right to left: LOAD TARGET -> SEND MARKER -> START TRACKING
+    b.append(arrow(*edge("LOAD TARGET", "bottom"),
+                   *edge("SEND MARKER", "top")))
+    b.append(arrow(*edge("SEND MARKER", "left"),
+                   *edge("START TRACKING", "right")))
+    # Row 3: START TRACKING -> WAIT -> FIRE
+    b.append(arrow(*edge("START TRACKING", "bottom"),
+                   *edge("WAIT FOR TARGET REACHED", "top")))
+    b.append(arrow(*edge("WAIT FOR TARGET REACHED", "right"),
+                   *edge("FIRE TMS PULSE", "left")))
+    # Row 4, right to left: FIRE -> COLLECT -> ANALYSE
+    b.append(arrow(*edge("FIRE TMS PULSE", "bottom"),
+                   *edge("COLLECT DATA", "top")))
+    b.append(arrow(*edge("COLLECT DATA", "left"),
+                   *edge("ANALYSE", "right")))
+    # Row 5: ANALYSE -> COMPLETE
+    b.append(arrow(*edge("ANALYSE", "bottom"),
+                   *edge("COMPLETE", "top")))
 
-    # Next target / repetition returns from COMPLETE to INIT around the left.
-    b.append(arrow(*edge("COMPLETE", "bottom"), 170, 500, head=False))
-    b.append(arrow(170, 500, 40, 500, head=False))
-    b.append(arrow(40, 500, 40, rows[0] + h / 2, head=False))
-    b.append(arrow(40, rows[0] + h / 2, left - 2, rows[0] + h / 2))
-    b.append(label(310, 518, "next target / next repetition"))
+    # Next target/repetition re-enters at LOAD TARGET around the right.
+    b.append(arrow(*edge("COMPLETE", "bottom"), 180, 580, head=False))
+    b.append(arrow(180, 580, 600, 580, head=False))
+    b.append(arrow(600, 580, 600, rows[0] + h / 2, head=False))
+    b.append(arrow(600, rows[0] + h / 2, right + w + 2, rows[0] + h / 2))
+    b.append(label(380, 600, "next target / next repetition"))
 
-    # Skip / Next leaves START_TRACKING and completes the target.
-    b.append(arrow(*edge("START\nTRACKING", "right"), 550,
+    # Skip / Next leaves START TRACKING and completes the target.
+    b.append(arrow(*edge("START TRACKING", "left"), 40,
                    rows[1] + h / 2, dashed=True, head=False))
-    b.append(arrow(550, rows[1] + h / 2, 550, 460,
+    b.append(arrow(40, rows[1] + h / 2, 40, rows[4] + h / 2,
                    dashed=True, head=False))
-    b.append(arrow(550, 460, 210, 460, dashed=True, head=False))
-    b.append(arrow(210, 460, 210, rows[3] + h + 2, dashed=True))
-    b.append(label(380, 452,
-                   "SKIP / Next  →  COMPLETE (abandon this target)"))
+    b.append(arrow(40, rows[4] + h / 2, left - 2, rows[4] + h / 2,
+                   dashed=True))
+    b.append(label(50, 352, "SKIP / Next", 11, MUTED, "start"))
 
-    b.append(note(310, 550,
-                  "WAIT FOR TARGET needs coil-at-target + force +", 12))
-    b.append(note(310, 568, "minimum interval.", 12))
-    return svg(620, 590, "".join(b), "The mapping loop (2 x 4)")
-
+    b.append(note(320, 636,
+                  "WAIT FOR TARGET REACHED needs coil-at-target + force +", 12))
+    b.append(note(320, 654, "minimum interval.", 12))
+    return svg(640, 680, "".join(b), "The mapping loop (vertical)")
 
 def subject_pipeline():
     b = [multiline(480, 30, ["From MRI to a session"], 17, "700")]

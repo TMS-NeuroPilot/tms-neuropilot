@@ -168,7 +168,7 @@ instance, and **Cancel**.
 
 - the six GUI pages and every control,
 - the relay topics and payloads (byte-identical to the production components),
-- the seven-step mapping loop,
+- the mapping loop,
 - the E-field modes, the regression and the exports,
 - the results CSV columns (robot-only fields are empty in manual and training).
 
