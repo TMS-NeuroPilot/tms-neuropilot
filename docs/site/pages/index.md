@@ -36,6 +36,14 @@ under realistic conditions (noise, individual morphology, experimental demands
 and session duration) to dry-run robotic experiments or to train experimenters
 on simulated MEPs and realistic tracking.
 
+<figure>
+  <img src="assets/screenshots/neuropilot-sim-session.gif" alt="A simulated session: the Control page with the robot twin, the MEP page, the cortical R² map and the Connections page.">
+  <figcaption>A simulated session, sped up. The twin moves the coil from target
+  to target, the MEP page shows the responses as pulses arrive, the cortical map
+  is computed online, and the Connections page reports the health of all
+  subsystems.</figcaption>
+</figure>
+
 <div class="cards" markdown="0">
   <a class="card" href="start/quickstart.html">
     <span class="card-kicker">New here</span>
