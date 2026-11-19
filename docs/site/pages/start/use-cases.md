@@ -9,7 +9,7 @@ changes. This page maps the modes to the ways teams use the suite.
 | [Real experiment, robot](#real-experiment) | robot | InVesalius | real | real EMG | `neuropilot real` |
 | [Real experiment, manual](#real-experiment) | operator | InVesalius | real | real EMG | `neuropilot manual` |
 | [Virtual experiment](#virtual-experiment) | virtual robot | `sim_nav` | virtual | virtual EMG | `neuropilot sim` |
-| [Training, real TMS](#training-real-tms-simulated-meps) | operator | InVesalius | real | virtual EMG | `neuropilot training` |
+| [Operator training](#operator-training) | operator | InVesalius | real | virtual EMG | `neuropilot training` |
 
 ## Real experiment
 
@@ -58,7 +58,7 @@ Use it to:
 Start with [Quick start](start/quickstart.md), then follow
 [A simulated session](run/simulated.md) for the wire-level walkthrough.
 
-## Training: real TMS, simulated MEPs
+## Operator training
 
 The in-between case: a real stimulator and coil on a printable phantom, real
 InVesalius tracking, the operator holding the coil, and no real EMG. The MEP
@@ -97,6 +97,14 @@ The stimulator amplitude is the real amplitude set in the session, so the
 synthetic MEP scales with it.
 
 ### Physical setup
+
+<figure>
+  <img src="assets/screenshots/ernie_printable.png" alt="The printable Ernie head phantom in front and side view: an engraved grid of scale marks over the scalp and three embossed fiducials at the nasion and the outer canthi.">
+  <figcaption>The printable Ernie phantom, front and side view. The skin
+  surface carries an engraved grid of scale marks for checking the tracking and
+  three embossed fiducials at the nasion and the outer canthi for the
+  registration in InVesalius.</figcaption>
+</figure>
 
 - The example dataset includes `ernie_skin_printable.stl` for printing the skin
   surface. Any other phantom works too.
