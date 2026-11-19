@@ -181,6 +181,48 @@ def mapping_loop():
     return svg(width, height, "".join(b), "The mapping loop")
 
 
+def mapping_loop_vertical():
+    """Vertical variant of the pulse mapping loop."""
+    steps = ["INIT", "SEND\nMARKER", "START\nTRACKING", "WAIT FOR\nTARGET",
+             "FIRE\nSTIM", "COLLECT\nDATA", "ANALYSE", "COMPLETE"]
+    b = [multiline(280, 24, ["One pulse = one pass through the loop"],
+                   17, "700")]
+    x, w, h, gap = 170, 220, 70, 20
+    ys = [70 + i * (h + gap) for i in range(len(steps))]
+    centres = []
+    for step, y in zip(steps, ys):
+        fill, stroke = (ACCENT_SOFT, ACCENT) if step == "COMPLETE" else (FILL, LINE)
+        b.append(box(x, y, w, h, step.split("\n"), fill, stroke, 12))
+        centres.append((x + w / 2, y + h / 2))
+        if centres[:-1]:
+            b.append(arrow(centres[-2][0], centres[-2][1] + h / 2,
+                           centres[-1][0], centres[-1][1] - h / 2))
+
+    # Next target / repetition returns to INIT down the left side.
+    b.append(arrow(centres[-1][0], ys[-1] + h, centres[-1][0], 810,
+                   head=False))
+    b.append(arrow(centres[-1][0], 810, 70, 810, head=False))
+    b.append(arrow(70, 810, 70, centres[0][1], head=False))
+    b.append(arrow(70, centres[0][1], x - 2, centres[0][1]))
+    b.append(label(280, 834, "next target / next repetition"))
+
+    # Skip leaves START TRACKING and completes the current target.
+    skip_start = centres[2]
+    skip_end = centres[-1]
+    b.append(arrow(skip_start[0] + w / 2, skip_start[1], 470,
+                   skip_start[1], dashed=True, head=False))
+    b.append(arrow(470, skip_start[1], 470, skip_end[1],
+                   dashed=True, head=False))
+    b.append(arrow(470, skip_end[1], x + w + 2, skip_end[1], dashed=True))
+    b.append(text(482, 500, "SKIP / Next", 11, "500", MUTED, "start"))
+    b.append(text(482, 516, "→ COMPLETE", 11, "500", MUTED, "start"))
+
+    b.append(note(280, 870,
+                  "WAIT FOR TARGET needs coil-at-target + force +", 12))
+    b.append(note(280, 888, "minimum interval.", 12))
+    return svg(560, 900, "".join(b), "The mapping loop (vertical)")
+
+
 def subject_pipeline():
     b = [multiline(480, 30, ["From MRI to a session"], 17, "700")]
     # row 1
@@ -388,6 +430,7 @@ def config_precedence():
 FIGURES = {
     "architecture": architecture,
     "mapping-loop": mapping_loop,
+    "mapping-loop-vertical": mapping_loop_vertical,
     "subject-pipeline": subject_pipeline,
     "run-modes": run_modes,
     "efield-modes": efield_modes,
