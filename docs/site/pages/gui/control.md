@@ -59,7 +59,7 @@ loads.
 
 | Control | Meaning |
 |---|---|
-| **Enable free drive** | let the operator move the arm by hand (real mode) |
+| **Enable free drive** | let the operator move the arm by hand (robo mode) |
 | **Default speed** | speed while travelling between targets, % |
 | **Tuning speed** | speed near the head, % |
 

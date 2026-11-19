@@ -59,7 +59,7 @@ Values are stored as strings; the GUI converts them when it reads them.
 
 ## InVesalius auto-start
 
-In `real`, `manual`, and `training` mode TMS NeuroPilot starts a local InVesalius
+In robo, manual and training mode TMS NeuroPilot starts a local InVesalius
 before the controller. Simulation does not use InVesalius. With
 `INVESALIUS_LAUNCH: auto`, this happens only when the relay is local; use
 `local` to start a local InVesalius against a remote relay, or `off`/`external`

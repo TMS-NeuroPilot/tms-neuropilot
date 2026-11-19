@@ -175,8 +175,8 @@ def test_training_stack_starts_the_controller_in_training_mode():
 
 def test_launch_relay_is_controller_managed():
     from neuropilot import supervisor
-    components = supervisor.real_stack(with_relay=True)
-    assert components[0].args == ["--real", "--manage-relay"]
+    components = supervisor.robo_stack(with_relay=True)
+    assert components[0].args == ["--robo", "--manage-relay"]
     manual = supervisor.manual_stack(with_relay=True)
     assert manual[0].args == ["--manual", "--manage-relay"]
     training = supervisor.training_stack(with_relay=True)

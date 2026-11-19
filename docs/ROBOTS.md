@@ -10,7 +10,7 @@ two places:
 | `tms-robot-control` (separate repository) | a driver class + `ROBOT_CONFIG` entry + `ROBOT` in its `.env` | the **real** robot |
 
 ```text
-pipeline_controller ──relay topics──► tms-robot-control ──vendor SDK──► robot   (real mode)
+pipeline_controller ──relay topics──► tms-robot-control ──vendor SDK──► robot   (robo mode)
         │                                   ▲
         └──relay topics──► sim_robot ───────┘                                   (sim mode)
 ```
@@ -26,7 +26,7 @@ new robot only has to satisfy that contract in either place.
 | Real | one driver class in `tms-robot-control` | the vendor SDK wrapper, a `ROBOT_CONFIG` tuning block, `ROBOT=<name>` in its `.env` |
 
 A robot that exists in `tms-robot-control` but not in `robots.py` cannot be
-*simulated* (the pipeline still runs it in real mode — the simulator is only
+*simulated* (the pipeline still runs it in robo mode — the simulator is only
 used by `neuropilot sim`).
 
 ## Bundled robots
@@ -247,7 +247,7 @@ for the installed robot model before relying on the queued pose.
 * `python -m neuropilot.sim_robot.robots --check <key>` — same checks by hand.
 * `pytest tests/test_relay_topics.py` — the topic strings still agree between
   the controller, the sim robot and the sim navigation.
-* For a real robot: `neuropilot real --launch-relay`, connect from InVesalius,
+* For a real robot: `neuropilot robo --launch-relay`, connect from InVesalius,
   press *Connect to robot*, then move the coil a few centimetres with the
   hand-held/free-drive mode before running a mapping.  Run three pulses and
   compare the realized positions with the planned ones.

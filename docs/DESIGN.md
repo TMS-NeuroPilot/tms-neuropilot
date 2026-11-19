@@ -66,15 +66,15 @@ neuropilot                           no args → GUI mode selector (simulated vs
                                      real), then launches the chosen stack
 neuropilot sim                       full simulated stack (selector skipped)
 neuropilot sim --components a,b      subset (debug)
-neuropilot controller --sim|--real   controller only, no mode dialog
+neuropilot controller --sim|--robo   controller only, no mode dialog
 neuropilot relay                     sim relay only
-neuropilot real                      real mode; optional relay launch (see §6)
+neuropilot robo                      robo mode; optional relay launch (see §6)
 ```
 
 The no-args selector reuses the controller's existing Simulation/Real dialog
 design, relocated to the TMS NeuroPilot launcher level (branding: "TMS NeuroPilot").
 
-The controller gets real `--sim` / `--real` CLI flags so its mode is
+The controller gets real `--sim` / `--robo` CLI flags so its mode is
 selectable programmatically — the supervisor starts it in the chosen mode
 without any dialog. Today that requires a monkeypatching hack
 (`launch_pipeline.py`) because the dialog always runs; with the flags it is
@@ -112,7 +112,7 @@ or `.env` (loaded once, `python-dotenv`, already a dependency):
 
 ## 6. Real mode
 
-`neuropilot real` starts only the controller (with `--real`) after probing
+`neuropilot robo` starts only the controller (with `--robo`) after probing
 that something listens on `RELAY_PORT`. With
 `--launch-relay` (and `TMS_ROBOT_CONTROL_PATH` set), it first starts
 `tms-robot-control/relay_server.py` as a child process. The robot controller
@@ -148,7 +148,7 @@ and Invesalius remain manual, as documented in the run order.
 
 1. Create GitLab repo `neuropilot` in the group; record the four source hashes.
 2. Build the package layout + import rewrites + unified config locally.
-3. Implement supervisor + CLI + controller `--sim/--real` flags.
+3. Implement supervisor + CLI + controller `--sim/--robo` flags.
 4. Gate: `neuropilot sim` end-to-end run passes (stack behaves like today's
    4-terminal run; marker/target flows produce the same relay traces).
 5. Push; archive the four GitLab repos; delete the four local clones;

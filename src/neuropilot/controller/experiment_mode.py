@@ -21,7 +21,7 @@ from PyQt5.QtCore import Qt
 class ModeSelectionDialog(QDialog):
     def __init__(self):
         super().__init__()
-        self.mode = "simulation"  # Default state: "simulation" | "real" | "manual"
+        self.mode = "simulation"  # Default state: "simulation" | "robo" | "manual"
         self.init_ui()
 
     def init_ui(self):
@@ -128,7 +128,7 @@ class ModeSelectionDialog(QDialog):
         self.accept()  # Closes the dialog and returns QDialog.Accepted
 
     def select_real(self):
-        self.mode = "real"
+        self.mode = "robo"
         self.accept()
 
     def select_manual(self):

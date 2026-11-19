@@ -39,26 +39,26 @@ Starts only the controller.
 
 ```bash
 neuropilot controller --sim       # simulation (peers must already run)
-neuropilot controller --real      # real hardware
+neuropilot controller --robo      # real hardware
 neuropilot controller --manual    # real hardware, no robot
 neuropilot controller --training  # real TMS, virtual EMG, no robot
 neuropilot controller             # asks for the mode in a dialog
 ```
 
-`--sim`, `--real`, `--manual` and `--training` are mutually exclusive.
+`--sim`, `--robo`, `--manual` and `--training` are mutually exclusive.
 
-For `--real`, `--manual`, and `--training`, the controller also starts a local
+For `--robo`, `--manual`, and `--training`, the controller also starts a local
 InVesalius by default and starts the relay when `TMS_ROBOT_CONTROL_PATH` is
 configured. Use `--no-invesalius` to suppress InVesalius, or `--invesalius
 PATH` to provide an environment, wrapper, or checkout for this run.
 
-## `neuropilot real`
+## `neuropilot robo`
 
 Real-hardware mode.
 
 ```bash
-neuropilot real
-neuropilot real --launch-relay
+neuropilot robo
+neuropilot robo --launch-relay
 ```
 
 | Flag | Meaning |
@@ -84,7 +84,7 @@ neuropilot manual
 neuropilot manual --launch-relay
 ```
 
-Same relay behaviour as `real`.
+Same relay behaviour as `neuropilot robo`.
 
 ## `neuropilot training`
 
@@ -96,7 +96,7 @@ neuropilot training
 neuropilot training --launch-relay
 ```
 
-Same relay behaviour as `real`. Start InVesalius before the controller; no
+Same relay behaviour as `neuropilot robo`. Start InVesalius before the controller; no
 robot driver or EMG PC is needed. The channel sources come from the project.
 
 ## Robot registry
@@ -174,7 +174,7 @@ conda activate neuropilot && pip install -e . --no-deps && cp .env.example .env
 
 # run
 neuropilot sim                     # everything, simulated
-neuropilot real --launch-relay     # lab, with the production relay
+neuropilot robo --launch-relay     # lab, with the production relay
 neuropilot manual                  # lab, no robot
 
 # check

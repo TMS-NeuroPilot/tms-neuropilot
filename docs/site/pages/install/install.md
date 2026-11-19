@@ -249,7 +249,7 @@ Start it pointed at the relay:
 python app.py --remote-host http://localhost:5000
 ```
 
-`neuropilot real`, `manual`, and `training` start the production relay and a
+`neuropilot robo`, `manual`, and `training` start the production relay and a
 local InVesalius automatically by default. Discovery checks the conda
 environments and stores the selected environment, checkout, and launcher in
 `~/.neuropilot/lab.yaml`. Use `--no-invesalius` to suppress the local InVesalius

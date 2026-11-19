@@ -2,11 +2,11 @@
 relay connection together and runs the asyncio/Qt event loop.
 
 Launched as ``python -m neuropilot.controller`` (or via the ``neuropilot``
-launcher: ``neuropilot controller --sim|--real``; the supervisor starts it
+launcher: ``neuropilot controller --sim|--robo``; the supervisor starts it
 the same way for simulated stacks).
 
 Flow:
-    1. ``run()`` parses ``--sim``/``--real`` (or shows the mode selection
+    1. ``run()`` parses ``--sim``/``--robo`` (or shows the mode selection
        dialog) and builds the QApplication.
     2. ``main()`` creates the relay ``Remote`` (simulated or real) from the
        optional positional ``[host] [port]`` arguments (default
@@ -46,13 +46,13 @@ def get_command_line_arguments():
     """Extract the relay host/port from positional command line arguments.
 
     Accepts ``[host] [port]``, ``[port]`` or nothing (defaults
-    ``127.0.0.1:5000``). Option flags such as ``--sim``/``--real`` are
+    ``127.0.0.1:5000``). Option flags such as ``--sim``/``--robo`` are
     ignored here — they are consumed by :func:`run`.
     """
     default_host = '127.0.0.1'
     default_port = 5000
 
-    # Ignore option flags (--sim/--real); only positional host/port remain.
+    # Ignore option flags (--sim/--robo); only positional host/port remain.
     positional = [a for a in sys.argv[1:] if not a.startswith("--")]
     if len(positional) == 2:
         host = positional[0]
@@ -174,7 +174,7 @@ def cleanup():
 def run(argv=None):
     """Parse arguments, select the mode and run the event loop.
 
-    ``--sim``/``--real`` select the mode directly; without them the mode
+    ``--sim``/``--robo`` select the mode directly; without them the mode
     selection dialog is shown. With the control panel enabled (``.env``),
     the loop is ``qasync.run`` (Qt + asyncio in one thread); otherwise a
     plain ``asyncio.run`` is sufficient. Returns a process exit code.
@@ -185,7 +185,7 @@ def run(argv=None):
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--sim', action='store_true',
                        help='start in simulation mode (skip the mode dialog)')
-    group.add_argument('--real', action='store_true',
+    group.add_argument('--robo', action='store_true',
                        help='start in real-hardware mode (skip the mode dialog)')
     group.add_argument('--manual', action='store_true',
                        help='start in manual mode: real hardware, no robot '
@@ -212,14 +212,14 @@ def run(argv=None):
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
 
-    if args.sim or args.real or args.manual or args.training:
+    if args.sim or args.robo or args.manual or args.training:
         is_simulation = args.sim
         is_manual = args.manual
         is_training = args.training
         manage_relay = args.manage_relay
         mode = ('training' if is_training else
                 ('manual' if is_manual else
-                 ('simulation' if is_simulation else 'real')))
+                 ('simulation' if is_simulation else 'robo')))
         print(f"Mode: {mode}")
     else:
         # Create and show our custom dialog

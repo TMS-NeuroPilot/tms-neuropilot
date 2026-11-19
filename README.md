@@ -17,7 +17,7 @@ neuropilot                      # GUI: choose simulated or real
 neuropilot sim                  # simulated stack, one command
 neuropilot sim --components relay,robot    # subset for debugging
 neuropilot controller --sim     # controller alone in simulation mode
-neuropilot real [--launch-relay]           # real-hardware mode
+neuropilot robo [--launch-relay]           # robotic mode
 ```
 
 `neuropilot sim` starts, in order: simulated relay → virtual neuronavigation

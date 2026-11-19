@@ -34,7 +34,7 @@ The controller sets `manual = True`, which:
 
 ## The workflow
 
-1. Make the relay and InVesalius available as in real mode; `neuropilot manual`
+1. Make the relay and InVesalius available as in robo mode; `neuropilot manual`
    starts them automatically when configured.
 2. Start the controller: `neuropilot manual`.
 3. Load the project.
@@ -64,7 +64,7 @@ placement; the operator's job is to reach it within tolerance.
   the contact.
 - **No free-drive / objective messages.** The `Enable free drive` button on the
   Control page has no effect in manual mode.
-- **The robot view is empty.** There is no simulated robot in real modes; the
+- **The robot view is empty.** There is no simulated robot in robo modes; the
   Control page shows no 3-D arm.
 
 ## When to use it

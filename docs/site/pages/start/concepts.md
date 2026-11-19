@@ -90,7 +90,7 @@ peers changes:
 | Mode | Neuronavigation | Robot | Stimulator | EMG |
 |---|---|---|---|---|
 | `sim` | virtual (`sim_nav`) | virtual MuJoCo (`sim_robot`) | virtual | virtual |
-| `real` | InVesalius | your robot via `tms-robot-control` | your stimulator via `magicpy` | your EMG PC's share |
+| `robo` | InVesalius | your robot via `tms-robot-control` | your stimulator via `magicpy` | your EMG PC's share |
 | `manual` | InVesalius | none: the operator moves the coil | your stimulator | your EMG PC |
 | `training` | InVesalius | none: the operator moves the coil | your stimulator | virtual, driven by the E-field |
 

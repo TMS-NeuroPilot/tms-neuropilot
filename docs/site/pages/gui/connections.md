@@ -87,10 +87,10 @@ is left alone.
 ## Real mode order
 
 1. Relay: `python relay_server.py 5000`, or let the controller start it with
-   `neuropilot real --launch-relay`.
+   `neuropilot robo --launch-relay`.
 2. InVesalius (with the remote-control server).
 3. `main_loop.py`.
-4. The controller: `neuropilot real` (or `--launch-relay`, which also starts
+4. The controller: `neuropilot robo` (or `--launch-relay`, which also starts
    the relay).
 
 If the robot card is red with a connection message, check that `main_loop.py` is

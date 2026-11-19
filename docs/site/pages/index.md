@@ -12,7 +12,7 @@ online analysis, InVesalius neuronavigation and a complete virtual twin.</p>
 </div>
 
 TMS NeuroPilot guides the experimenter through a mapping experiment: the coil is
-held by hand (manual mode) or by a TMS robot (real mode, via
+held by hand (manual mode) or by a TMS robot (robo mode, via
 [tms-robot-control](https://gitlab.gwdg.de/tms-localization/cobot/tms-robot-control)),
 while the software collects the EMG responses and runs element-wise mapping
 analyses online.

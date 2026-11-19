@@ -539,8 +539,8 @@ def _with_invesalius(components, invesalius):
     return components
 
 
-def real_stack(with_relay=False, invesalius=None):
-    args = ["--real"] + (["--manage-relay"] if with_relay else [])
+def robo_stack(with_relay=False, invesalius=None):
+    args = ["--robo"] + (["--manage-relay"] if with_relay else [])
     return _with_invesalius([
         Component("controller", "neuropilot.controller", args,
                   wait_ready=None)
@@ -565,5 +565,5 @@ def training_stack(with_relay=False, invesalius=None):
     ], invesalius)
 
 
-def real_controller(with_relay=False, invesalius=None):
-    return real_stack(with_relay=with_relay, invesalius=invesalius)
+def robo_controller(with_relay=False, invesalius=None):
+    return robo_stack(with_relay=with_relay, invesalius=invesalius)

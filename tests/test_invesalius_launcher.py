@@ -155,12 +155,12 @@ def test_saving_the_selection_writes_lab_keys(tmp_path, monkeypatch):
     assert "INVESALIUS_LAUNCH: auto" in text
 
 
-def test_real_stack_adds_invesalius_before_the_controller_starts(
+def test_robo_stack_adds_invesalius_before_the_controller_starts(
         tmp_path, monkeypatch):
     env, checkout = _fake_env(tmp_path)
     spec = il.spec_for_env(env)
     assert spec is not None
-    components = supervisor.real_stack(invesalius=spec)
+    components = supervisor.robo_stack(invesalius=spec)
     assert [c.name for c in components] == ["controller", "invesalius"]
     launch = components[1]
     assert launch.wait_for_port is True
@@ -236,7 +236,7 @@ def test_cli_real_no_invesalius_skips_discovery(monkeypatch):
         lambda **kwargs: seen.update(kwargs) or None)
     monkeypatch.setattr(cli, "_run", lambda components: seen.update(
         components=[c.name for c in components]))
-    assert cli.main(["real", "--no-invesalius"]) == 0
+    assert cli.main(["robo", "--no-invesalius"]) == 0
     assert seen["no_invesalius"] is True
     assert seen["components"] == ["controller"]
 
@@ -252,7 +252,7 @@ def test_cli_real_passes_an_invesalius_override(monkeypatch, tmp_path):
     monkeypatch.setattr(cli, "_run", lambda components: seen.update(
         components=[c.name for c in components]))
     path = str(tmp_path / "invesalius")
-    assert cli.main(["real", "--invesalius", path]) == 0
+    assert cli.main(["robo", "--invesalius", path]) == 0
     assert seen["override"] == path
 
 
@@ -264,8 +264,8 @@ def test_cli_real_manages_a_configured_relay(monkeypatch):
     monkeypatch.setattr(cli, "_resolve_invesalius", lambda **kwargs: None)
     monkeypatch.setattr(cli, "_run", lambda components: seen.update(
         components=components))
-    assert cli.main(["real", "--no-invesalius"]) == 0
-    assert seen["components"][0].args == ["--real", "--manage-relay"]
+    assert cli.main(["robo", "--no-invesalius"]) == 0
+    assert seen["components"][0].args == ["--robo", "--manage-relay"]
 
 
 def test_cli_real_aborts_when_relay_setup_fails(monkeypatch):
@@ -274,7 +274,7 @@ def test_cli_real_aborts_when_relay_setup_fails(monkeypatch):
     monkeypatch.setattr(cli, "_prepare_relay", lambda **kwargs: None)
     monkeypatch.setattr(cli, "_run",
                         lambda components: pytest.fail("must not start"))
-    assert cli.main(["real", "--no-invesalius"]) == 1
+    assert cli.main(["robo", "--no-invesalius"]) == 1
 
 
 def test_cli_sim_never_resolves_invesalius(monkeypatch):

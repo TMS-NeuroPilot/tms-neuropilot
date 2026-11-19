@@ -5,7 +5,8 @@ the relay protocol and the analysis; they differ only in who provides the
 robot, the neuronavigation, the stimulator and the EMG.
 
 Run `neuropilot` with no arguments to choose a mode in the selector, or start a
-mode directly with `neuropilot sim`, `real`, `manual` or `training`.
+mode directly with `neuropilot sim`, `neuropilot robo`, `neuropilot manual` or
+`neuropilot training`.
 
 <figure>
   <img src="assets/diagrams/run-modes.svg" alt="The four run modes and the processes each one starts.">
@@ -17,9 +18,9 @@ mode directly with `neuropilot sim`, `real`, `manual` or `training`.
 
 ## Comparison
 
-| | `sim` | `real` | `manual` | `training` |
+| | `sim` | `robo` | `manual` | `training` |
 |---|---|---|---|---|
-| Command | `neuropilot sim` | `neuropilot real` | `neuropilot manual` | `neuropilot training` |
+| Command | `neuropilot sim` | `neuropilot robo` | `neuropilot manual` | `neuropilot training` |
 | Relay | `sim_relay` (started) | production `relay_server.py` | production `relay_server.py` | production `relay_server.py` |
 | Neuronavigation | virtual (`sim_nav`) | InVesalius + your tracker | InVesalius + your tracker | InVesalius + your tracker |
 | Robot | virtual MuJoCo (`sim_robot`) | your robot via `tms-robot-control` | **none**: operator moves the coil | **none**: operator moves the coil |
@@ -34,7 +35,8 @@ robot driver in `tms-robot-control`, the stimulator driver `magicpy`, and the
 SMB share of your EMG acquisition. Any device that speaks those interfaces
 works the same way.
 
-`real`, `manual`, and `training` start a local InVesalius automatically when a
+`neuropilot robo`, `neuropilot manual` and `neuropilot training` start a local
+InVesalius automatically when a
 launcher is configured. `sim` uses the virtual neuronavigation and does not
 start InVesalius. The launcher settings and discovery are described in the
 [lab profile reference](config/lab.md).
@@ -67,7 +69,7 @@ Use it to:
 ## Real
 
 ```bash
-neuropilot real
+neuropilot robo
 ```
 
 The controller connects to the relay and expects the other roles to be
@@ -75,10 +77,10 @@ running. Start order on the lab PC:
 
 ```bash
 python main_loop.py                          # 1. robot driver
-neuropilot real                              # 2. controller + relay + InVesalius
+neuropilot robo                              # 2. controller + relay + InVesalius
 ```
 
-`neuropilot real` starts the production relay automatically when
+`neuropilot robo` starts the production relay automatically when
 `TMS_ROBOT_CONTROL_PATH` is configured and no relay is already running. If the
 path is missing, it asks for the `tms-robot-control` checkout and saves it. It
 then starts a local InVesalius after the relay is reachable. InVesalius uses the
@@ -103,7 +105,7 @@ accepted for compatibility; a configured relay is now automatic.
 neuropilot manual
 ```
 
-Everything of real mode except the robot. The experimenter holds the coil;
+Everything of robo mode except the robot. The experimenter holds the coil;
 InVesalius tracks it and starts automatically by default; the controller waits
 for *Coil at target* exactly as it does with the robot. The robot card
 disappears from the Connections page and the Start gate no longer waits for a
@@ -152,7 +154,7 @@ neuropilot
 ```
 
 opens the mode selector. The chosen mode is what the controller starts in; it
-is a launcher, not a setting. For real, manual and training, the selector also
+is a launcher, not a setting. For robo, manual and training, the selector also
 checks the relay and prompts for the `tms-robot-control` path if needed. The
 InVesalius picker offers **Select environment**, **Is started** for an external
 instance, and **Cancel**.

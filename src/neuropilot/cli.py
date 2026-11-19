@@ -3,7 +3,7 @@
     neuropilot                  GUI mode selector (simulated vs real vs manual)
     neuropilot sim              full simulated stack
     neuropilot sim --components relay,robot    subset (debug)
-    neuropilot controller [--sim|--real|--manual]  controller only
+    neuropilot controller [--sim|--robo|--manual]  controller only
     neuropilot relay            simulated relay only
     neuropilot real [--launch-relay]           real mode (optionally + real relay)
     neuropilot manual [--launch-relay]         manual mode: no robot
@@ -117,17 +117,17 @@ def main(argv=None):
     ctrl = sub.add_parser("controller", help="start the controller only")
     mode = ctrl.add_mutually_exclusive_group()
     mode.add_argument("--sim", action="store_true", help="simulation mode")
-    mode.add_argument("--real", action="store_true", help="real-hardware mode")
+    mode.add_argument("--robo", action="store_true", help="robotic mode")
     mode.add_argument("--manual", action="store_true",
                       help="manual mode: real hardware, no robot")
     mode.add_argument("--training", action="store_true",
                       help="training mode: real TMS, virtual EMG, no robot")
     _add_invesalius_options(ctrl)
 
-    real = sub.add_parser("real", help="real-hardware mode")
-    real.add_argument("--launch-relay", action="store_true",
+    robo = sub.add_parser("robo", help="robotic mode")
+    robo.add_argument("--launch-relay", action="store_true",
                       help="compatibility flag; a configured relay is started automatically")
-    _add_invesalius_options(real)
+    _add_invesalius_options(robo)
 
     manual = sub.add_parser("manual", help="manual mode: real hardware, no robot")
     manual.add_argument("--launch-relay", action="store_true",
@@ -157,7 +157,7 @@ def main(argv=None):
         if args.sim:
             _run(supervisor.sim_stack(["controller"]))
             return 0
-        if not (args.real or args.manual or args.training):
+        if not (args.robo or args.manual or args.training):
             _run(supervisor.controller_with_dialog())
             return 0
         manage = _prepare_relay(gui=startup.gui_available())
@@ -167,8 +167,8 @@ def main(argv=None):
             no_invesalius=args.no_invesalius,
             override=args.invesalius,
         )
-        if args.real:
-            _run(supervisor.real_controller(with_relay=manage,
+        if args.robo:
+            _run(supervisor.robo_controller(with_relay=manage,
                                             invesalius=spec))
         elif args.manual:
             _run(supervisor.manual_stack(with_relay=manage,
@@ -178,11 +178,11 @@ def main(argv=None):
                                            invesalius=spec))
         return 0
 
-    if args.command in ("manual", "training", "real"):
+    if args.command in ("manual", "training", "robo"):
         stack = {
             "manual": supervisor.manual_stack,
             "training": supervisor.training_stack,
-            "real": supervisor.real_stack,
+            "robo": supervisor.robo_stack,
         }[args.command]
         manage = _prepare_relay(gui=startup.gui_available())
         if manage is None:
@@ -213,7 +213,7 @@ def main(argv=None):
             _run(supervisor.training_stack(with_relay=manage,
                                            invesalius=spec))
         else:
-            _run(supervisor.real_stack(with_relay=manage,
+            _run(supervisor.robo_stack(with_relay=manage,
                                        invesalius=spec))
     return 0
 

@@ -14,7 +14,7 @@ study) and **Subject** (files, per subject session).
 | `ROOT_FOLDER` | data folder (results, plots, caches) | Lab |
 | `NEUROPILOT_UI_SCALE` | force the GUI scale (default: from the screen) | Lab |
 | `ROBOT` | simulated robot model (`omron` …) | Lab |
-| `TMS_ROBOT_CONTROL_PATH` | checkout used by `neuropilot real --launch-relay` | Lab |
+| `TMS_ROBOT_CONTROL_PATH` | checkout used by `neuropilot robo --launch-relay` | Lab |
 | `STIMULATOR_PORT`, `STIMULATOR_TTL_PORT` | MagVenture serial + parallel port | Lab |
 | `EMG_COMPUTER_IP`, `EMG_COMPUTER_USERNAME`, `EMG_COMPUTER_PASSWORD`, `EMG_CONNECT_TIMEOUT_S` | CED 1401 / Signal SMB share and its connect timeout | Lab |
 | `ONLINE_FEM_SOLVER`, `ONLINE_FEM_ANISOTROPY` | OnlineFEM solver + anisotropy | Lab |

@@ -18,7 +18,7 @@ the map: what each process owns, how they start, and where the code lives.
 | **neuronavigation** | `neuropilot.sim_nav` | `python -m neuropilot.sim_nav` | virtual InVesalius: markers, tracking, tolerance |
 | **robot** | `neuropilot.sim_robot` | `python -m neuropilot.sim_robot` | MuJoCo scene, IK, collision, force feedback, camera |
 
-In real mode the last two (and the relay) are replaced by InVesalius, the robot
+In robo mode the last two (and the relay) are replaced by InVesalius, the robot
 controller and the production relay; the controller does not change.
 
 ## Startup and readiness

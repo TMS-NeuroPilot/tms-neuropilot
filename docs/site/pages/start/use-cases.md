@@ -6,7 +6,7 @@ changes. This page maps the modes to the ways teams use the suite.
 
 | Use case | Coil | Neuronavigation | Stimulator | MEP | Command |
 |---|---|---|---|---|---|
-| [Real experiment, robot](#real-experiment) | robot | InVesalius | real | real EMG | `neuropilot real` |
+| [Real experiment, robot](#real-experiment) | robot | InVesalius | real | real EMG | `neuropilot robo` |
 | [Real experiment, manual](#real-experiment) | operator | InVesalius | real | real EMG | `neuropilot manual` |
 | [Virtual experiment](#virtual-experiment) | virtual robot | `sim_nav` | virtual | virtual EMG | `neuropilot sim` |
 | [Operator training](#operator-training) | operator | InVesalius | real | virtual EMG | `neuropilot training` |
@@ -21,7 +21,7 @@ records the response. TMS NeuroPilot runs the mapping loop and analyses each pul
 Use the robot when the coil must be held precisely for many placements:
 
 ```bash
-neuropilot real
+neuropilot robo
 ```
 
 Use manual mode when the operator holds the coil, when the robot is unavailable,
@@ -79,7 +79,7 @@ neuropilot training
 ```
 
 No robot driver and no EMG PC are needed. `--launch-relay` starts the production
-relay from `TMS_ROBOT_CONTROL_PATH` as in real mode.
+relay from `TMS_ROBOT_CONTROL_PATH` as in robo mode.
 
 ### E-field and sources
 
@@ -117,7 +117,7 @@ synthetic MEP scales with it.
   coil temperature, duty cycle and the stimulator's own limits; the sound and
   the coil movement are real, the MEP is not.
 - The operator follows the same *Coil at target* gate as in manual mode. The
-  robot is not used in training; use real mode with a real EMG for robot
+  robot is not used in training; use robo mode with a real EMG for robot
   positioning.
 
 !!! note "Training is manual"

@@ -22,10 +22,10 @@ for the first time while a subject is in the chair.
 
 ## One hour before
 
-- [ ] Production relay available. `neuropilot real` starts it automatically when `TMS_ROBOT_CONTROL_PATH` is configured and no relay is running; otherwise it asks for the checkout.
+- [ ] Production relay available. `neuropilot robo` starts it automatically when `TMS_ROBOT_CONTROL_PATH` is configured and no relay is running; otherwise it asks for the checkout.
 - [ ] InVesalius available. It starts automatically by default; press **Is started** if it runs on another machine, or use `--no-invesalius`.
 - [ ] Robot driver running: `python main_loop.py`.
-- [ ] Controller running: `neuropilot real` (or `neuropilot real --launch-relay`, kept for compatibility).
+- [ ] Controller running: `neuropilot robo` (or `neuropilot robo --launch-relay`, kept for compatibility).
 - [ ] **Connections** page: relay, stimulator, EMG and robot all green.
 - [ ] **Project** page: the project loads without an error dialog.
 - [ ] **Cortical results**: the mesh is displayed and the coil model is loaded.
@@ -33,7 +33,7 @@ for the first time while a subject is in the chair.
 - [ ] The robot's force sensor shows a reading (touch it once if the robot side says `Awaiting valid pressure data`).
 
 !!! note "One command, with explicit hardware"
-    `neuropilot sim` starts all four simulated peers. In real mode TMS NeuroPilot
+    `neuropilot sim` starts all four simulated peers. In robo mode TMS NeuroPilot
     starts the controller, the production relay when it is configured, and a
     local InVesalius. The Relay card can also start or restart a relay that
     TMS NeuroPilot owns. `main_loop.py` remains a separate application and must be

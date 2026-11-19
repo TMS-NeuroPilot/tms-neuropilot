@@ -83,7 +83,7 @@ The relay is `relay_server.py` from `tms-robot-control`; with
 TMS_ROBOT_CONTROL_PATH=/opt/tms-robot-control
 ```
 
-`neuropilot real` starts and manages it automatically when the checkout is
+`neuropilot robo` starts and manages it automatically when the checkout is
 configured; the Relay card on Connections can start or restart it. For a dry
 run without hardware, `neuropilot relay` starts the simulated relay instead.
 
@@ -213,7 +213,7 @@ python app.py --remote-host http://relay.lab.example:5000
 python main_loop.py
 
 # 4. controller
-neuropilot real
+neuropilot robo
 ```
 
 Then:

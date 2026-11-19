@@ -310,7 +310,7 @@ def run_modes():
             "relay        sim_relay", "navigation   sim_nav",
             "robot        sim_robot", "stimulator   virtual",
             "EMG          virtual"], OK_SOFT, OK),
-        ("Real", "neuropilot real", [
+        ("Robo", "neuropilot robo", [
             "relay        production", "navigation   InVesalius",
             "robot        your robot", "stimulator   your stimulator",
             "EMG          your EMG PC"], BLUE_SOFT, BLUE),
