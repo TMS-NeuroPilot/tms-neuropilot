@@ -29,7 +29,7 @@ class ModeSelectionDialog(QDialog):
         self.setWindowTitle("TMS NeuroPilot")
         # to remove the '?' button
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
-        self.setFixedSize(760, 340)
+        self.setFixedSize(760, 350)
         # Set a clean white background for the dialog
         self.setStyleSheet("QDialog { background-color: #ffffff; }")
 
@@ -65,14 +65,14 @@ class ModeSelectionDialog(QDialog):
                 outline: none; /* Kills the native Linux focus glow */
                 border-radius: 10px;
                 padding: 16px 24px;
-                font-size: 18px;
+                font-size: 22px;
                 font-weight: 600;
                 font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
             }
         """
         for button in (self.btn_sim, self.btn_real,
                        self.btn_manual, self.btn_training):
-            button.setMinimumHeight(70)
+            button.setMinimumHeight(76)
             button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         # Stimulation Button Style (Blue theme)
