@@ -14,7 +14,7 @@ Created on Tue Apr  7 14:05:32 2026
 
 import sys
 from PyQt5.QtWidgets import (QApplication, QDialog, QVBoxLayout, QGridLayout,
-                             QLabel, QPushButton)
+                             QLabel, QPushButton, QSizePolicy)
 from PyQt5.QtCore import Qt
 
 
@@ -26,46 +26,36 @@ class ModeSelectionDialog(QDialog):
 
     def init_ui(self):
         # 1. Window Setup
-        self.setWindowTitle("Experiment Setup")
+        self.setWindowTitle("TMS NeuroPilot")
         # to remove the '?' button
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
-        self.setFixedSize(700, 310)
+        self.setFixedSize(760, 340)
         # Set a clean white background for the dialog
         self.setStyleSheet("QDialog { background-color: #ffffff; }")
 
         # 2. Main Layout
         layout = QVBoxLayout()
-        layout.setContentsMargins(40, 30, 40, 30)  # Generous padding for a breathable UI
-        layout.setSpacing(15)
+        layout.setContentsMargins(48, 36, 48, 36)
+        layout.setSpacing(24)
 
-        # 3. Typography (Title and Subtitle)
-        title = QLabel("Select Execution Mode")
+        # 3. Typography
+        title = QLabel("Select mode:")
         title.setAlignment(Qt.AlignCenter)
         title.setStyleSheet("""
-            font-size: 20px; 
-            font-weight: bold; 
-            color: #2c3e50; 
+            font-size: 26px;
+            font-weight: bold;
+            color: #2c3e50;
             font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
-        """)
-
-        subtitle = QLabel("How would you like to run the experiment?")
-        subtitle.setAlignment(Qt.AlignCenter)
-        subtitle.setStyleSheet("""
-            font-size: 14px; 
-            color: #7f8c8d; 
-            font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
-            margin-bottom: 10px;
         """)
 
         # 4. Buttons Layout
         btn_layout = QGridLayout()
-        btn_layout.setSpacing(15)
+        btn_layout.setSpacing(18)
 
-        # Create Buttons with Emojis for quick visual scanning
-        self.btn_sim = QPushButton("🖥️  Simulation")
-        self.btn_real = QPushButton("⚙️  Real Hardware")
-        self.btn_manual = QPushButton("🖐️  Manual (no robot)")
-        self.btn_training = QPushButton("🎓  Training (real TMS)")
+        self.btn_sim = QPushButton("Stimulation")
+        self.btn_real = QPushButton("Robotic TMS")
+        self.btn_manual = QPushButton("Manual TMS")
+        self.btn_training = QPushButton("Training")
 
         # Base button style with smooth transitions
         base_btn_style = """
@@ -73,22 +63,26 @@ class ModeSelectionDialog(QDialog):
                 color: white;
                 border: none;
                 outline: none; /* Kills the native Linux focus glow */
-                border-radius: 8px;
-                padding: 12px 20px;
-                font-size: 14px;
+                border-radius: 10px;
+                padding: 16px 24px;
+                font-size: 18px;
                 font-weight: 600;
                 font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
             }
         """
+        for button in (self.btn_sim, self.btn_real,
+                       self.btn_manual, self.btn_training):
+            button.setMinimumHeight(70)
+            button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-        # Simulation Button Style (Blue theme)
+        # Stimulation Button Style (Blue theme)
         self.btn_sim.setStyleSheet(base_btn_style + """
             QPushButton { background-color: #3498db; }
             QPushButton:hover { background-color: #2980b9; }
             QPushButton:pressed { background-color: #1c5980; }
         """)
 
-        # Real Hardware Button Style (Green theme)
+        # Robotic TMS Button Style (Green theme)
         self.btn_real.setStyleSheet(base_btn_style + """
             QPushButton { background-color: #2ecc71; }
             QPushButton:hover { background-color: #27ae60; }
@@ -96,7 +90,7 @@ class ModeSelectionDialog(QDialog):
             QPushButton:focus { background-color: #2ecc71; } /* Matches base color so it doesn't shift */
         """)
 
-        # Manual Button Style (Orange theme)
+        # Manual TMS Button Style (Orange theme)
         self.btn_manual.setStyleSheet(base_btn_style + """
             QPushButton { background-color: #e67e22; }
             QPushButton:hover { background-color: #d35400; }
@@ -125,7 +119,6 @@ class ModeSelectionDialog(QDialog):
         btn_layout.addWidget(self.btn_training, 1, 1)
 
         layout.addWidget(title)
-        layout.addWidget(subtitle)
         layout.addLayout(btn_layout)
 
         self.setLayout(layout)
