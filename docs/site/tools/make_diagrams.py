@@ -312,6 +312,47 @@ def state_machine():
     return svg(1040, 360, "".join(b), "Controller state machine")
 
 
+def state_machine_vertical():
+    """Vertical variant of the controller state machine."""
+    b = [multiline(280, 30, ["The controller state machine"], 17, "700")]
+    nodes = {
+        "INIT": (170, 70), "SEND_MARKER": (170, 150),
+        "START_TRACKING": (170, 230), "WAIT": (170, 310),
+        "FIRE": (170, 390), "COLLECT": (170, 470),
+        "ANALYSE": (170, 550), "COMPLETE": (170, 630),
+    }
+    w, h = 220, 56
+    fills = {"COMPLETE": (OK_SOFT, OK), "WAIT": (ACCENT_SOFT, ACCENT)}
+    for name, (x, y) in nodes.items():
+        fill, stroke = fills.get(name, (FILL, LINE))
+        label_text = {"WAIT": "WAIT_FOR_TARGET"}.get(name, name)
+        b.append(box(x, y, w, h, [label_text], fill, stroke, 12))
+
+    # Main flow: straight down the middle.
+    for y in (126, 206, 286, 366, 446, 526, 606):
+        b.append(arrow(280, y, 280, y + 24))
+
+    # The next-target loop runs down the left side and re-enters SEND_MARKER.
+    b.append(arrow(280, 686, 280, 720, head=False))
+    b.append(arrow(280, 720, 70, 720, head=False))
+    b.append(arrow(70, 720, 70, 178, head=False))
+    b.append(arrow(70, 178, 168, 178))
+    b.append(label(185, 742, "next target"))
+
+    # Skip / Next leaves WAIT and completes the current target.
+    b.append(arrow(390, 338, 470, 338, head=False))
+    b.append(arrow(470, 338, 470, 658, head=False))
+    b.append(arrow(470, 658, 392, 658))
+    b.append(text(482, 500, "SKIP / Next", 11, "600", DANGER, "start"))
+
+    b.append(label(292, 464, "fire"))
+    b.append(note(280, 796,
+                  "Finish, Skip and Next work even when a system is in", 12))
+    b.append(note(280, 814,
+                  "error; the health gate only blocks the work steps.", 12))
+    return svg(560, 840, "".join(b), "Controller state machine (vertical)")
+
+
 def config_precedence():
     layers = [
         ("Shell environment", "one-off overrides", DANGER_SOFT, DANGER),
@@ -351,6 +392,7 @@ FIGURES = {
     "run-modes": run_modes,
     "efield-modes": efield_modes,
     "state-machine": state_machine,
+    "state-machine-vertical": state_machine_vertical,
     "config-precedence": config_precedence,
 }
 
