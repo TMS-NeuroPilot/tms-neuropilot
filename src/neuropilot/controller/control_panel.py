@@ -1754,6 +1754,10 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         self._about_links = []
         page = QtWidgets.QWidget()
+        # Runtime-created tab page: use the themed canvas rather than the
+        # Fusion default window colour (visible in dark themes).
+        page.setProperty("page", True)
+        page.setAttribute(QtCore.Qt.WA_StyledBackground, True)
         page_layout = QtWidgets.QVBoxLayout(page)
         page_layout.setContentsMargins(0, 0, 0, 0)
         # A scroll area keeps every card readable on smaller windows instead
