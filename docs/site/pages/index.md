@@ -25,7 +25,8 @@ guide the coil across many placements, controls the stimulator, and uses
 [SimNIBS](https://simnibs.github.io/simnibs/) for online E-field calculations.
 Experiments can use different optimization schemes, for example
 FPS ([Schultheiss et al., 2025](https://doi.org/10.1162/IMAG.a.1056)) or
-D-optimal ([Numssen, Qiu et al., 2026](https://doi.org/10.64898/2026.10.24.761539)),
+D-optimal ([Qiu et al., 2026](https://doi.org/10.1162/IMAG.a.1446);
+[Numssen, Qiu et al., 2026](https://doi.org/10.64898/2026.10.24.761539)),
 and the analysis
 runs online; single trials can be excluded by hand and the full data set
 exported. The software is open source and can be adapted to local hardware,
