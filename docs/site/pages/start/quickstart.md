@@ -1,9 +1,8 @@
 # Quick start
 
-This page takes you from a fresh clone to a running simulated mapping session.
-It needs no hardware and no subject data. With the `neuropilot` environment
-already in place it takes about ten minutes; creating that environment the first
-time takes longer.
+From a fresh clone to a running simulated mapping session. No hardware and no
+subject data are needed. The installation is one command; the manual recipe,
+the Windows notes and the optional components are one link away.
 
 !!! abstract "What you will have at the end"
     The simulated stack running in one terminal (relay, virtual
@@ -22,70 +21,61 @@ git clone https://gitlab.gwdg.de/tms-localization/papers/neuropilot.git
 cd neuropilot
 ```
 
-## 2. Create the environment
+The example subject under `data/ernie` is stored in Git LFS:
 
 ```bash
-conda create -n neuropilot python=3.11 -y
-conda activate neuropilot
-python --version          # must be 3.11.x
-conda install -c conda-forge -y pyqt qasync pyvista vtk h5py scipy numpy \
-    pyyaml requests python-socketio aiohttp python-dotenv
-pip install mujoco pybullet ikpy smbprotocol pynibs
+git lfs pull
 ```
 
-These are the packages the GUI, the 3-D view, the relay, the analysis and the
-virtual robot need. If the `neuropilot` environment already exists, activate it
-and skip the create/install lines.
-
-SimNIBS is not needed to run the simulator or the precomputed mapping mode. It
-is needed for the online solver and for displaying a SimNIBS `.msh` head mesh;
-the bundled example uses a `.msh` head mesh, so install SimNIBS if you want the
-head anatomy as well as the ROI surface. [Install the suite](install/install.md)
-has the recipe.
-
-InVesalius is not part of this environment: it is a separate application for
-real and manual sessions, covered in [Install the suite](install/install.md)
-under *InVesalius*.
-
-## 3. Install TMS NeuroPilot
+## 2. Install with one command
 
 ```bash
-pip install -e . --no-deps
+scripts/install.sh
 ```
 
-`--no-deps` is deliberate: the heavy dependencies (PyQt5, pyvista, pynibs,
-MuJoCo) are already installed in the environment. The package itself installs
-the `neuropilot` command and the package under `src/`.
+The only prerequisite is conda (miniforge or miniconda) on the PATH. The script
 
-Check that the command is on the path:
+1. creates `.env` from `.env.example` if it is missing,
+2. creates the conda environment `neuropilot` from `environment.yml`, or reuses
+   it when it already exists,
+3. installs TMS NeuroPilot in editable mode (`pip install -e . --no-deps`),
+4. installs the MKL build that the SimNIBS solver wheel links against, and
+   repairs the library search path where the wheel expects the older sonames,
+5. verifies that every required module imports and stops with the failing
+   import instead of leaving a half-working environment.
 
-```bash
-neuropilot --help
-```
+| Flag | Effect |
+|---|---|
+| `--env-name NAME` | use a different conda environment |
+| `--with-invesalius` | also create the `invesalius` environment (real, manual and training sessions) |
+| `--with-robot-control` | also clone the robot-control fork (real sessions) |
 
-```text
-usage: neuropilot [-h] {sim,relay,controller,real,manual,training} ...
-```
+The virtual stack and the precomputed mapping mode run without SimNIBS; the
+online E-field mode and the display of SimNIBS head meshes need it.
+`--with-invesalius` is only needed when the neuronavigation is real.
 
-## 4. Create the bootstrap configuration
+!!! info "Manual installation"
+    [Install the suite](install/install.md) has the step-by-step recipe: the
+    exact conda and pip commands, Windows, SimNIBS and its solver, InVesalius,
+    the desktop entry, updating and resetting.
 
-```bash
-cp .env.example .env
-```
+## 3. Bootstrap configuration
 
-`.env` holds what must exist *before* the GUI opens: the relay endpoint, the
-data folder, the readiness timeout and the flag that enables the control panel.
-Every value in it has a working default, so for a simulator session you can
-leave it untouched. The full key list is in the
+`scripts/install.sh` already copied `.env.example` to `.env`. The file holds
+what must exist before the GUI opens: the relay endpoint, the data folder, the
+readiness timeout and the control-panel flag. Every value has a working
+default, so a simulator session needs no edit. The full key list is in the
 [`.env` reference](config/env.md).
 
 !!! note "Where does session data go?"
-    `ROOT_FOLDER` defaults to `~/.neuropilot` (Linux) or `C:\Users\<name>\.neuropilot` (Windows). Results, plots and the session
+    `ROOT_FOLDER` defaults to `~/.neuropilot` (Linux) or
+    `C:\Users\<name>\.neuropilot` (Windows). Results, plots and the session
     cache are written there.
 
-## 5. Start the simulated stack
+## 4. Start the simulated stack
 
 ```bash
+conda activate neuropilot
 neuropilot sim
 ```
 
@@ -113,6 +103,47 @@ one terminal, one Ctrl+C to stop everything.
     Expect 20–40 s before the controller window appears; later starts are
     faster. The readiness budget is `READINESS_TIMEOUT_S` (default 60 s).
 
+## 5. Prepare a subject with the three scripts
+
+A project needs the subject's head model, the ROI surface, the E-field library
+and the target order. Three scripts produce them in order, each reading the
+output of the one before:
+
+```bash
+# 1. Head model: MRI to SimNIBS mesh (charm), ROI surface in the mesh HDF5
+python scripts/01_create_head_model.py \
+    -s data/<subj>/<subj>.hdf5 \
+    -m mesh_<subj>_lincc \
+    --charm_ini scripts/configs/charm_410.ini
+
+# 2. Coil-placement library and ROI E-fields
+python scripts/02_create_roi_efield_library.py \
+    --mesh-msh data/<subj>/mesh/m2m_<subj>/<subj>.msh \
+    --roi-hdf5 data/<subj>/mesh/m2m_<subj>/<subj>.hdf5 \
+    --roi-idx midlayer_m1s1pmd \
+    --coil data/<subj>/coil/MagVenture_MCF-B65_new.ccd \
+    --out data/<subj>/efield/e.hdf5
+
+# 3. Optimized target order from the library
+python scripts/03_create_optimized_sequences.py \
+    --e-hdf5 data/<subj>/efield/e.hdf5 \
+    --n-stim 500
+```
+
+| Script | Input | Output | What it does |
+|---|---|---|---|
+| `01_create_head_model.py` | T1 (and T2, DWI if available) | `m2m_<subj>/<subj>.msh`, subject HDF5 | `charm` segmentation and meshing, anisotropic conductivity from the DWI, ROI surface in the mesh file |
+| `02_create_roi_efield_library.py` | head mesh, ROI, coil | `e.hdf5` | placement grid of scalp positions and handle rotations, one FEM solve per placement, design matrix with a hash over the ROI element order |
+| `03_create_optimized_sequences.py` | `e.hdf5` | one `*.txt` per algorithm | farthest-point, D-optimal and RBF-kernel D-optimal sequences |
+
+Two helpers complete the set: `03_validate_efield_surrogate.py` scores a library
+against the interpolation (random 80/20 and leave-positions-out split), and
+`04_export_efield_vtk_series.py` exports it as ParaView time series.
+`sort_coil_placements.py` reorders a sequence for minimal robot travel.
+
+The artefacts, their formats and what TMS NeuroPilot validates when it loads
+them are described in [Subject data](prepare/subject-data.md).
+
 ## 6. Load a mapping project
 
 The controller needs a project: the subject mesh, the coil placements, the
@@ -120,9 +151,8 @@ E-field library, the EMG sources and the output paths. Two ways to get one:
 
 === "Example subject (if you have it)"
 
-    The repository carries the SimNIBS example subject under `data/ernie`
-    through Git LFS. Run `git lfs pull` after cloning. Build a project file
-    whose paths are relative to the project:
+    The repository carries the SimNIBS example subject under `data/ernie`.
+    Build a project file whose paths are relative to the project:
 
     ```bash
     python docs/site/tools/make_demo_project.py
@@ -136,10 +166,9 @@ E-field library, the EMG sources and the output paths. Two ways to get one:
 
 === "Your own subject"
 
-    Prepare the head mesh, ROI surface, E-field library, placements and EMG
-    channels as described in [Prepare a session](prepare/subject-data.md), then
-    load the project file you saved. This is the path for a real session; the
-    simulator does not need hardware, but it does need a project.
+    Prepare the files with the three scripts above, add the EMG channel sources
+    and the coil model, and save the project file. This is the path for a real
+    session; the simulator does not need hardware, but it does need a project.
 
 Once loaded, the **Project** page shows every path and the **Cortical
 results** page has a mesh to draw on.
@@ -186,13 +215,14 @@ results** page has a mesh to draw on.
 
 | Symptom | First thing to try |
 |---|---|
-| `neuropilot: command not found` | `pip install -e . --no-deps` in the active `neuropilot` env |
+| `neuropilot: command not found` | `conda activate neuropilot`, then rerun `scripts/install.sh` |
+| `scripts/install.sh` fails on an import | The script prints the failing module; rerun it after fixing the environment, it is idempotent |
 | Controller window never appears | Check the last 30 lines of the terminal for a traceback; a missing `DISPLAY` is the usual cause on a remote machine |
 | `ROOT_FOLDER` permission error | `ROOT_FOLDER=/tmp/neuropilot_test neuropilot sim` |
 | MuJoCo window fails to open on Wayland | See `PYGLFW_LIBRARY` in [Troubleshooting](reference/troubleshooting.md) |
 | Port 5000 already in use | Something else is bound to it; stop it or set `RELAY_PORT` in `.env` |
 
-The full symptom → cause → fix table is in
+The full symptom, cause and fix table is in
 [Troubleshooting](reference/troubleshooting.md).
 
 ## Next
