@@ -148,7 +148,7 @@ def architecture():
 def mapping_loop():
     steps = [
         ("INIT", "Load project data"),
-        ("LOAD TARGET", None),
+        ("LOAD TARGET", "Load next target"),
         ("SEND MARKER", "to Neuronavigation"),
         ("START TRACKING", "robot / manual"),
         ("WAIT FOR TARGET REACHED", "Placement and force sensor ok"),
@@ -193,6 +193,7 @@ def mapping_loop_vertical():
     b = [multiline(320, 28, ["State Machine"], 17, "700")]
     details = {
         "INIT": "Load project data",
+        "LOAD TARGET": "Load next target",
         "SEND MARKER": "to Neuronavigation",
         "START TRACKING": "robot / manual",
         "WAIT FOR TARGET REACHED": "Placement and force sensor ok",
@@ -248,11 +249,11 @@ def mapping_loop_vertical():
                    *edge("COMPLETE", "top")))
 
     # Next target/repetition re-enters at LOAD TARGET around the right.
-    b.append(arrow(*edge("COMPLETE", "bottom"), 180, 600, head=False))
-    b.append(arrow(180, 600, 600, 600, head=False))
-    b.append(arrow(600, 600, 600, rows[0] + h / 2, head=False))
+    b.append(arrow(*edge("COMPLETE", "bottom"), 180, 575, head=False))
+    b.append(arrow(180, 575, 600, 575, head=False))
+    b.append(arrow(600, 575, 600, rows[0] + h / 2, head=False))
     b.append(arrow(600, rows[0] + h / 2, right + w + 2, rows[0] + h / 2))
-    b.append(label(380, 592, "next target / next repetition"))
+    b.append(label(380, 567, "next target / next repetition"))
 
     # SKIP leaves START TRACKING and completes the target.
     b.append(arrow(*edge("START TRACKING", "left"), 40,
@@ -263,7 +264,7 @@ def mapping_loop_vertical():
                    dashed=True))
     skip = text(55, 360, "SKIP", 11, "500", MUTED, "middle")
     b.append(skip.replace('text-anchor="middle"',
-                          'text-anchor="middle" transform="rotate(180 55 360)"'))
+                          'text-anchor="middle" transform="rotate(90 55 360)"'))
 
     b.append(note(320, 636,
                   "WAIT FOR TARGET REACHED needs coil-at-target + force +", 12))
