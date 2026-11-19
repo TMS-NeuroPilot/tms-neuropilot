@@ -20,7 +20,7 @@ data-driven localisation of the stimulated site, not a significance map.
 ## The loop
 
 <figure>
-  <img src="assets/diagrams/mapping-loop.svg" alt="The seven-step mapping loop: INIT, SEND_MARKER, START_TRACKING, WAIT_FOR_TARGET_REACHED, FIRE_STIM, COLLECT_DATA, ANALYSE, COMPLETE.">
+  <img src="assets/diagrams/mapping-loop.svg" alt="The mapping loop: INIT, LOAD TARGET, SEND MARKER, START TRACKING, WAIT FOR TARGET REACHED, FIRE TMS PULSE, COLLECT DATA, ANALYSE, COMPLETE.">
   <figcaption>One pulse is one pass through the loop. The E-field row for the
   pulse is chosen or computed while the robot is still moving, so the analysis
   has everything it needs when the EMG arrives.</figcaption>
