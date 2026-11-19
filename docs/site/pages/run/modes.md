@@ -158,7 +158,7 @@ InVesalius picker offers **Select environment**, **Is started** for an external
 instance, and **Cancel**.
 
 <figure>
-  <img src="assets/screenshots/mode-selector.png" alt="The TMS NeuroPilot mode selector with Stimulation, Robotic TMS, Manual TMS and Training buttons.">
+  <img src="assets/screenshots/mode-selector.png" alt="The TMS NeuroPilot mode selector with Simulation, Robotic TMS, Manual TMS and Training buttons.">
   <figcaption>Running <code>neuropilot</code> with no arguments opens the
   TMS NeuroPilot mode dialog. Robotic TMS, Manual TMS and Training modes start
   InVesalius automatically by default.</figcaption>
