@@ -22,7 +22,7 @@ project is loaded.
 
 ## Press Start
 
-The button becomes **Pause**. The first target appears in the status line:
+The first target appears in the status line:
 
 ```text
 pulse 0 · 1/1 · target 44

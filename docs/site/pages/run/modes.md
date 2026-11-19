@@ -172,9 +172,6 @@ instance, and **Cancel**.
 - the E-field modes, the regression and the exports,
 - the results CSV columns (robot-only fields are empty in manual and training).
 
-That is deliberate: a session rehearsed in the simulator exercises the same
-controller code that runs on the day.
-
 ## Next
 
 - [Use cases](start/use-cases.md)
