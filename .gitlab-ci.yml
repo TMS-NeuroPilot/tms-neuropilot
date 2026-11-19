@@ -25,6 +25,11 @@ variables:
   NEUROPILOT_ENV_FILE: "$CI_PROJECT_DIR/.ci-data/.env"
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
   PYTHONDONTWRITEBYTECODE: "1"
+  # The shared runner ran out of disk while archiving a successful test job.
+  # Keep the checkout and pip's download cache small: the wheels are fetched
+  # fast enough that a persistent cache is not worth the local disk cost.
+  GIT_DEPTH: "1"
+  PIP_NO_CACHE_DIR: "1"
 
 default:
   interruptible: true
@@ -83,6 +88,7 @@ test:
   # pynibs from the group's GitLab.
   script:
     - apt-get update -qq && apt-get install -y -qq git gfortran libmumps-dev libgl1 libglib2.0-0 libxkbcommon0 > /dev/null
+    - apt-get clean && rm -rf /var/lib/apt/lists/*
     - pip install -r requirements-ci.txt
     # The SimNIBS wheel declares petsc4py as a build dependency; with
     # isolation pip rebuilds it against numpy 2.x and fails.  The wheel from
@@ -96,12 +102,6 @@ test:
     - export LD_LIBRARY_PATH="$MKLLIB:$TBBLIB:${LD_LIBRARY_PATH:-}"
     - mkdir -p "$ROOT_FOLDER"
     - python3 -m pytest -m "not gui" -q --junitxml=report.xml
-  cache:
-    key: pip-ci
-    paths:
-      - .cache/pip
-  variables:
-    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   artifacts:
     when: always
     expire_in: 1 week
@@ -142,6 +142,9 @@ test:gui:
   stage: test
   when: manual
   allow_failure: true
+  # Debian-based image: the script uses bash; the shared Alpine default image
+  # has neither bash nor the lab conda env.
+  image: python:3.11
   before_script: []
   script:
     - PYTHON=$(bash scripts/ci-python.sh)
