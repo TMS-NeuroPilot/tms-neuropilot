@@ -478,7 +478,7 @@ def config_precedence():
 def hardware_setup():
     """Real Robo-TMS hardware: what runs where, and how the pieces are wired."""
     W, H = 1060, 650
-    b = [multiline(W / 2, 30, ["Robo-TMS hardware setup (real mode)"], 17, "700")]
+    b = [multiline(W / 2, 30, ["Robo-TMS hardware setup (robo mode)"], 17, "700")]
 
     # boxes
     b.append(box(40, 220, 310, 170, ["TMS NeuroPilot PC",

@@ -5,8 +5,20 @@ Nothing on this page is needed for the simulator. It explains how to connect
 needs, and how to check each one before a subject arrives.
 
 The suite does not assume a particular lab. One PC can host everything, or each
-piece can live on its own machine — what matters is that the relay is reachable
-from every peer and that the settings below point at the right devices.
+piece can live on its own machine; what matters is that the relay is reachable
+from every peer and that the settings below point at the right devices. The
+figure shows one complete setup; your lab will differ in detail, and
+[the trigger example](#an-example-one-trigger-two-consumers) at the end of
+section 7 states what the wiring has to guarantee.
+
+<figure>
+  <img src="assets/diagrams/hardware-setup.svg" alt="The hardware of a real session: control PC with the controller and the EMG client, relay, neuronavigation PC with the Polaris camera, robot PC, stimulator and EMG PC, with the serial, TTL and SMB wiring between them.">
+  <figcaption>The hardware of a real session. Relay topics run over IP; the
+  stimulator is controlled over serial and triggered over a parallel TTL line
+  that is split to the EMG acquisition; the stimulator's trigger output marks
+  the delivered pulse in the neuronavigation; the EMG PC writes one sweep file
+  per pulse to a share that the control PC reads over SMB.</figcaption>
+</figure>
 
 ## The pieces
 
@@ -106,6 +118,9 @@ On that PC:
    reference and coil.
 2. Run the registration and accept it.
 3. Confirm the coil is tracked and visible in the 3-D view.
+4. If the neuronavigation timestamps the delivered pulse, check that input. In
+   the reference setup the stimulator's trigger output is routed to this PC, and
+   the navigation records the coil pose at the pulse.
 
 The controller creates a marker per target and waits for *Coil at target*; it
 never talks to the camera directly.
@@ -166,7 +181,10 @@ use the TTL line.
 Set the devices in **Config › Lab** (or `STIMULATOR_PORT` /
 `STIMULATOR_TTL_PORT` in `.env`). USB-serial adapters usually appear as
 `/dev/ttyUSB0`; the parallel port may be `/dev/parport0` or a different device
-depending on the card. Use the stable `/dev/serial/by-id/...` path if the
+depending on the card. If the same trigger must also start the EMG acquisition,
+the stimulator has to delay the pulse after the trigger input; in the reference
+setup this delay is 0.5 s (see
+[the trigger example](#an-example-one-trigger-two-consumers)). Use the stable `/dev/serial/by-id/...` path if the
 adapter enumerates differently across reboots.
 
 !!! danger "Safety: test pulses"
@@ -194,6 +212,34 @@ the electrodes:
 ```bash
 smbclient //192.0.2.20/<share> -U <user>
 ```
+
+### An example: one trigger, two consumers
+
+The reference setup in the MPI lab solves the timing problem like this; any
+arrangement with the same properties works.
+
+1. The controller sends the fire command over the serial line (intensity, pulse
+   shape) and a TTL on the parallel port.
+2. The TTL is split: one branch goes to the stimulator's trigger input, the
+   other to the trigger input of the EMG acquisition (CED 1401).
+3. The stimulator is set to wait **0.5 s** after it receives the trigger before
+   it delivers the pulse. That delay is the head start of the EMG: the
+   acquisition is already running when the pulse arrives, so the sweep contains
+   the pre-activation window and the response.
+4. The stimulator's trigger output is a second TTL, sent when the pulse is
+   actually delivered. It is routed to the neuronavigation, which records the
+   coil pose of that pulse; this is the pose the E-field is computed for.
+5. The acquisition software (Signal, on the CED) runs a script that records the
+   sweep and writes one text file per pulse into a folder on the EMG PC.
+6. TMS NeuroPilot reads the newest file from that folder over SMB after the pulse
+   and reduces it to a peak-to-peak MEP and the pre-activation measures.
+
+What matters is not this particular wiring but its properties: a TTL that starts
+the acquisition before the pulse, a pulse confirmation that the neuronavigation
+can timestamp, and a per-pulse sweep that the controller can read without asking
+the acquisition PC. A different amplifier or a different delay works as long as
+those three exist; the MEP windows and the sampling rate then follow from your
+own hardware (see [EMG channels and MEP windows](prepare/emg.md)).
 
 Then set `EMG_CHANNELS`, `SAMPLING_RATE` and the MEP window for your amplifier
 (see [EMG channels and MEP windows](prepare/emg.md)).
