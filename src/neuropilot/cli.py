@@ -5,7 +5,7 @@
     neuropilot sim --components relay,robot    subset (debug)
     neuropilot controller [--sim|--robo|--manual]  controller only
     neuropilot relay            simulated relay only
-    neuropilot real [--launch-relay]           real mode (optionally + real relay)
+    neuropilot robo [--launch-relay]           robotic mode (optionally + relay)
     neuropilot manual [--launch-relay]         manual mode: no robot
     neuropilot training [--launch-relay]       training: real TMS, virtual EMG
 """

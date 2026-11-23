@@ -12,12 +12,16 @@ figure shows one complete setup; your lab will differ in detail, and
 section 7 states what the wiring has to guarantee.
 
 <figure>
-  <img src="assets/diagrams/hardware-setup.svg" alt="The hardware of a real session: control PC with the controller and the EMG client, relay, neuronavigation PC with the Polaris camera, robot PC, stimulator and EMG PC, with the serial, TTL and SMB wiring between them.">
-  <figcaption>The hardware of a real session. Relay topics run over IP; the
-  stimulator is controlled over serial and triggered over a parallel TTL line
-  that is split to the EMG acquisition; the stimulator's trigger output marks
-  the delivered pulse in the neuronavigation; the EMG PC writes one sweep file
-  per pulse to a share that the control PC reads over SMB.</figcaption>
+  <img src="assets/diagrams/hardware-setup.png" alt="Example wiring of a real session: TMS NeuroPilot, robot control, InVesalius and the relay inside a dashed one-or-multiple-machines frame; below them the stimulator, the EMG recording and the robot, with the LAN, the camera and the serial, parallel-trigger and trigger-out lines.">
+  <figcaption>One wiring of a real session, not the only one. The relay topics
+  run over IP, so the controller, the robot control and InVesalius may share a
+  machine or sit on separate ones. The stimulator is controlled over serial and
+  triggered over a parallel line whose T-split also starts the EMG acquisition;
+  the stimulator's trigger output marks the delivered pulse in the
+  neuronavigation; the EMG acquisition writes one sweep file per pulse to a
+  share that the controller reads. The devices are examples: any arm with a
+  driver, any stimulator with a serial interface, any acquisition system that
+  writes a share.</figcaption>
 </figure>
 
 ## The pieces

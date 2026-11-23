@@ -9,6 +9,11 @@ the map: what each process owns, how they start, and where the code lives.
   protocol stay the same.</figcaption>
 </figure>
 
+This page is the software side only. The hardware side, meaning what runs on
+which PC, how the stimulator and the EMG are wired, and which links go over IP,
+is drawn in [Hardware setup](../install/hardware.html) (one example wiring, not
+the only possible one).
+
 ## The four processes
 
 | Role | Package | Entry point | Owns |

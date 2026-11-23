@@ -61,7 +61,7 @@ if sys.platform.startswith("linux"):
 
 # ── Real mode ────────────────────────────────────────────────────────────────
 # Optional: path to a tms-robot-control checkout, used by
-# `neuropilot real --launch-relay` to start the production relay.
+# `neuropilot robo --launch-relay` to start the production relay.
 TMS_ROBOT_CONTROL_PATH = _env("TMS_ROBOT_CONTROL_PATH", "")
 
 # Optional: how to start local InVesalius for real/manual/training modes.
