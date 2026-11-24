@@ -37,6 +37,7 @@ SITE_NAME = "TMS NeuroPilot"
 SITE_TAGLINE = "Guided TMS mapping with per-pulse electric fields and online analysis"
 REPO_URL = "https://github.com/TMS-NeuroPilot/tms-neuropilot"
 SITE_URL = "https://tms-neuropilot.github.io/"
+DOCS_DEV_URL = SITE_URL + "tms-neuropilot/"
 
 _LINK = re.compile(r"\[([^\]]+)\]\(([^)\s]+)(?:\s+\"([^\"]*)\")?\)")
 _IMAGE = re.compile(r"!\[([^\]]*)\]\(([^)\s]+)(?:\s+\"([^\"]*)\")?\)")
@@ -362,6 +363,15 @@ def read_nav() -> list[dict]:
     return sections
 
 
+def _edition_link(edition: str) -> str:
+    """Header badge: names the edition being read, links to the other one."""
+    if edition == "dev":
+        return (f'<a class="edition" href="{SITE_URL}" title="Development '
+                'documentation - switch to the release version">dev</a>')
+    return (f'<a class="edition" href="{DOCS_DEV_URL}" title="Release '
+            'documentation - switch to the development version">main</a>')
+
+
 def _template(body: str, page: dict, nav_html: str, toc_html: str,
               pager: str, ctx: dict) -> str:
     title = html.escape(page["title"])
@@ -395,7 +405,8 @@ def _template(body: str, page: dict, nav_html: str, toc_html: str,
            autocomplete="off" aria-label="Search documentation">
     <div class="results" id="results" hidden></div>
   </div>
-  <button class="theme" type="button" title="Toggle light / dark">Dark</button>
+  {ctx.get('edition_link', '')}
+  <button class="theme" type="button" title="Switch to the dark theme">Light</button>
   <a class="repo" href="{REPO_URL}" target="_blank" rel="noopener" title="Source repository">GitHub ↗</a>
 </header>
 <div class="shell">
@@ -474,8 +485,9 @@ def plain_text(markdown: str) -> str:
 
 
 def build(out_dir: Path, strict: bool = True, site_url: str | None = None,
-          noindex: bool = False) -> list[str]:
+          noindex: bool = False, edition: str = "main") -> list[str]:
     site_url = site_url or SITE_URL
+    edition_link = _edition_link(edition)
     sections = read_nav()
     order = [(section["title"], page) for section in sections
              for page in section["pages"]]
@@ -509,7 +521,7 @@ def build(out_dir: Path, strict: bool = True, site_url: str | None = None,
         markdown = (PAGES / page["path"]).read_text(encoding="utf-8")
         depth = len(Path(page["path"]).parts) - 1
         ctx = {"page": PAGES / page["path"], "root": "../" * depth,
-               "headings": [], "version": version,
+               "headings": [], "version": version, "edition_link": edition_link,
                "robots": '\n<meta name="robots" content="noindex">' if noindex else ""}
         body = render_blocks(markdown.splitlines(), ctx)
         prev_page = order[position - 1] if position else None
@@ -552,7 +564,8 @@ def build(out_dir: Path, strict: bool = True, site_url: str | None = None,
                    '<div class="search-page">'
                    '<input type="search" id="search-page" placeholder="Search…">'
                    '<div id="search-page-results" class="results static"></div></div>')
-    ctx = {"page": PAGES / "index.md", "root": "", "headings": [], "version": version}
+    ctx = {"page": PAGES / "index.md", "root": "", "headings": [], "version": version,
+           "edition_link": edition_link}
     (out_dir / "search.html").write_text(_template(
         search_body, {"title": "Search", "path": "search.md",
                       "blurb": "Search every page."},
@@ -632,10 +645,13 @@ def main(argv=None) -> int:
                         help="public base URL for sitemap.xml and robots.txt")
     parser.add_argument("--noindex", action="store_true",
                         help="add a noindex robots meta tag (preview builds)")
+    parser.add_argument("--edition", choices=("main", "dev"), default="main",
+                        help="which edition the header badge announces")
     args = parser.parse_args(argv)
     out = Path(args.out)
     problems = build(out, strict=not args.no_strict and not args.check,
-                     site_url=args.site_url, noindex=args.noindex)
+                     site_url=args.site_url, noindex=args.noindex,
+                     edition=args.edition)
     if args.check:
         shutil.rmtree(out, ignore_errors=True)
         return 1 if problems else 0

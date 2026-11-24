@@ -35,7 +35,7 @@ jobs:
           python-version: "3.11"
       - name: Build the development site
         run: >-
-          python docs/site/build.py --out _site --noindex
+          python docs/site/build.py --out _site --noindex --edition dev
           --site-url https://tms-neuropilot.github.io/tms-neuropilot/
       - name: Publish to the gh-pages branch
         env:

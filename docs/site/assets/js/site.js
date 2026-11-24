@@ -9,19 +9,20 @@
   const html = document.documentElement;
   const stored = localStorage.getItem("np-theme");
   const system = window.matchMedia("(prefers-color-scheme: dark)");
+  const label = (button, theme) => {
+    // The label names the theme in use; the tooltip names the action.
+    button.textContent = theme === "dark" ? "Dark" : "Light";
+    button.title = theme === "dark" ? "Switch to the light theme" : "Switch to the dark theme";
+  };
   const apply = (theme) => {
     html.dataset.theme = theme;
     html.style.colorScheme = theme;
     localStorage.setItem("np-theme", theme);
-    document.querySelectorAll(".theme").forEach((button) => {
-      button.textContent = theme === "dark" ? "Light" : "Dark";
-    });
+    document.querySelectorAll(".theme").forEach((button) => label(button, theme));
   };
   html.dataset.theme = stored || (system.matches ? "dark" : "light");
   html.style.colorScheme = html.dataset.theme;
-  document.querySelectorAll(".theme").forEach((button) => {
-    button.textContent = html.dataset.theme === "dark" ? "Light" : "Dark";
-  });
+  document.querySelectorAll(".theme").forEach((button) => label(button, html.dataset.theme));
   system.addEventListener("change", (event) => {
     if (!localStorage.getItem("np-theme")) html.dataset.theme = event.matches ? "dark" : "light";
   });
