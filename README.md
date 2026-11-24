@@ -18,6 +18,11 @@ without any physical device.
 | <img src="docs/site/assets/screenshots/mode-selector.png" alt="Mode selector: simulation, robotic TMS, manual TMS, training" width="360"> | <img src="docs/site/assets/diagrams/hardware-setup.png" alt="Wiring of a real session: relay, NeuroPilot, robot control and InVesalius, plus stimulator, EMG and robot" width="420"> |
 | Simulation, robotic TMS, manual TMS or training — one workflow, one GUI. | Relay, robot control and InVesalius on one or more machines; stimulator, EMG and robot on the LAN. |
 
+<img src="docs/site/assets/screenshots/neuropilot-sim-session.gif" alt="A simulated session: the Control page with the robot twin, the MEP results, the cortical R² map and the Connections page" width="820">
+
+*A simulated session, end to end: the mapping loop on the Control page, the MEP
+results, the cortical R² map and the Connections page.*
+
 More screenshots and the full walkthrough are in the
 [documentation](https://0nu.github.io/tms-neuropilot/).
 
