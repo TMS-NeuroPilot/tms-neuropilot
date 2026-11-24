@@ -14,9 +14,9 @@
 # when no config is loaded.
 
 sources:
-  - element_id: 5208   # FDI - left M1 hand knob
-  - element_id: 5165   # APB
-  - element_id: 4456   # ADM
+  - element_id: 12002   # FDI - left M1 hand knob
+  - element_id: 3086   # APB
+  - element_id: 9012   # ADM
 
 # Alternative, position based.  These are the triangle centres of the
 # three elements above in the ernie ROI, so they resolve to the same
