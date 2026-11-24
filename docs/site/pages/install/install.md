@@ -11,7 +11,7 @@ The repository ships a one-file environment spec and an installer that does
 everything below (optionally including InVesalius):
 
 ```bash
-git clone https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot.git
+git clone https://github.com/0nu/tms-neuropilot.git
 cd neuropilot
 scripts/install.sh                     # conda env + NeuPilot
 scripts/install.sh --with-invesalius   # also install InVesalius
@@ -38,7 +38,7 @@ fails on your machine.
 ### 1. Get the code
 
 ```bash
-git clone https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot.git
+git clone https://github.com/0nu/tms-neuropilot.git
 cd neuropilot
 ```
 
@@ -79,8 +79,8 @@ pip install pynibs            # MEP extraction + fit functions
 pip install magicpy           # only needed for a real stimulator
 ```
 
-If the package index does not have them, install the wheels the group keeps on
-GitLab or on the lab share. Check what is missing with:
+If the package index does not have them, install the wheels the group provides
+or take them from the lab share. Check what is missing with:
 
 ```bash
 python -c "import pynibs; print(pynibs.__file__)"

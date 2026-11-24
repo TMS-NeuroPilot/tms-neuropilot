@@ -17,7 +17,7 @@ the Windows notes and the optional components are one link away.
 ## 1. Get the code
 
 ```bash
-git clone https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot.git
+git clone https://github.com/0nu/tms-neuropilot.git
 cd neuropilot
 ```
 

@@ -1905,15 +1905,13 @@ class MainWindow(QtWidgets.QMainWindow):
             ("Grosshagauer et al. (2025) — surrogate E-field mode",
              "https://doi.org/10.1016/j.brs.2025.102990"),
             ("Yaseen (2026) — virtual twin and real-time E-field approach (master's thesis)",
-             "https://neuropilot-94ad2d.pages.gwdg.de/"),
+             "https://0nu.github.io/tms-neuropilot/"),
         ]
         resources = [
-            ("Documentation", "https://neuropilot-94ad2d.pages.gwdg.de/"),
+            ("Documentation", "https://0nu.github.io/tms-neuropilot/"),
             ("Source code",
-             "https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot"),
+             "https://github.com/0nu/tms-neuropilot"),
             ("InVesalius", "https://invesalius.github.io/"),
-            ("tms-robot-control",
-             "https://gitlab.gwdg.de/tms-localization/cobot/tms-robot-control"),
             ("pynibs", "https://gitlab.gwdg.de/tms-localization/pynibs"),
             ("SimNIBS", "https://simnibs.github.io/simnibs/"),
         ]
@@ -1929,8 +1927,7 @@ class MainWindow(QtWidgets.QMainWindow):
             link("Creative Commons BY-NC-SA 4.0",
                  "https://creativecommons.org/licenses/by-nc-sa/4.0/"),
             link("Full license text",
-                 "https://gitlab.gwdg.de/tms-localization/papers/"
-                 "neuropilot/-/blob/main/LICENSE"),
+                 "https://github.com/0nu/tms-neuropilot/blob/main/LICENSE"),
         ]))
         # The longest box goes to the right half, so the left column stays
         # short enough for How to cite and Credits to fit under About.
@@ -1985,8 +1982,7 @@ class MainWindow(QtWidgets.QMainWindow):
             link("Contact: numssen@cbs.mpg.de",
                  "mailto:numssen@cbs.mpg.de"),
             link("Full contributor list: CONTRIBUTORS.md",
-                 "https://gitlab.gwdg.de/tms-localization/papers/"
-                 "neuropilot/-/blob/main/CONTRIBUTORS.md"),
+                 "https://github.com/0nu/tms-neuropilot/blob/main/CONTRIBUTORS.md"),
         ]))
         # Without a trailing stretch the layout inflates every card to fill
         # the column height; the stretch lets cards keep their natural size.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the TMS NeuroPilot documentation site (GitLab Pages).
+"""Build the TMS NeuroPilot documentation site (GitHub Pages).
 
 Deliberately dependency-free: the CI runner only needs the Python that runs the
 tests, and the site must build on a machine with no network.  Markdown is a
@@ -35,8 +35,8 @@ PAGES = ROOT / "pages"
 ASSETS = ROOT / "assets"
 SITE_NAME = "TMS NeuroPilot"
 SITE_TAGLINE = "Guided TMS mapping with per-pulse electric fields and online analysis"
-REPO_URL = "https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot"
-SITE_URL = "https://neuropilot-94ad2d.pages.gwdg.de/"
+REPO_URL = "https://github.com/0nu/tms-neuropilot"
+SITE_URL = "https://0nu.github.io/tms-neuropilot/"
 
 _LINK = re.compile(r"\[([^\]]+)\]\(([^)\s]+)(?:\s+\"([^\"]*)\")?\)")
 _IMAGE = re.compile(r"!\[([^\]]*)\]\(([^)\s]+)(?:\s+\"([^\"]*)\")?\)")
@@ -396,7 +396,7 @@ def _template(body: str, page: dict, nav_html: str, toc_html: str,
     <div class="results" id="results" hidden></div>
   </div>
   <button class="theme" type="button" title="Toggle light / dark">Dark</button>
-  <a class="repo" href="{REPO_URL}" target="_blank" rel="noopener" title="Source repository">GitLab ↗</a>
+  <a class="repo" href="{REPO_URL}" target="_blank" rel="noopener" title="Source repository">GitHub ↗</a>
 </header>
 <div class="shell">
   <nav class="sidebar" id="sidebar" aria-label="Documentation">

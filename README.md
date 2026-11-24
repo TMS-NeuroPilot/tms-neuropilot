@@ -9,14 +9,6 @@ guidance through InVesalius — plus a complete virtual twin of the hardware
 (relay, virtual robot, virtual neuronavigation) so the whole workflow runs
 without any physical device.
 
-## Where things live
-
-| What | Where |
-|---|---|
-| Public code and issue tracker | [github.com/0nu/tms-neuropilot](https://github.com/0nu/tms-neuropilot) — `main` is the latest release, `dev` the development branch |
-| Canonical development | the group's GitLab, [tms-localization/tms-neuropilot/tms-neuropilot](https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot) |
-| Example subject data | separate repository, [tms-neuropilot-data](https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot-data) (clone into `data/ernie`) |
-
 ## Quick start
 
 ```bash
@@ -70,9 +62,9 @@ Notes:
 
 The full documentation — installation, subject-data preparation, every GUI page
 and configuration key, the workflows, the architecture, the relay protocol and
-troubleshooting — is published with GitLab Pages:
+troubleshooting — is published with GitHub Pages:
 
-<https://neuropilot-94ad2d.pages.gwdg.de/>
+<https://0nu.github.io/tms-neuropilot/>
 
 Its sources live in `docs/site/`: plain Markdown plus a dependency-free
 generator (no MkDocs, no network). Build and preview locally:

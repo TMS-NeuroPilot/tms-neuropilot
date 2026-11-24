@@ -131,12 +131,12 @@ Do not hand-edit a generated SVG or PNG; change the generator and rerun it.
 | Job | What it does |
 |---|---|
 | `check:docs` | `build.py --check` on MRs and branches |
-| `pages` | builds `public/` on the default branch; GitLab Pages serves it |
+| `pages` (GitHub Actions) | builds `_site/` on `main`; GitHub Pages serves it |
 
-The site is published at <https://neuropilot-94ad2d.pages.gwdg.de/> (GitLab's
-unique Pages domain for this project). Both docs jobs pin `python:3.11-alpine`
-because the shared runners' default image has no Python or bash; they do not
-need the lab environment.
+The site is published at <https://0nu.github.io/tms-neuropilot/> by the
+`.github/workflows/pages.yml` workflow. The `check:docs` job pins
+`python:3.11-alpine` because the shared runners' default image has no Python or
+bash; it does not need the lab environment.
 
 The `tests/test_docs_site.py` suite additionally verifies that every
 environment key, lab-profile key, relay topic and fit function is documented.

@@ -76,7 +76,7 @@ UPDATE_GUI_BASELINES=1 pytest tests/test_gui_snapshots.py
 | `check:syntax` | check | `compileall` on `src/` and a `pyproject.toml` parse — catches a syntax error even without the heavy imports |
 | `test` | test | `pytest -m "not gui"` with a JUnit report; runs on pushes and merge requests |
 | `test:gui` | test | manual; `pytest -m gui` on a runner with a display |
-| `pages` | deploy | builds this site and publishes `public/` at <https://neuropilot-94ad2d.pages.gwdg.de/> |
+| `pages` (GitHub Actions) | deploy | builds this site and publishes it at <https://0nu.github.io/tms-neuropilot/> |
 
 The CI variables keep everything isolated:
 

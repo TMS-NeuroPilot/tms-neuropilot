@@ -27,10 +27,10 @@
 | `magicpy` | driving the stimulator (MagVenture) | pip (vendor package) |
 | `smbprotocol` | reading the EMG files from the acquisition PC | pip |
 | [InVesalius](install/install.md) | real-mode and training neuronavigation | separate conda env |
-| `tms-robot-control` | real-mode robot driver + production relay | separate GitLab checkout |
+| `tms-robot-control` | real-mode robot driver + production relay | separate checkout (from the authors) |
 
 `pynibs` and `magicpy` are lab packages; if `pip install pynibs` cannot find
-them on PyPI, install them from the group's GitLab or from a local wheel. The
+them on PyPI, install them from a local wheel or ask the authors for a checkout. The
 suite imports them lazily, so the simulator runs without `magicpy`.
 
 ## Knowledge

@@ -1,7 +1,7 @@
 # Changelog
 
 The canonical changelog is
-[`CHANGELOG.md`](https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot/-/blob/main/CHANGELOG.md)
+[`CHANGELOG.md`](https://github.com/0nu/tms-neuropilot/blob/main/CHANGELOG.md)
 in the repository. This page summarises the milestones that change how the
 suite is used.
 
@@ -42,7 +42,7 @@ suite is used.
 
 - This site: 44 pages covering installation, subject data, every GUI page,
   every configuration key, the workflows and the reference material. Built by a
-  dependency-free generator (`docs/site/build.py`) and published by GitLab Pages
+  dependency-free generator (`docs/site/build.py`) and published by GitHub Pages
   on every push to `main`.
 - Docs are checked in CI: the build fails on a broken link, an orphan page or a
   missing navigation entry.
@@ -104,7 +104,7 @@ The first release of the merged suite:
 - MEP extraction through `pynibs`, nine fit functions, R² maps on the cortical
   surface.
 - Results CSV, placement log, plot folders, screenshots and CSV export.
-- GitLab CI: syntax gate and headless tests.
+- CI: syntax gate and headless tests.
 
 ## How versions are handled
 

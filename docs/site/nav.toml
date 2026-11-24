@@ -87,7 +87,7 @@ pages = [
   ["Architecture", "reference/architecture.md", "Components, processes, data flow and the repository layout."],
   ["Relay protocol", "reference/relay.md", "Topics, payloads and routing between robot, neuronavigation and controller."],
   ["Command line", "reference/cli.md", "Every subcommand and flag, with the environment it expects."],
-  ["Testing and CI", "reference/testing.md", "The test suite, the GUI snapshots and the GitLab pipeline."],
+  ["Testing and CI", "reference/testing.md", "The test suite, the GUI snapshots and the CI pipeline."],
   ["Troubleshooting", "reference/troubleshooting.md", "Symptom → cause → fix for the failures seen in practice."],
   ["Glossary", "reference/glossary.md", "The terms used across the code, the literature and this site."],
   ["Changelog", "reference/changelog.md", "What changed, release by release, and what is still open."],

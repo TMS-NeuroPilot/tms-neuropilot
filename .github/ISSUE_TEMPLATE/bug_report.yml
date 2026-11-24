@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Thanks for the report. This repository is a public mirror — fixes land in
-        the group's GitLab and appear here on the next mirror run.
+        the development repository and appear here on the next mirror run.
 
         Please do **not** paste patient data, lab credentials, internal host
         names or other sensitive information.

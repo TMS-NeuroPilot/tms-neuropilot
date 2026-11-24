@@ -115,25 +115,10 @@ test:
       when: manual
     - if: '$CI_COMMIT_BRANCH'
       when: manual
-
-# GitLab Pages: publish the documentation site.  The `pages` job name and the
-# `public` artifact are what GitLab expects; the build needs no network.
-pages:
-  stage: deploy
-  image: python:3.11-alpine
-  # Deploy the docs independently of the heavy test stage: a runner without
-  # the `neuropilot` conda env can still publish the site.  `build.py` already
-  # fails on broken links, so the artifact is checked by construction.
-  needs: []
-  before_script: []
-  script:
-    - python3 docs/site/build.py --out public
-  artifacts:
-    paths:
-      - public
-    expire_in: 1 week
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+# The docs site is published from GitHub Pages (see
+# .github/workflows/pages.yml); GitLab CI only checks its links, in
+# check:docs above.  GitLab's own Pages deployment was retired when the
+# public mirror moved to GitHub.
 
 # The GUI tests build real Qt windows and need OpenGL and a display: run on
 # the lab workstation runner (the same `lab`-tagged shell runner as `test`),

@@ -5,8 +5,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        This repository is a public mirror; development happens in the group's
-        GitLab and requests are ported there.
+        This repository is a public mirror; requests are ported to the
+        development repository.
   - type: textarea
     id: problem
     attributes:

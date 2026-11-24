@@ -69,7 +69,7 @@ still requires ethics approval and the stimulator's own safety limits.
 | **Renan H. Matsuda** | InVesalius integration help (Aalto University / Santos Dumont Institute, Brazil)                                                             |
 
 Contacts and affiliations are kept in
-[`CONTRIBUTORS.md`](https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot/-/blob/main/CONTRIBUTORS.md)
+[`CONTRIBUTORS.md`](https://github.com/0nu/tms-neuropilot/blob/main/CONTRIBUTORS.md)
 rather than copied here, so there is one list to maintain.
 
 ## Components
@@ -81,7 +81,7 @@ rather than copied here, so there is one list to maintain.
 | `neuropilot.sim_robot` | MuJoCo robot twin |
 | `neuropilot.sim_nav` | virtual neuronavigation |
 | [InVesalius](https://invesalius.github.io/) | neuronavigation: tracking, registration, markers |
-| [`tms-robot-control`](https://gitlab.gwdg.de/tms-localization/cobot/tms-robot-control) | production relay (`relay_server.py`) and robot driver (`main_loop.py`) |
+| `tms-robot-control` | production relay (`relay_server.py`) and robot driver (`main_loop.py`) |
 | [`pynibs`](https://gitlab.gwdg.de/tms-localization/pynibs) | MEP extraction, the nine fit functions, regression |
 | [SimNIBS](https://simnibs.github.io/simnibs/) | head meshes and the online E-field solver |
 
@@ -104,7 +104,7 @@ TMS NeuroPilot is licensed under
 4.0 International). You may use, share and adapt it for non-commercial
 purposes (research and clinical science) with attribution and share-alike.
 Commercial use needs prior permission from the authors. The full text is in
-[`LICENSE`](https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot/-/blob/main/LICENSE).
+[`LICENSE`](https://github.com/0nu/tms-neuropilot/blob/main/LICENSE).
 
 ## Citing it
 
@@ -132,10 +132,9 @@ https://github.com/0nu/tms-neuropilot
 
 ## Contributing
 
-Issues and merge requests are welcome. Issues are triaged on the
-[public tracker](https://github.com/0nu/tms-neuropilot/issues); merge requests
-go to the [GitLab repository](https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot/-/merge_requests).
-Before opening a merge request:
+Issues are welcome on the [public tracker](https://github.com/0nu/tms-neuropilot/issues).
+Pull requests are welcome too: this repository is a read-only public mirror, so
+they are ported upstream by hand rather than merged here. Before opening one:
 
 ```bash
 pytest -m "not gui" -q          # or scripts/run_tests.sh
