@@ -132,8 +132,37 @@ test:
       when: manual
 # The docs site is published from GitHub Pages (see
 # .github/workflows/pages.yml); GitLab CI only checks its links, in
-# check:docs above.  GitLab's own Pages deployment was retired when the
-# public mirror moved to GitHub.
+# check:docs above.  GitLab Pages keeps serving a single-page redirect so
+# links from older app copies and bookmarks still land on the current site.
+pages:
+  stage: deploy
+  image: python:3.11-alpine
+  needs: []
+  before_script: []
+  script:
+    - mkdir -p public
+    - |
+      cat > public/index.html <<'HTML'
+      <!doctype html>
+      <html lang="en">
+      <head>
+      <meta charset="utf-8">
+      <title>TMS NeuroPilot - documentation moved</title>
+      <link rel="canonical" href="https://tms-neuropilot.github.io/">
+      <meta http-equiv="refresh" content="0; url=https://tms-neuropilot.github.io/">
+      </head>
+      <body>
+      <p>The TMS NeuroPilot documentation now lives at
+      <a href="https://tms-neuropilot.github.io/">tms-neuropilot.github.io</a>.</p>
+      </body>
+      </html>
+      HTML
+  artifacts:
+    paths:
+      - public
+    expire_in: 1 week
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 
 # The GUI tests build real Qt windows and need OpenGL and a display: run on
 # the lab workstation runner (the same `lab`-tagged shell runner as `test`),
