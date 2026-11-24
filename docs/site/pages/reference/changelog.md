@@ -40,7 +40,7 @@ suite is used.
 
 ### Documentation
 
-- This site: 44 pages covering installation, subject data, every GUI page,
+- This site: 45 pages covering installation, subject data, every GUI page,
   every configuration key, the workflows and the reference material. Built by a
   dependency-free generator (`docs/site/build.py`) and published by GitHub Pages
   on every push to `main`.
