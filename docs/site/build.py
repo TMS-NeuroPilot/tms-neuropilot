@@ -68,7 +68,7 @@ def _resolve_link(href: str, ctx: dict) -> tuple[str, bool]:
         return rel[:-3] + ".html", False
     if (ctx["page"].parent / href).resolve().is_file():
         rel = os.path.relpath((ctx["page"].parent / href).resolve(), ROOT)
-        return f"{REPO_URL}/-/blob/main/{rel}".replace(os.sep, "/"), True
+        return f"{REPO_URL}/blob/main/{rel}".replace(os.sep, "/"), True
     return href, False
 
 
@@ -410,7 +410,7 @@ def _template(body: str, page: dict, nav_html: str, toc_html: str,
 {pager}
     </nav>
     <footer class="page-foot">
-      <a href="{REPO_URL}/-/issues" target="_blank" rel="noopener">Report a problem</a>
+      <a href="{REPO_URL}/issues" target="_blank" rel="noopener">Report a problem</a>
       <span>·</span>
       <a href="{ctx['root']}search.html">Search all pages</a>
     </footer>
