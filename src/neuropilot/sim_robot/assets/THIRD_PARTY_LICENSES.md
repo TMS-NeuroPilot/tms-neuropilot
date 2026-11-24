@@ -118,3 +118,16 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## Techman Robot TM5-700 / TM5-900
+
+- Source: <https://github.com/TechmanRobotInc/tmr_ros2> (`tm_description`,
+  branch `humble`); the newer official description package is
+  <https://github.com/TechmanRobotInc/TM_Cobots_ROS2_Description>
+- Files: `meshes/robot/tm5-700/*`, `meshes/robot/tm5-900/*`,
+  `urdf/robot_tm5x_700_v2.urdf`
+- Changes: the xacro was expanded to a plain URDF and the model is the
+  "TM5X-700" variant (no integrated camera); the B65 holder and the coil tool
+  frame were appended, and collision meshes were used for the MuJoCo model.
+- License: BSD 3-Clause, Copyright (c) 2019-2026, TECHMAN ROBOT INC. The full
+  text is identical to the BSD 3-Clause licence quoted for the UR5 above.
