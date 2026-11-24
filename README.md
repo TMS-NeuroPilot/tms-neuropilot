@@ -79,9 +79,12 @@ Notes:
 
 The full documentation — installation, subject-data preparation, every GUI page
 and configuration key, the workflows, the architecture, the relay protocol and
-troubleshooting — is published with GitHub Pages:
+troubleshooting — is published with GitHub Pages, in two editions:
 
-<https://tms-neuropilot.github.io/>
+| | |
+|---|---|
+| **Stable** (built from `main`) | <https://tms-neuropilot.github.io/> |
+| **Development** (built from `dev`) | <https://tms-neuropilot.github.io/tms-neuropilot/> |
 
 Its sources live in `docs/site/`: plain Markdown plus a dependency-free
 generator (no MkDocs, no network). Build and preview locally:

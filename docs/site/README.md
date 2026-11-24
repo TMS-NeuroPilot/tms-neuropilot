@@ -131,13 +131,16 @@ Do not hand-edit a generated SVG or PNG; change the generator and rerun it.
 | Job | What it does |
 |---|---|
 | `check:docs` | `build.py --check` on MRs and branches |
-| `pages` (GitHub Actions) | builds `_site/` on `main` and pushes it to `TMS-NeuroPilot/tms-neuropilot.github.io` |
+| `pages` (GitHub Actions) | builds `_site/`: on `dev` to the repo's `gh-pages` (development docs), on `main` to `TMS-NeuroPilot/tms-neuropilot.github.io` (release docs) |
 
-The site is published at <https://tms-neuropilot.github.io/> by the
-`.github/workflows/pages.yml` workflow: it builds `_site/` and force-pushes the
-result to the organisation's root Pages repository
-(`TMS-NeuroPilot/tms-neuropilot.github.io`, a generated repository — edit the
-sources here, never there). The `check:docs` job pins `python:3.11-alpine`
+Two sites are published by the `.github/workflows/pages.yml` workflow:
+
+| Branch | Site | Mechanism |
+|---|---|---|
+| `main` | <https://tms-neuropilot.github.io/> | `_site/` force-pushed to the organisation's root Pages repository (`TMS-NeuroPilot/tms-neuropilot.github.io` — generated, never edit it) |
+| `dev` | <https://tms-neuropilot.github.io/tms-neuropilot/> | `_site/` force-pushed to this repository's `gh-pages` branch, built with `--noindex` so it does not compete with the release site |
+
+The `check:docs` job pins `python:3.11-alpine`
 because the shared runners' default image has no Python or bash; it does not
 need the lab environment.
 

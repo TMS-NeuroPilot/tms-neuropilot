@@ -375,7 +375,7 @@ def _template(body: str, page: dict, nav_html: str, toc_html: str,
 <meta name="description" content="{description}">
 <meta property="og:title" content="{title} · {SITE_NAME}">
 <meta property="og:description" content="{description}">
-<meta property="og:type" content="article">
+<meta property="og:type" content="article">{ctx.get('robots', '')}
 <link rel="stylesheet" href="{ctx['root']}assets/css/site.css?v={ctx['version']}">
 <link rel="icon" href="{ctx['root']}assets/img/favicon.svg" type="image/svg+xml">
 <noscript><style>.nav-pages[hidden]{{display:block}}.nav-toggle{{pointer-events:none}}.chevron{{display:none}}</style></noscript>
@@ -473,7 +473,9 @@ def plain_text(markdown: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def build(out_dir: Path, strict: bool = True) -> list[str]:
+def build(out_dir: Path, strict: bool = True, site_url: str | None = None,
+          noindex: bool = False) -> list[str]:
+    site_url = site_url or SITE_URL
     sections = read_nav()
     order = [(section["title"], page) for section in sections
              for page in section["pages"]]
@@ -507,7 +509,8 @@ def build(out_dir: Path, strict: bool = True) -> list[str]:
         markdown = (PAGES / page["path"]).read_text(encoding="utf-8")
         depth = len(Path(page["path"]).parts) - 1
         ctx = {"page": PAGES / page["path"], "root": "../" * depth,
-               "headings": [], "version": version}
+               "headings": [], "version": version,
+               "robots": '\n<meta name="robots" content="noindex">' if noindex else ""}
         body = render_blocks(markdown.splitlines(), ctx)
         prev_page = order[position - 1] if position else None
         next_page = order[position + 1] if position + 1 < len(order) else None
@@ -563,8 +566,8 @@ def build(out_dir: Path, strict: bool = True) -> list[str]:
         build_nav(sections, "", ""),
         '<p class="toc-title">On this page</p>', "", ctx), encoding="utf-8")
     (out_dir / "robots.txt").write_text(
-        f"User-agent: *\nAllow: /\nSitemap: {SITE_URL}sitemap.xml\n", encoding="utf-8")
-    urls = "".join(f"<url><loc>{SITE_URL}{page['path'][:-3]}.html</loc></url>"
+        f"User-agent: *\nAllow: /\nSitemap: {site_url}sitemap.xml\n", encoding="utf-8")
+    urls = "".join(f"<url><loc>{site_url}{page['path'][:-3]}.html</loc></url>"
                    for _, page in order)
     (out_dir / "sitemap.xml").write_text(
         '<?xml version="1.0" encoding="UTF-8"?>'
@@ -625,9 +628,14 @@ def main(argv=None) -> int:
                         help="verify the build and its links, then remove the output")
     parser.add_argument("--no-strict", action="store_true",
                         help="do not fail on broken internal links")
+    parser.add_argument("--site-url", default=SITE_URL, metavar="URL",
+                        help="public base URL for sitemap.xml and robots.txt")
+    parser.add_argument("--noindex", action="store_true",
+                        help="add a noindex robots meta tag (preview builds)")
     args = parser.parse_args(argv)
     out = Path(args.out)
-    problems = build(out, strict=not args.no_strict and not args.check)
+    problems = build(out, strict=not args.no_strict and not args.check,
+                     site_url=args.site_url, noindex=args.noindex)
     if args.check:
         shutil.rmtree(out, ignore_errors=True)
         return 1 if problems else 0

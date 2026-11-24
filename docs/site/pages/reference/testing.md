@@ -76,7 +76,7 @@ UPDATE_GUI_BASELINES=1 pytest tests/test_gui_snapshots.py
 | `check:syntax` | check | `compileall` on `src/` and a `pyproject.toml` parse — catches a syntax error even without the heavy imports |
 | `test` | test | `pytest -m "not gui"` with a JUnit report; runs on pushes and merge requests |
 | `test:gui` | test | manual; `pytest -m gui` on a runner with a display |
-| `pages` (GitHub Actions) | deploy | builds this site on `main` and pushes it to `TMS-NeuroPilot/tms-neuropilot.github.io`, the organisation root site at <https://tms-neuropilot.github.io/> |
+| `pages` (GitHub Actions) | deploy | builds this site twice from one source: `dev` → the repository's `gh-pages` branch (<https://tms-neuropilot.github.io/tms-neuropilot/>, development docs), `main` → `TMS-NeuroPilot/tms-neuropilot.github.io` (<https://tms-neuropilot.github.io/>, release docs) |
 
 The CI variables keep everything isolated:
 
