@@ -1918,14 +1918,15 @@ class MainWindow(QtWidgets.QMainWindow):
         right.addWidget(card("Resources", [link(t, u) for t, u in resources]))
 
         lic = wrap(
-            "Released under <b>CC BY-NC-SA 4.0</b>: free for non-commercial "
-            "use (research and clinical science) with attribution and "
-            "share-alike; commercial use needs permission from the authors.",
+            "Released under the <b>GNU GPL v3.0 or later</b>: free to use, "
+            "study, modify and redistribute, including commercially, as long "
+            "as derived distributions stay under the GPL and their source is "
+            "available.",
             role="cap")
         right.addWidget(card("License", [
             lic,
-            link("Creative Commons BY-NC-SA 4.0",
-                 "https://creativecommons.org/licenses/by-nc-sa/4.0/"),
+            link("GNU General Public License v3.0",
+                 "https://www.gnu.org/licenses/gpl-3.0.html"),
             link("Full license text",
                  "https://github.com/TMS-NeuroPilot/tms-neuropilot/blob/main/LICENSE"),
         ]))

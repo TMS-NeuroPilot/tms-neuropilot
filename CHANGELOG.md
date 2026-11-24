@@ -7,6 +7,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Relicensed to GPL-3.0-or-later** (was CC BY-NC-SA 4.0). The GPL matches
+  the licences of the stack the suite actually installs (PyQt5, SimNIBS,
+  InVesalius are GPL-3) and permits commercial and clinical use while keeping
+  derived distributions open. Contributions now need a `Signed-off-by`
+  trailer: see `.github/CONTRIBUTING.md` and the `DCO` file.
+
 - **The full test suite runs once a day in CI, on the shared runners.** The
   `test` job installs the heavy stack itself (requirements-ci.txt + the
   SimNIBS wheel; a Fortran compiler is added for MUMPS) and runs the

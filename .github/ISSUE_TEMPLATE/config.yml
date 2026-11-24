@@ -3,6 +3,6 @@ contact_links:
   - name: Documentation
     url: https://tms-neuropilot.github.io/
     about: Installation, configuration and the workflow walkthrough
-  - name: Commercial use or collaboration
+  - name: Commercial support or collaboration
     url: https://www.cbs.mpg.de/
-    about: The licence is non-commercial; contact the group for anything else
+    about: Commercial use is allowed under the GPL; contact the group for support or collaboration

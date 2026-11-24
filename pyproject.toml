@@ -7,7 +7,7 @@ name = "neuropilot"
 version = "0.1.0"
 description = "TMS NeuroPilot — guided online TMS mapping with online field optimization"
 readme = "README.md"
-license = "CC-BY-NC-SA-4.0"
+license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = [

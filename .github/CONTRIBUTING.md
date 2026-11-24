@@ -23,6 +23,25 @@ force-updated from the development repository, so a merge on GitHub would be ove
 the pull request anyway and it is ported upstream by hand, with your
 authorship preserved in the commit.
 
+## Sign your commits (DCO)
+
+The project is licensed under GPL-3.0-or-later and contributions are accepted
+under that licence with a **Developer Certificate of Origin** sign-off. Add one
+line to every commit message:
+
+```text
+Signed-off-by: Your Name <you@example.org>
+```
+
+`git commit -s` adds it for you; to fix the last commit, `git commit --amend -s`
+(use `git rebase --signoff` for a series). The trailer certifies that you wrote
+the patch or otherwise have the right to submit it — the full statement is in
+[`DCO`](../DCO).
+
+Pull requests with unsigned commits are flagged by the `DCO` check. Since this
+repository is a mirror, the patch is cherry-picked into the development
+repository and your sign-off travels with the commit.
+
 ## Data
 
 The example subject is not part of this repository. It lives in its own

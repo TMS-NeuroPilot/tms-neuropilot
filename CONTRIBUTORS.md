@@ -16,4 +16,4 @@
 
 Maintained at
 [github.com/TMS-NeuroPilot/tms-neuropilot](https://github.com/TMS-NeuroPilot/tms-neuropilot).
-Licensed under CC BY-NC-SA 4.0 — see `LICENSE`.
+Licensed under GPL-3.0-or-later — see `LICENSE`.

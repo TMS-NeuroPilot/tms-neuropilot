@@ -99,12 +99,14 @@ function has to be documented, or CI fails. See
 
 ## License
 
-TMS NeuroPilot is licensed under
-**CC BY-NC-SA 4.0** (Creative Commons Attribution-NonCommercial-ShareAlike
-4.0 International). You may use, share and adapt it for non-commercial
-purposes (research and clinical science) with attribution and share-alike.
-Commercial use needs prior permission from the authors. The full text is in
-[`LICENSE`](https://github.com/TMS-NeuroPilot/tms-neuropilot/blob/main/LICENSE).
+TMS NeuroPilot is licensed under the
+**GNU General Public License v3.0 or later (GPL-3.0-or-later)**. You may use,
+study, modify and redistribute it, including commercially; derived
+distributions must stay under the GPL and make their source available. There
+is no warranty. The full text is in
+[`LICENSE`](https://github.com/TMS-NeuroPilot/tms-neuropilot/blob/main/LICENSE);
+the bundled robot and coil assets keep their own permissive licences, listed in
+[`THIRD_PARTY_LICENSES.md`](https://github.com/TMS-NeuroPilot/tms-neuropilot/blob/main/src/neuropilot/sim_robot/assets/THIRD_PARTY_LICENSES.md).
 
 ## Citing it
 
