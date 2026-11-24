@@ -1910,7 +1910,7 @@ class MainWindow(QtWidgets.QMainWindow):
         resources = [
             ("Documentation", "https://neuropilot-94ad2d.pages.gwdg.de/"),
             ("Source code",
-             "https://gitlab.gwdg.de/tms-localization/papers/neuropilot"),
+             "https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot"),
             ("InVesalius", "https://invesalius.github.io/"),
             ("tms-robot-control",
              "https://gitlab.gwdg.de/tms-localization/cobot/tms-robot-control"),

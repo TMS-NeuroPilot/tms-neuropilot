@@ -1,7 +1,7 @@
 # Changelog
 
 The canonical changelog is
-[`CHANGELOG.md`](https://gitlab.gwdg.de/tms-localization/papers/neuropilot/-/blob/main/CHANGELOG.md)
+[`CHANGELOG.md`](https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot/-/blob/main/CHANGELOG.md)
 in the repository. This page summarises the milestones that change how the
 suite is used.
 

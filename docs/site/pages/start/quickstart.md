@@ -17,14 +17,15 @@ the Windows notes and the optional components are one link away.
 ## 1. Get the code
 
 ```bash
-git clone https://gitlab.gwdg.de/tms-localization/papers/neuropilot.git
+git clone https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot.git
 cd neuropilot
 ```
 
-The example subject under `data/ernie` is stored in Git LFS:
+The example subject lives in its own repository (`tms-neuropilot-data`):
 
 ```bash
-git lfs pull
+git lfs install
+git clone https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot-data.git data/ernie
 ```
 
 ## 2. Install with one command
@@ -151,7 +152,7 @@ E-field library, the EMG sources and the output paths. Two ways to get one:
 
 === "Example subject (if you have it)"
 
-    The repository carries the SimNIBS example subject under `data/ernie`.
+    The example subject repository provides the SimNIBS data under `data/ernie`.
     Build a project file whose paths are relative to the project:
 
     ```bash

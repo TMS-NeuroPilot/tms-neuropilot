@@ -35,7 +35,7 @@ PAGES = ROOT / "pages"
 ASSETS = ROOT / "assets"
 SITE_NAME = "TMS NeuroPilot"
 SITE_TAGLINE = "Guided TMS mapping with per-pulse electric fields and online analysis"
-REPO_URL = "https://gitlab.gwdg.de/tms-localization/papers/neuropilot"
+REPO_URL = "https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot"
 SITE_URL = "https://neuropilot-94ad2d.pages.gwdg.de/"
 
 _LINK = re.compile(r"\[([^\]]+)\]\(([^)\s]+)(?:\s+\"([^\"]*)\")?\)")

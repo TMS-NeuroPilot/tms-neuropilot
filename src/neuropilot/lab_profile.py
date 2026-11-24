@@ -67,6 +67,7 @@ DEFAULTS = {
     "STIMULATOR_TTL_PORT": STIMULATOR_TTL_PORT_DEFAULT,
     "EMG_COMPUTER_IP": "192.168.1.2",
     "EMG_COMPUTER_USERNAME": "neuro",
+    # Lab-specific secret: keep it in .env or the lab profile, never in the tree.
     "EMG_COMPUTER_PASSWORD": "",
     "ONLINE_FEM_SOLVER": "pardiso",
     "ONLINE_FEM_ANISOTROPY": "scalar",

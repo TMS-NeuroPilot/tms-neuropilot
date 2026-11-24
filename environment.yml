@@ -1,6 +1,6 @@
 # TMS NeuroPilot — one-file conda environment for the whole suite.
 #
-#   git clone https://gitlab.gwdg.de/tms-localization/papers/neuropilot.git
+#   git clone https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot.git
 #   cd neuropilot
 #   conda env create -f environment.yml
 #   conda activate neuropilot

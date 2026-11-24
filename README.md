@@ -9,6 +9,14 @@ guidance through InVesalius — plus a complete virtual twin of the hardware
 (relay, virtual robot, virtual neuronavigation) so the whole workflow runs
 without any physical device.
 
+## Where things live
+
+| What | Where |
+|---|---|
+| Public code and issue tracker | [github.com/0nu/tms-neuropilot](https://github.com/0nu/tms-neuropilot) — `main` is the latest release, `dev` the development branch |
+| Canonical development | the group's GitLab, [tms-localization/tms-neuropilot/tms-neuropilot](https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot) |
+| Example subject data | separate repository, [tms-neuropilot-data](https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot-data) (clone into `data/ernie`) |
+
 ## Quick start
 
 ```bash

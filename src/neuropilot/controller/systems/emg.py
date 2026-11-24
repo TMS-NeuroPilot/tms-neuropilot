@@ -44,6 +44,7 @@ class EMGComputer(System):
         super().__init__(update_control_panel_func=update_control_panel_func)
         self.EMG_COMPUTER_IP = os.getenv("EMG_COMPUTER_IP", self.EMG_COMPUTER_IP_DEFAULT)
         self.EMG_COMPUTER_USERNAME = os.getenv("EMG_COMPUTER_USERNAME", "neuro")
+        # No password default: the share credential belongs in .env.
         self.EMG_COMPUTER_PASSWORD = os.getenv("EMG_COMPUTER_PASSWORD", "")
         self.EMG_OUTPUT_FOLDER_PATH = f"\\{self.EMG_COMPUTER_IP}\\users\\neuro\\signal"
         # One SMB round trip every few seconds is enough to notice a share

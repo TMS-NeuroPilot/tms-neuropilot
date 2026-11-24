@@ -11,7 +11,7 @@ The repository ships a one-file environment spec and an installer that does
 everything below (optionally including InVesalius):
 
 ```bash
-git clone https://gitlab.gwdg.de/tms-localization/papers/neuropilot.git
+git clone https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot.git
 cd neuropilot
 scripts/install.sh                     # conda env + NeuPilot
 scripts/install.sh --with-invesalius   # also install InVesalius
@@ -38,14 +38,19 @@ fails on your machine.
 ### 1. Get the code
 
 ```bash
-git clone https://gitlab.gwdg.de/tms-localization/papers/neuropilot.git
+git clone https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot.git
 cd neuropilot
 ```
 
 The repository is self-contained: `src/` holds the four packages, `scripts/`
 the data-preparation tools, `docs/` the documentation sources. The example
-subject under `data/ernie` is stored through Git LFS; run `git lfs pull` after
-cloning if you want to use it.
+subject lives in its own repository — clone it into place only if you want
+to run the example pipeline:
+
+```bash
+git lfs install
+git clone https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot-data.git data/ernie
+```
 
 ### 2. Create the environment
 

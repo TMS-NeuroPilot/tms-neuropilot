@@ -1,0 +1,59 @@
+name: Bug report
+description: Something does not work as documented
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. This repository is a public mirror — fixes land in
+        the group's GitLab and appear here on the next mirror run.
+
+        Please do **not** paste patient data, lab credentials, internal host
+        names or other sensitive information.
+  - type: dropdown
+    id: branch
+    attributes:
+      label: Branch
+      description: Which branch did you clone?
+      options:
+        - dev (development)
+        - main (release)
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Commit
+      description: Output of `git rev-parse --short HEAD`.
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what did you get instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. neuropilot sim
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: OS and Python
+      placeholder: Ubuntu 24.04, Python 3.11.9
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      render: shell
+    validations:
+      required: false

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://neuropilot-94ad2d.pages.gwdg.de/
+    about: Installation, configuration and the workflow walkthrough
+  - name: Commercial use or collaboration
+    url: https://www.cbs.mpg.de/
+    about: The licence is non-commercial; contact the group for anything else

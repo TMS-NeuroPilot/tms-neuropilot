@@ -15,5 +15,5 @@
 | **Renan H. Matsuda** | InVesalius integration help | `renan.matsuda@aalto.fi` (Aalto University / Santos Dumont Institute, IIN-ELS, Brazil) |
 
 Maintained at
-[gitlab.gwdg.de/tms-localization/papers/neuropilot](https://gitlab.gwdg.de/tms-localization/papers/neuropilot).
+[gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot](https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot).
 Licensed under CC BY-NC-SA 4.0 — see `LICENSE`.

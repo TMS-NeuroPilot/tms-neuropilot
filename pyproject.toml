@@ -29,7 +29,7 @@ dev = ["pytest>=8", "pytest-xdist>=3.6"]
 neuropilot = "neuropilot.cli:main"
 
 [project.urls]
-Homepage = "https://gitlab.gwdg.de/tms-localization/papers/neuropilot"
+Homepage = "https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

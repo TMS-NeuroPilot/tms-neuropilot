@@ -1,0 +1,28 @@
+name: Feature request
+description: Suggest a capability or an improvement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This repository is a public mirror; development happens in the group's
+        GitLab and requests are ported there.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: The experiment or workflow where the current behaviour gets in the way.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+    validations:
+      required: false

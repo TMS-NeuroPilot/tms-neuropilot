@@ -1,0 +1,48 @@
+cff-version: 1.2.0
+message: "If you use TMS NeuroPilot, please cite the release and the paper."
+title: "TMS NeuroPilot: guided online TMS mapping with online field optimization"
+abstract: >-
+  An experimenter-facing controller for robot-assisted transcranial magnetic
+  stimulation mapping: coil targets, online finite-element field computation,
+  MEP regression and stimulation guidance through InVesalius, together with a
+  complete virtual twin of the hardware so the whole workflow runs without a
+  physical device.
+type: software
+authors:
+  - family-names: Numssen
+    given-names: Ole
+    affiliation: >-
+      Max Planck Institute for Human Cognitive and Brain Sciences, Leipzig,
+      Germany; ScaDS.AI Dresden/Leipzig
+  - family-names: Yaseen
+    given-names: Abdullah
+    affiliation: Ernst Abbe University of Applied Sciences Jena, Germany
+  - family-names: Berggren
+    given-names: Samuel
+    affiliation: Max Planck Institute for Human Cognitive and Brain Sciences, Leipzig, Germany
+  - family-names: Meng
+    given-names: Andrew
+    affiliation: University of Michigan, USA
+  - family-names: Kalloch
+    given-names: Benjamin
+    affiliation: Max Planck Institute for Human Cognitive and Brain Sciences, Leipzig, Germany
+  - family-names: Weise
+    given-names: Konstantin
+    affiliation: HTWK Leipzig; Max Planck Institute for Human Cognitive and Brain Sciences, Leipzig, Germany
+  - family-names: Knösche
+    given-names: Thomas R.
+    affiliation: Max Planck Institute for Human Cognitive and Brain Sciences, Leipzig, Germany; TU Ilmenau
+  - family-names: Martin
+    given-names: Carla
+  - family-names: Matsuda
+    given-names: Renan H.
+    affiliation: Aalto University, Finland; Santos Dumont Institute, Brazil
+version: 0.1.0
+license: CC-BY-NC-SA-4.0
+repository-code: "https://github.com/0nu/tms-neuropilot"
+keywords:
+  - transcranial magnetic stimulation
+  - neuronavigation
+  - robotics
+  - electric field simulation
+  - neuroimaging

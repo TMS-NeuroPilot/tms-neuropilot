@@ -1,6 +1,8 @@
 __pycache__/
 *.pyc
 .env
+# The example subject is a separate repository cloned into place; never commit it.
+data/ernie/
 /results/
 MUJOCO_LOG.TXT
 mjmodel.txt

@@ -69,7 +69,7 @@ still requires ethics approval and the stimulator's own safety limits.
 | **Renan H. Matsuda** | InVesalius integration help (Aalto University / Santos Dumont Institute, Brazil)                                                             |
 
 Contacts and affiliations are kept in
-[`CONTRIBUTORS.md`](https://gitlab.gwdg.de/tms-localization/papers/neuropilot/-/blob/main/CONTRIBUTORS.md)
+[`CONTRIBUTORS.md`](https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot/-/blob/main/CONTRIBUTORS.md)
 rather than copied here, so there is one list to maintain.
 
 ## Components
@@ -104,7 +104,7 @@ TMS NeuroPilot is licensed under
 4.0 International). You may use, share and adapt it for non-commercial
 purposes (research and clinical science) with attribution and share-alike.
 Commercial use needs prior permission from the authors. The full text is in
-[`LICENSE`](https://gitlab.gwdg.de/tms-localization/papers/neuropilot/-/blob/main/LICENSE).
+[`LICENSE`](https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot/-/blob/main/LICENSE).
 
 ## Citing it
 
@@ -127,13 +127,14 @@ used:
 TMS NeuroPilot: guided online TMS mapping with online field optimization.
 Brain Networks and Neural Data Science and Statistical Computing groups,
 MPI CBS Leipzig / ScaDS.AI.
-https://gitlab.gwdg.de/tms-localization/papers/neuropilot
+https://github.com/0nu/tms-neuropilot
 ```
 
 ## Contributing
 
-Issues and merge requests are welcome on
-[GitLab](https://gitlab.gwdg.de/tms-localization/papers/neuropilot/-/issues).
+Issues and merge requests are welcome. Issues are triaged on the
+[public tracker](https://github.com/0nu/tms-neuropilot/issues); merge requests
+go to the [GitLab repository](https://gitlab.gwdg.de/tms-localization/tms-neuropilot/tms-neuropilot/-/merge_requests).
 Before opening a merge request:
 
 ```bash
