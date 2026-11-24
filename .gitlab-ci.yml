@@ -90,6 +90,9 @@ check:docs:
 # so it skipped the suite and still said success).
 test:
   stage: test
+  # The nightly run must finish even if someone pushes to dev while it runs;
+  # redundant *push* pipelines are still cancelled as before.
+  interruptible: false
   # The full Debian-based python image: apt-get for git/gfortran, pip for
   # the stack.  The runner's default image is alpine (no apt-get, no pip).
   image: python:3.11
