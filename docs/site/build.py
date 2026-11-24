@@ -35,8 +35,8 @@ PAGES = ROOT / "pages"
 ASSETS = ROOT / "assets"
 SITE_NAME = "TMS NeuroPilot"
 SITE_TAGLINE = "Guided TMS mapping with per-pulse electric fields and online analysis"
-REPO_URL = "https://github.com/0nu/tms-neuropilot"
-SITE_URL = "https://0nu.github.io/tms-neuropilot/"
+REPO_URL = "https://github.com/TMS-NeuroPilot/tms-neuropilot"
+SITE_URL = "https://tms-neuropilot.github.io/"
 
 _LINK = re.compile(r"\[([^\]]+)\]\(([^)\s]+)(?:\s+\"([^\"]*)\")?\)")
 _IMAGE = re.compile(r"!\[([^\]]*)\]\(([^)\s]+)(?:\s+\"([^\"]*)\")?\)")

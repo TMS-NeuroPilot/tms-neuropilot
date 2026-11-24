@@ -39,7 +39,7 @@ authors:
     affiliation: Aalto University, Finland; Santos Dumont Institute, Brazil
 version: 0.1.0
 license: CC-BY-NC-SA-4.0
-repository-code: "https://github.com/0nu/tms-neuropilot"
+repository-code: "https://github.com/TMS-NeuroPilot/tms-neuropilot"
 keywords:
   - transcranial magnetic stimulation
   - neuronavigation

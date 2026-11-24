@@ -69,7 +69,7 @@ still requires ethics approval and the stimulator's own safety limits.
 | **Renan H. Matsuda** | InVesalius integration help (Aalto University / Santos Dumont Institute, Brazil)                                                             |
 
 Contacts and affiliations are kept in
-[`CONTRIBUTORS.md`](https://github.com/0nu/tms-neuropilot/blob/main/CONTRIBUTORS.md)
+[`CONTRIBUTORS.md`](https://github.com/TMS-NeuroPilot/tms-neuropilot/blob/main/CONTRIBUTORS.md)
 rather than copied here, so there is one list to maintain.
 
 ## Components
@@ -104,7 +104,7 @@ TMS NeuroPilot is licensed under
 4.0 International). You may use, share and adapt it for non-commercial
 purposes (research and clinical science) with attribution and share-alike.
 Commercial use needs prior permission from the authors. The full text is in
-[`LICENSE`](https://github.com/0nu/tms-neuropilot/blob/main/LICENSE).
+[`LICENSE`](https://github.com/TMS-NeuroPilot/tms-neuropilot/blob/main/LICENSE).
 
 ## Citing it
 
@@ -127,12 +127,12 @@ used:
 TMS NeuroPilot: guided online TMS mapping with online field optimization.
 Brain Networks and Neural Data Science and Statistical Computing groups,
 MPI CBS Leipzig / ScaDS.AI.
-https://github.com/0nu/tms-neuropilot
+https://github.com/TMS-NeuroPilot/tms-neuropilot
 ```
 
 ## Contributing
 
-Issues are welcome on the [public tracker](https://github.com/0nu/tms-neuropilot/issues).
+Issues are welcome on the [public tracker](https://github.com/TMS-NeuroPilot/tms-neuropilot/issues).
 Pull requests are welcome too: this repository is a read-only public mirror, so
 they are ported upstream by hand rather than merged here. Before opening one:
 

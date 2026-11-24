@@ -11,7 +11,7 @@ The repository ships a one-file environment spec and an installer that does
 everything below (optionally including InVesalius):
 
 ```bash
-git clone https://github.com/0nu/tms-neuropilot.git
+git clone https://github.com/TMS-NeuroPilot/tms-neuropilot.git
 cd neuropilot
 scripts/install.sh                     # conda env + NeuPilot
 scripts/install.sh --with-invesalius   # also install InVesalius
@@ -38,7 +38,7 @@ fails on your machine.
 ### 1. Get the code
 
 ```bash
-git clone https://github.com/0nu/tms-neuropilot.git
+git clone https://github.com/TMS-NeuroPilot/tms-neuropilot.git
 cd neuropilot
 ```
 

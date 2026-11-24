@@ -1,7 +1,7 @@
 blank_issues_enabled: false
 contact_links:
   - name: Documentation
-    url: https://0nu.github.io/tms-neuropilot/
+    url: https://tms-neuropilot.github.io/
     about: Installation, configuration and the workflow walkthrough
   - name: Commercial use or collaboration
     url: https://www.cbs.mpg.de/

@@ -1905,12 +1905,12 @@ class MainWindow(QtWidgets.QMainWindow):
             ("Grosshagauer et al. (2025) — surrogate E-field mode",
              "https://doi.org/10.1016/j.brs.2025.102990"),
             ("Yaseen (2026) — virtual twin and real-time E-field approach (master's thesis)",
-             "https://0nu.github.io/tms-neuropilot/"),
+             "https://tms-neuropilot.github.io/"),
         ]
         resources = [
-            ("Documentation", "https://0nu.github.io/tms-neuropilot/"),
+            ("Documentation", "https://tms-neuropilot.github.io/"),
             ("Source code",
-             "https://github.com/0nu/tms-neuropilot"),
+             "https://github.com/TMS-NeuroPilot/tms-neuropilot"),
             ("InVesalius", "https://invesalius.github.io/"),
             ("pynibs", "https://gitlab.gwdg.de/tms-localization/pynibs"),
             ("SimNIBS", "https://simnibs.github.io/simnibs/"),
@@ -1927,7 +1927,7 @@ class MainWindow(QtWidgets.QMainWindow):
             link("Creative Commons BY-NC-SA 4.0",
                  "https://creativecommons.org/licenses/by-nc-sa/4.0/"),
             link("Full license text",
-                 "https://github.com/0nu/tms-neuropilot/blob/main/LICENSE"),
+                 "https://github.com/TMS-NeuroPilot/tms-neuropilot/blob/main/LICENSE"),
         ]))
         # The longest box goes to the right half, so the left column stays
         # short enough for How to cite and Credits to fit under About.
@@ -1982,7 +1982,7 @@ class MainWindow(QtWidgets.QMainWindow):
             link("Contact: numssen@cbs.mpg.de",
                  "mailto:numssen@cbs.mpg.de"),
             link("Full contributor list: CONTRIBUTORS.md",
-                 "https://github.com/0nu/tms-neuropilot/blob/main/CONTRIBUTORS.md"),
+                 "https://github.com/TMS-NeuroPilot/tms-neuropilot/blob/main/CONTRIBUTORS.md"),
         ]))
         # Without a trailing stretch the layout inflates every card to fill
         # the column height; the stretch lets cards keep their natural size.

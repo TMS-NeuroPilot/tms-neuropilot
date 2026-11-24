@@ -29,7 +29,7 @@ dev = ["pytest>=8", "pytest-xdist>=3.6"]
 neuropilot = "neuropilot.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/0nu/tms-neuropilot"
+Homepage = "https://github.com/TMS-NeuroPilot/tms-neuropilot"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

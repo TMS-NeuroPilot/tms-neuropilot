@@ -24,7 +24,7 @@ results, the cortical R² map and the Connections page.*
 | Simulation, robotic TMS, manual TMS or training — one workflow, one GUI. | Relay, robot control and InVesalius on one or more machines; stimulator, EMG and robot on the LAN. |
 
 More screenshots and the full walkthrough are in the
-[documentation](https://0nu.github.io/tms-neuropilot/).
+[documentation](https://tms-neuropilot.github.io/).
 
 ## Quick start
 
@@ -81,7 +81,7 @@ The full documentation — installation, subject-data preparation, every GUI pag
 and configuration key, the workflows, the architecture, the relay protocol and
 troubleshooting — is published with GitHub Pages:
 
-<https://0nu.github.io/tms-neuropilot/>
+<https://tms-neuropilot.github.io/>
 
 Its sources live in `docs/site/`: plain Markdown plus a dependency-free
 generator (no MkDocs, no network). Build and preview locally:

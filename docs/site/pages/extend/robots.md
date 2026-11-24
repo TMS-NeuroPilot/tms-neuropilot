@@ -11,7 +11,7 @@ adding a robot to the **simulator** is a table entry.
 
     This page covers the simulator; the full recipe, including the real-driver
     side and the relay contract, is in
-    [`docs/ROBOTS.md`](https://github.com/0nu/tms-neuropilot/blob/main/docs/ROBOTS.md).
+    [`docs/ROBOTS.md`](https://github.com/TMS-NeuroPilot/tms-neuropilot/blob/main/docs/ROBOTS.md).
 
 ## The spec
 
