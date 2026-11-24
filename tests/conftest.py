@@ -17,16 +17,29 @@ if str(SRC) not in sys.path:
 
 CONTROLLER_DIR = SRC / "neuropilot" / "controller"
 
-from helpers import build_window  # noqa: E402  (tests/ is on sys.path)
-
 # The suite writes results/study files under ROOT_FOLDER in a few code paths;
 # keep those out of the user's home.  `.env` does not override an existing
 # variable (load_dotenv(override=False)), so this wins.  tempfile.gettempdir()
 # gives a writable scratch dir on every OS (/tmp on Linux, %TEMP% on Windows).
+#
+# One directory per pytest-xdist worker: a shared ROOT_FOLDER also means a
+# shared relay.pid, and a supervisor cleanup in one worker
+# (`_stop_owned_relay`, which kills the PID recorded there) then takes down a
+# relay another worker is waiting on.  Set before neuropilot.config is
+# imported: it reads the variable and creates the directory at import time.
 import tempfile
 
-os.environ.setdefault("ROOT_FOLDER",
-                      str(Path(tempfile.gettempdir()) / "neuropilot_tests"))
+_WORKER = os.environ.get("PYTEST_XDIST_WORKER", "main")
+TEST_ROOT = Path(tempfile.gettempdir()) / "neuropilot_tests" / _WORKER
+os.environ["ROOT_FOLDER"] = str(TEST_ROOT)
+
+from helpers import build_window  # noqa: E402  (tests/ is on sys.path)
+
+from neuropilot import config as _config  # noqa: E402
+
+# In case a plugin imported the package before the line above, pin the value
+# the components actually read.
+_config.ROOT_FOLDER = str(TEST_ROOT)
 
 
 # ── Guard rails: the suite must never write the user's configuration ───

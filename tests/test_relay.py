@@ -30,6 +30,9 @@ def fake_relay(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "RELAY_HOST", "127.0.0.1")
     monkeypatch.setattr(config, "RELAY_PORT", str(port))
     monkeypatch.setattr(config, "READINESS_TIMEOUT_S", 5.0)
+    # Keep relay.pid/relay.log inside the test, never in the shared ROOT_FOLDER:
+    # a concurrent supervisor cleanup would otherwise stop this relay.
+    monkeypatch.setattr(config, "ROOT_FOLDER", str(tmp_path))
     return port
 
 
@@ -53,6 +56,17 @@ def test_relay_starts_and_stops(fake_relay):
     finally:
         relay.stop()
     assert relay.process is None
+
+
+def test_relay_pid_file_lives_in_the_test_root(fake_relay, tmp_path):
+    """The pid file must not sit in a ROOT_FOLDER shared with other workers."""
+    relay = RelaySystem(manage=True)
+    try:
+        relay.try_connect()
+        assert relay.status == SystemStatus.OK
+        assert relay.pid_path == tmp_path / "relay.pid"
+    finally:
+        relay.stop()
 
 
 def test_unmanaged_relay_reports_not_running(fake_relay):
