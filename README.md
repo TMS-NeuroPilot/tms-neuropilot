@@ -37,8 +37,7 @@ neuropilot controller --sim     # controller alone in simulation mode
 neuropilot robo [--launch-relay]           # robotic mode
 ```
 
-`neuropilot sim` starts, in order: simulated relay → virtual neuronavigation
-+ virtual robot (in parallel) → controller, each started only after the
+`neuropilot sim` starts, in order: simulated relay → virtual neuronavigation + virtual robot (in parallel) → controller, each started only after the
 previous one is ready, all logs prefixed by role in one terminal. Ctrl+C
 shuts the whole stack down.
 
@@ -55,25 +54,12 @@ neuropilot sim
 
 Notes:
 
-- **Simulated stack (relay → robot + nav → controller) runs unchanged.** The
-  supervisor launches each component with `sys.executable`, so it works
-  regardless of interpreter path.
-- **Real-hardware mode** is primarily a Linux/MPI-lab deployment. The code is
-  import-safe, but the drivers themselves (`magicpy`, `pynibs`, InVesalius,
-  `tms-robot-control`) must be installable on the target machine. Set the
-  Windows serial port in `.env`, e.g. `STIMULATOR_PORT=COM3`; there is no
-  default TTL (parallel) port on Windows.
 - **Serial/TTL defaults are platform-aware**: `/dev/ttyS1` +
   `/dev/parport0` on Linux, `COM3` + no TTL on Windows (override in
   `Config › Lab` or `.env`).
-- The virtual stimulator's pulse "alert" sound uses `winsound` on Windows
-  instead of `paplay`.
 - **Tests**: run `pytest -m "not gui"` directly. `scripts/run_tests.sh` is a
   bash helper for Linux CI. GUI tests run natively on Windows (no DISPLAY
   needed).
-- `scripts/install_desktop_entry.sh` (a `.desktop` launcher) is
-  Linux-only; on Windows start it from the installed console script
-  (`neuropilot.exe` in the env's `Scripts/`).
 
 ## Documentation
 
