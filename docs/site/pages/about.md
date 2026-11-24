@@ -105,8 +105,10 @@ study, modify and redistribute it, including commercially; derived
 distributions must stay under the GPL and make their source available. There
 is no warranty. The full text is in
 [`LICENSE`](https://github.com/TMS-NeuroPilot/tms-neuropilot/blob/main/LICENSE);
-the bundled robot and coil assets keep their own permissive licences, listed in
-[`THIRD_PARTY_LICENSES.md`](https://github.com/TMS-NeuroPilot/tms-neuropilot/blob/main/src/neuropilot/sim_robot/assets/THIRD_PARTY_LICENSES.md).
+the bundled robot meshes are BSD-3/MIT and the SimNIBS coil model is GPL-3.0 —
+both keep their own licences, listed in
+[`THIRD_PARTY_LICENSES.md`](https://github.com/TMS-NeuroPilot/tms-neuropilot/blob/main/src/neuropilot/sim_robot/assets/THIRD_PARTY_LICENSES.md)
+and [`data/README.md`](https://github.com/TMS-NeuroPilot/tms-neuropilot/blob/main/data/README.md).
 
 ## Citing it
 

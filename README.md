@@ -218,5 +218,6 @@ TMS NeuroPilot is licensed under the **GNU General Public License v3.0 or
 later (GPL-3.0-or-later)**: you may use, study, modify and redistribute it,
 including commercially, provided derived distributions stay under the GPL and
 their source is made available. There is no warranty. The full text is in
-`LICENSE`; the bundled robot and coil assets keep their own permissive
-licences, listed in `src/neuropilot/sim_robot/assets/THIRD_PARTY_LICENSES.md`.
+`LICENSE`; the bundled robot meshes are BSD-3/MIT and the SimNIBS coil model is
+GPL-3.0 — both keep their own licences, listed in
+`src/neuropilot/sim_robot/assets/THIRD_PARTY_LICENSES.md` and `data/README.md`.
