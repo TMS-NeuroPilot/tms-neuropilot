@@ -92,14 +92,14 @@ a.external::after { content: " ↗"; font-size: .8em; opacity: .7; }
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
-.brand { display: flex; align-items: center; gap: 10px; color: var(--ink); font-weight: 700; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--ink); font-weight: 700; flex: 0 0 auto; white-space: nowrap; }
 .brand:hover { text-decoration: none; }
 .brand-mark {
   width: 30px; height: 30px; border-radius: 8px;
 }
 .brand-name { font-size: 17px; letter-spacing: -.2px; }
-.tagline { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.search { position: relative; margin-left: auto; width: min(360px, 34vw); }
+.tagline { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.search { position: relative; margin-left: auto; flex: 0 1 360px; min-width: 140px; }
 .search input, .search-page input {
   width: 100%; padding: 8px 12px;
   border: 1px solid var(--edge); border-radius: 8px;
@@ -112,6 +112,7 @@ a.external::after { content: " ↗"; font-size: .8em; opacity: .7; }
 .theme, .repo, .menu, .edition {
   border: 1px solid var(--edge); background: var(--card); color: var(--ink);
   border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 14px; cursor: pointer;
+  flex: 0 0 auto; white-space: nowrap;
 }
 .theme:hover, .repo:hover, .menu:hover, .edition:hover { background: var(--hover); text-decoration: none; }
 /* The edition badge names the docs you are reading and links to the other one. */
