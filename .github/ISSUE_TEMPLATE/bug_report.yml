@@ -8,6 +8,9 @@ body:
         Thanks for the report. This repository is a public mirror — fixes land in
         the development repository and appear here on the next mirror run.
 
+        Documentation: [stable](https://tms-neuropilot.github.io/) ·
+        [development](https://tms-neuropilot.github.io/tms-neuropilot/).
+
         Please do **not** paste patient data, lab credentials, internal host
         names or other sensitive information.
   - type: dropdown
